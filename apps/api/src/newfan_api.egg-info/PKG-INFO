@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: newfan-api
+Version: 0.1.0
+Summary: Priority setup API for newfan education
+Requires-Python: >=3.11
+Requires-Dist: fastapi<1.0.0,>=0.115.0
+Requires-Dist: uvicorn<1.0.0,>=0.31.0
+Requires-Dist: pydantic<3.0.0,>=2.9.0
+Requires-Dist: sqlalchemy<3.0.0,>=2.0.36
+Requires-Dist: psycopg[binary]<4.0.0,>=3.2.3
+Requires-Dist: python-jose[cryptography]<4.0.0,>=3.3.0
+Requires-Dist: passlib[bcrypt]<2.0.0,>=1.7.4
+Requires-Dist: alembic<2.0.0,>=1.13.3
+Provides-Extra: dev
+Requires-Dist: pytest<9.0.0,>=8.3.0; extra == "dev"
+Requires-Dist: httpx<1.0.0,>=0.27.0; extra == "dev"

@@ -1,0 +1,6 @@
+/* Legacy CSS Module: superseded by ../ui/ui.module.css. This file is kept
+   only as a placeholder so any historical imports continue to resolve; all
+   new styling lives in the shared ui module. */
+.legacy {
+  display: block;
+}

@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: newfan-postgres
+    environment:
+      POSTGRES_DB: newfan_education
+      POSTGRES_USER: newfan
+      POSTGRES_PASSWORD: newfan
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newfan -d newfan_education"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: newfan-api
+    environment:
+      DATABASE_URL: postgresql+psycopg://newfan:newfan@postgres:5432/newfan_education
+      JWT_SECRET: change-this-in-production
+      WEB_ORIGIN: http://localhost:3000
+      AUTH_COOKIE_NAME: newfan_access_token
+      DOCKER_SANDBOX_ENABLED: "true"
+      QUEUE_POLL_INTERVAL_SEC: "1.5"
+      QUEUE_BATCH_SIZE: "10"
+      QUEUE_MAX_RETRIES: "3"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m uvicorn src.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: newfan-worker
+    environment:
+      DATABASE_URL: postgresql+psycopg://newfan:newfan@postgres:5432/newfan_education
+      JWT_SECRET: change-this-in-production
+      WEB_ORIGIN: http://localhost:3000
+      AUTH_COOKIE_NAME: newfan_access_token
+      DOCKER_SANDBOX_ENABLED: "true"
+      QUEUE_POLL_INTERVAL_SEC: "1.5"
+      QUEUE_BATCH_SIZE: "10"
+      QUEUE_MAX_RETRIES: "3"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+    command: >
+      sh -c "python -m infrastructure.notification_worker"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: newfan-web
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
