@@ -57,6 +57,81 @@ export interface ProgressEvent {
   occurredAt: string;
 }
 
+export type CourseLevel = "beginner" | "intermediate" | "advanced";
+export type CourseLessonKind = "reading" | "code";
+export type CourseSort = "popular" | "newest" | "rating";
+
+export interface CourseLesson {
+  lessonSlug: string;
+  title: string;
+  kind: CourseLessonKind;
+  estimatedMinutes: number;
+  skillTags: string[];
+  contentRef: string | null;
+  exerciseId: string | null;
+  isPreview: boolean;
+}
+
+export interface CourseSection {
+  title: string;
+  lessons: CourseLesson[];
+  lessonCount: number;
+  estimatedMinutes: number;
+}
+
+export interface CourseSummary {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  level: CourseLevel;
+  instructor: string;
+  summary: string;
+  tags: string[];
+  rating: number;
+  ratingCount: number;
+  enrolledCount: number;
+  isBestseller: boolean;
+  isTopRated: boolean;
+  totalLessons: number;
+  totalExercises: number;
+  estimatedMinutes: number;
+  updatedAt: string;
+}
+
+export interface CourseDetail extends CourseSummary {
+  description: string;
+  outcomes: string[];
+  targetAudience: string[];
+  prerequisites: string[];
+  sections: CourseSection[];
+}
+
+export interface CoursesSummary {
+  items: CourseSummary[];
+}
+
+export interface CourseCategory {
+  category: string;
+  courseCount: number;
+}
+
+export interface CourseCategoriesSummary {
+  items: CourseCategory[];
+}
+
+export interface CourseTrendingSummary {
+  items: string[];
+}
+
+export interface CoursesQuery {
+  q?: string;
+  category?: string;
+  level?: CourseLevel;
+  sort?: CourseSort;
+}
+
 export interface DashboardSummary {
   userId: string;
   completedItems: number;

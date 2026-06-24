@@ -6,6 +6,7 @@ from domain.models import (
     AuditLogEvent,
     Company,
     ConsentRecord,
+    Course,
     CurriculumVersion,
     Goal,
     Message,
@@ -47,6 +48,11 @@ class CurriculumRepository(Protocol):
     def list_published(self) -> list[CurriculumVersion]: ...
     def get(self, curriculum_version_id: str) -> CurriculumVersion | None: ...
     def save(self, curriculum_version: CurriculumVersion) -> CurriculumVersion: ...
+
+
+class CourseRepository(Protocol):
+    def list_published(self) -> list[Course]: ...
+    def get_by_slug(self, slug: str) -> Course | None: ...
 
 
 class ProgressRepository(Protocol):

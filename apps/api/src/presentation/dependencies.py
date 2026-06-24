@@ -11,6 +11,7 @@ from application.services import (
     ApplicationService,
     CompanyService,
     ConsentService,
+    CourseService,
     CurriculumImpactService,
     CurriculumService,
     GoalService,
@@ -45,10 +46,12 @@ from domain.models import (
 )
 from infrastructure.auth import decode_access_token
 from infrastructure.db import Base, SessionLocal, engine
+from infrastructure.course_seed import default_courses
 from infrastructure.in_memory_repositories import (
     InMemoryAuditLogRepository,
     InMemoryCompanyRepository,
     InMemoryConsentRepository,
+    InMemoryCourseRepository,
     InMemoryCurriculumRepository,
     InMemoryGoalRepository,
     InMemoryMessageRepository,
@@ -76,6 +79,7 @@ class ServiceContainer:
     goal_service: GoalService
     roadmap_service: RoadmapService
     curriculum_service: CurriculumService
+    course_service: CourseService
     progress_service: ProgressService
     skill_gap_service: SkillGapService
     opportunity_service: OpportunityService
@@ -128,6 +132,7 @@ def build_container() -> ServiceContainer:
             ),
         ]
     )
+    course_repo = InMemoryCourseRepository(initial_values=default_courses())
     progress_repo = InMemoryProgressRepository()
     opportunity_repo = InMemoryOpportunityRepository(
         initial_values=[
@@ -469,6 +474,7 @@ def build_container() -> ServiceContainer:
         goal_service=GoalService(goal_repo),
         roadmap_service=RoadmapService(goal_repo, roadmap_repo, curriculum_repo),
         curriculum_service=CurriculumService(curriculum_repo),
+        course_service=CourseService(course_repo),
         progress_service=ProgressService(progress_repo, roadmap_repo),
         skill_gap_service=SkillGapService(goal_repo, roadmap_repo, progress_repo),
         opportunity_service=OpportunityService(opportunity_repo),
