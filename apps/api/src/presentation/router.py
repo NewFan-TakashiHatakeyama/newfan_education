@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
 
-from domain.models import UserContext
+from domain.models import Course, UserContext
 from presentation.dependencies import CONTAINER, get_current_user
 from infrastructure.auth import create_access_token, hash_password, verify_password
 from infrastructure.settings import load_settings
@@ -49,6 +49,14 @@ from presentation.schemas import (
     CompaniesResponse,
     ConsentCreateRequest,
     ConsentResponse,
+    CourseCategoriesResponse,
+    CourseCategoryResponse,
+    CourseDetailResponse,
+    CourseLessonResponse,
+    CourseSectionResponse,
+    CourseSummaryResponse,
+    CoursesResponse,
+    CourseTrendingResponse,
     CurriculumPublishRequest,
     CurriculumImpactResponse,
     CurriculumVersionResponse,
@@ -355,6 +363,102 @@ def publish_curriculum(
         metadata={"notificationTargets": str(len(learners))},
     )
     return created
+
+
+def _to_course_summary(course: Course) -> CourseSummaryResponse:
+    return CourseSummaryResponse(
+        id=course.id,
+        slug=course.slug,
+        title=course.title,
+        subtitle=course.subtitle,
+        category=course.category,
+        level=course.level,
+        instructor=course.instructor,
+        summary=course.summary,
+        tags=course.tags,
+        rating=course.rating,
+        ratingCount=course.rating_count,
+        enrolledCount=course.enrolled_count,
+        isBestseller=course.is_bestseller,
+        isTopRated=course.is_top_rated,
+        totalLessons=course.total_lessons,
+        totalExercises=course.total_exercises,
+        estimatedMinutes=course.estimated_minutes,
+        updatedAt=course.updated_at,
+    )
+
+
+def _to_course_detail(course: Course) -> CourseDetailResponse:
+    sections = [
+        CourseSectionResponse(
+            title=section.title,
+            lessonCount=len(section.lessons),
+            estimatedMinutes=sum(lesson.estimated_minutes for lesson in section.lessons),
+            lessons=[
+                CourseLessonResponse(
+                    lessonSlug=lesson.lesson_slug,
+                    title=lesson.title,
+                    kind=lesson.kind,
+                    estimatedMinutes=lesson.estimated_minutes,
+                    skillTags=lesson.skill_tags,
+                    contentRef=lesson.content_ref,
+                    exerciseId=lesson.exercise_id,
+                    isPreview=lesson.is_preview,
+                )
+                for lesson in section.lessons
+            ],
+        )
+        for section in course.sections
+    ]
+    return CourseDetailResponse(
+        **_to_course_summary(course).model_dump(),
+        description=course.description,
+        outcomes=course.outcomes,
+        targetAudience=course.target_audience,
+        prerequisites=course.prerequisites,
+        sections=sections,
+    )
+
+
+@router.get("/courses", response_model=CoursesResponse)
+def list_courses(
+    q: str | None = None,
+    category: str | None = None,
+    level: str | None = None,
+    sort: str = "popular",
+    actor: UserContext = Depends(get_current_user),
+):
+    courses = CONTAINER.course_service.list_courses(
+        query=q,
+        category=category,
+        level=level,
+        sort=sort,
+    )
+    return CoursesResponse(items=[_to_course_summary(course) for course in courses])
+
+
+@router.get("/courses/categories", response_model=CourseCategoriesResponse)
+def list_course_categories(actor: UserContext = Depends(get_current_user)):
+    categories = CONTAINER.course_service.list_categories()
+    return CourseCategoriesResponse(
+        items=[
+            CourseCategoryResponse(category=category, courseCount=count)
+            for category, count in categories
+        ]
+    )
+
+
+@router.get("/courses/trending", response_model=CourseTrendingResponse)
+def list_course_trending(actor: UserContext = Depends(get_current_user)):
+    return CourseTrendingResponse(items=CONTAINER.course_service.list_trending())
+
+
+@router.get("/courses/{slug}", response_model=CourseDetailResponse)
+def get_course(slug: str, actor: UserContext = Depends(get_current_user)):
+    course = CONTAINER.course_service.get_course(slug)
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+    return _to_course_detail(course)
 
 
 @router.post("/progress/events", response_model=ProgressEventResponse)

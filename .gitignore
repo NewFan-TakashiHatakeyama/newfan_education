@@ -3,6 +3,11 @@ node_modules/
 .next/
 coverage/
 
+# Test / build artifacts
+*.tsbuildinfo
+playwright-report/
+test-results/
+
 # Python
 __pycache__/
 .pytest_cache/

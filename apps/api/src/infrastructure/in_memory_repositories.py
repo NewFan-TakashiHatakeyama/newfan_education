@@ -7,6 +7,7 @@ from domain.models import (
     AuditLogEvent,
     Company,
     ConsentRecord,
+    Course,
     CurriculumVersion,
     Goal,
     ModerationCase,
@@ -88,6 +89,20 @@ class InMemoryCurriculumRepository:
     def save(self, curriculum_version: CurriculumVersion) -> CurriculumVersion:
         self._values.insert(0, curriculum_version)
         return curriculum_version
+
+
+class InMemoryCourseRepository:
+    def __init__(self, initial_values: list[Course] | None = None) -> None:
+        self._values: list[Course] = initial_values or []
+
+    def list_published(self) -> list[Course]:
+        return [value for value in self._values if value.published]
+
+    def get_by_slug(self, slug: str) -> Course | None:
+        return next(
+            (value for value in self._values if value.slug == slug and value.published),
+            None,
+        )
 
 
 class InMemoryProgressRepository:

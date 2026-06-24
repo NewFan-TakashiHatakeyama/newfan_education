@@ -252,3 +252,82 @@ def test_admin_audit_log_filter_by_resource() -> None:
         params={"resourceType": "team"},
     )
     assert audit_logs.status_code == 200
+
+
+def test_course_catalog_list_and_detail() -> None:
+    client = TestClient(app)
+    headers = sign_in(client, "learner@example.com", "Learner123!")
+
+    listed = client.get("/api/v1/courses", headers=headers)
+    assert listed.status_code == 200
+    items = listed.json()["items"]
+    assert len(items) >= 5
+    first = items[0]
+    for key in (
+        "slug",
+        "title",
+        "category",
+        "level",
+        "rating",
+        "totalLessons",
+        "totalExercises",
+        "estimatedMinutes",
+    ):
+        assert key in first
+    # default sort is by popularity (enrolledCount desc)
+    enrolled = [item["enrolledCount"] for item in items]
+    assert enrolled == sorted(enrolled, reverse=True)
+
+    detail = client.get("/api/v1/courses/rag-eval-bootcamp", headers=headers)
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["slug"] == "rag-eval-bootcamp"
+    assert body["sections"]
+    assert body["outcomes"]
+    # the code lessons bind to existing exercises
+    code_lessons = [
+        lesson
+        for section in body["sections"]
+        for lesson in section["lessons"]
+        if lesson["kind"] == "code"
+    ]
+    assert code_lessons
+    assert all(lesson["exerciseId"] for lesson in code_lessons)
+
+
+def test_course_catalog_search_filter_and_categories() -> None:
+    client = TestClient(app)
+    headers = sign_in(client, "learner@example.com", "Learner123!")
+
+    search = client.get("/api/v1/courses", headers=headers, params={"q": "RAG"})
+    assert search.status_code == 200
+    search_items = search.json()["items"]
+    assert search_items
+    assert all(
+        "rag" in (item["title"] + " " + " ".join(item["tags"]) + " " + item["category"]).lower()
+        for item in search_items
+    )
+
+    filtered = client.get("/api/v1/courses", headers=headers, params={"level": "beginner"})
+    assert filtered.status_code == 200
+    assert all(item["level"] == "beginner" for item in filtered.json()["items"])
+
+    categories = client.get("/api/v1/courses/categories", headers=headers)
+    assert categories.status_code == 200
+    assert categories.json()["items"]
+
+    trending = client.get("/api/v1/courses/trending", headers=headers)
+    assert trending.status_code == 200
+    assert isinstance(trending.json()["items"], list)
+
+
+def test_course_detail_unknown_slug_returns_404() -> None:
+    client = TestClient(app)
+    headers = sign_in(client, "learner@example.com", "Learner123!")
+    missing = client.get("/api/v1/courses/does-not-exist", headers=headers)
+    assert missing.status_code == 404
+
+
+def test_courses_require_authentication() -> None:
+    client = TestClient(app)
+    assert client.get("/api/v1/courses").status_code == 401

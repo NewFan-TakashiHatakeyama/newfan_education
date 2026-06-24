@@ -33,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/company/teams", label: "部門管理", section: "company", icon: "userRound" },
   { href: "/company/settings", label: "企業設定", section: "company", icon: "building2" },
   { href: "/learner/learn", label: "学習ホーム", section: "learner", icon: "bookOpen" },
+  { href: "/courses", label: "コースを探す", section: "learner", icon: "search" },
   { href: "/learner/evidence", label: "自分の成果物", section: "learner", icon: "fileSearch" },
   { href: "/mentor/reviews", label: "レビュー承認 (メンター)", section: "mentor", icon: "shieldCheck" },
   { href: "/notifications", label: "通知一覧", section: "common", icon: "messageSquare" },

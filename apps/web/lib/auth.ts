@@ -47,6 +47,18 @@ export function getDemoCompanyId(): string {
   return session.tenantId;
 }
 
+const ROLE_HOME_PATH: Record<Role, string> = {
+  learner: "/learner/learn",
+  recruiter: "/company/dashboard",
+  admin: "/admin",
+  content_editor: "/admin/curriculum",
+  mentor: "/mentor/reviews"
+};
+
+export function getRoleHomePath(role: Role): string {
+  return ROLE_HOME_PATH[role] ?? "/learner/learn";
+}
+
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }

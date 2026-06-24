@@ -7,6 +7,7 @@ from application.ports import (
     AuditLogRepository,
     CompanyRepository,
     ConsentRepository,
+    CourseRepository,
     CurriculumRepository,
     GoalRepository,
     NotificationDeliverySettingRepository,
@@ -116,6 +117,84 @@ class CurriculumService:
             published=True,
         )
         return self._repository.save(curriculum_version)
+
+
+class CourseService:
+    """Read-only catalog of courses for browsing, searching and detail view.
+
+    Phase 1 only covers discovery: list with search/filter/sort, category
+    facets, trending terms and per-course detail (sections + lessons).
+    """
+
+    def __init__(self, repository: CourseRepository) -> None:
+        self._repository = repository
+
+    def list_courses(
+        self,
+        *,
+        query: str | None = None,
+        category: str | None = None,
+        level: str | None = None,
+        sort: str = "popular",
+    ) -> list[Course]:
+        courses = self._repository.list_published()
+
+        if query:
+            needle = query.strip().lower()
+            if needle:
+                courses = [course for course in courses if self._matches(course, needle)]
+
+        if category:
+            courses = [course for course in courses if course.category == category]
+
+        if level:
+            courses = [course for course in courses if course.level == level]
+
+        return self._sort(courses, sort)
+
+    def get_course(self, slug: str) -> Course | None:
+        return self._repository.get_by_slug(slug)
+
+    def list_categories(self) -> list[tuple[str, int]]:
+        counts: dict[str, int] = {}
+        order: list[str] = []
+        for course in self._repository.list_published():
+            if course.category not in counts:
+                counts[course.category] = 0
+                order.append(course.category)
+            counts[course.category] += 1
+        return [(category, counts[category]) for category in order]
+
+    def list_trending(self) -> list[str]:
+        seen: list[str] = []
+        for course in self._sort(self._repository.list_published(), "popular"):
+            for tag in course.tags:
+                if tag not in seen:
+                    seen.append(tag)
+        return seen[:8]
+
+    @staticmethod
+    def _matches(course: Course, needle: str) -> bool:
+        haystack = " ".join(
+            [
+                course.title,
+                course.subtitle,
+                course.summary,
+                course.category,
+                " ".join(course.tags),
+                " ".join(course.outcomes),
+            ]
+        ).lower()
+        return needle in haystack
+
+    @staticmethod
+    def _sort(courses: list[Course], sort: str) -> list[Course]:
+        if sort == "rating":
+            return sorted(courses, key=lambda course: course.rating, reverse=True)
+        if sort == "newest":
+            return sorted(courses, key=lambda course: course.updated_at, reverse=True)
+        # default: popular
+        return sorted(courses, key=lambda course: course.enrolled_count, reverse=True)
 
 
 class RoadmapService:

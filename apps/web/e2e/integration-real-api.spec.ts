@@ -46,4 +46,34 @@ test.describe("real integration api flow", () => {
     await page.goto(baseURL ?? "http://127.0.0.1:3000");
     await expect(page.getByText("AI Field Ready Enterprise")).toBeVisible();
   });
+
+  test("course catalog list/detail works with docker api", async ({ request }) => {
+    const signIn = await request.post(`${API_BASE_URL}/api/v1/auth/sign-in`, {
+      data: { email: "learner@example.com", password: "Learner123!" }
+    });
+    expect(signIn.ok()).toBeTruthy();
+    const authHeader = { Authorization: `Bearer ${(await signIn.json()).accessToken}` };
+
+    const courses = await request.get(`${API_BASE_URL}/api/v1/courses`, { headers: authHeader });
+    expect(courses.ok()).toBeTruthy();
+    const courseItems = (await courses.json()).items as Array<{ slug: string; totalExercises: number }>;
+    expect(courseItems.length).toBeGreaterThanOrEqual(5);
+
+    const search = await request.get(`${API_BASE_URL}/api/v1/courses?q=RAG`, { headers: authHeader });
+    expect(search.ok()).toBeTruthy();
+    expect((await search.json()).items.length).toBeGreaterThan(0);
+
+    const detail = await request.get(`${API_BASE_URL}/api/v1/courses/rag-eval-bootcamp`, {
+      headers: authHeader
+    });
+    expect(detail.ok()).toBeTruthy();
+    const detailBody = await detail.json();
+    expect(detailBody.sections.length).toBeGreaterThan(0);
+    expect(detailBody.outcomes.length).toBeGreaterThan(0);
+
+    const missing = await request.get(`${API_BASE_URL}/api/v1/courses/does-not-exist`, {
+      headers: authHeader
+    });
+    expect(missing.status()).toBe(404);
+  });
 });
