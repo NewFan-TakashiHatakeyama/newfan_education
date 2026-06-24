@@ -44,7 +44,7 @@ test.describe("real integration api flow", () => {
     expect(submitBody.id).toBeTruthy();
 
     await page.goto(baseURL ?? "http://127.0.0.1:3000");
-    await expect(page.getByText("AI Field Ready Enterprise")).toBeVisible();
+    await expect(page.getByText("AI Field Ready Enterprise").first()).toBeVisible();
   });
 
   test("course catalog list/detail works with docker api", async ({ request }) => {

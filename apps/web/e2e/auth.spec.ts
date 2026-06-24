@@ -59,7 +59,7 @@ test("sign-in attaches bearer token and lands on the role home", async ({ page }
   await expect(page).toHaveURL(/\/learner\/learn$/);
 
   // the JWT must be sent as a bearer header, not relying on the cookie alone
-  await expect.poll(() => seen.authHeader).toBe("Bearer tok-abc-123");
+  await expect.poll(() => seen.authHeader?.toLowerCase()).toBe("bearer tok-abc-123");
 });
 
 test("sign-out clears the session and protects routes", async ({ page }) => {
@@ -72,7 +72,9 @@ test("sign-out clears the session and protects routes", async ({ page }) => {
   await page.click('button:has-text("サインイン")');
   await expect(page).toHaveURL(/\/learner\/learn$/);
 
-  await page.getByRole("button", { name: "サインアウト" }).click();
+  // sign-out lives in the user-menu dropdown — open it first
+  await page.getByRole("button", { name: /Demo Learner/ }).click();
+  await page.getByRole("menuitem", { name: "サインアウト" }).click();
   await expect(page).toHaveURL(/\/auth\/sign-in$/);
 
   const stored = await page.evaluate(() =>
