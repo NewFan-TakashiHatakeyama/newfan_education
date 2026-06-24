@@ -75,6 +75,70 @@ class CurriculumVersionResponse(BaseModel):
     estimatedMinutes: int
 
 
+class CourseLessonResponse(BaseModel):
+    lessonSlug: str
+    title: str
+    kind: str
+    estimatedMinutes: int
+    skillTags: list[str]
+    contentRef: str | None
+    exerciseId: str | None
+    isPreview: bool
+
+
+class CourseSectionResponse(BaseModel):
+    title: str
+    lessons: list[CourseLessonResponse]
+    lessonCount: int
+    estimatedMinutes: int
+
+
+class CourseSummaryResponse(BaseModel):
+    id: str
+    slug: str
+    title: str
+    subtitle: str
+    category: str
+    level: str
+    instructor: str
+    summary: str
+    tags: list[str]
+    rating: float
+    ratingCount: int
+    enrolledCount: int
+    isBestseller: bool
+    isTopRated: bool
+    totalLessons: int
+    totalExercises: int
+    estimatedMinutes: int
+    updatedAt: str
+
+
+class CourseDetailResponse(CourseSummaryResponse):
+    description: str
+    outcomes: list[str]
+    targetAudience: list[str]
+    prerequisites: list[str]
+    sections: list[CourseSectionResponse]
+
+
+class CoursesResponse(BaseModel):
+    items: list[CourseSummaryResponse]
+
+
+class CourseCategoryResponse(BaseModel):
+    category: str
+    courseCount: int
+
+
+class CourseCategoriesResponse(BaseModel):
+    items: list[CourseCategoryResponse]
+
+
+class CourseTrendingResponse(BaseModel):
+    items: list[str]
+
+
 class ProgressEventRequest(BaseModel):
     roadmapId: str
     roadmapItemId: str

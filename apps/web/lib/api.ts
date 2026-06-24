@@ -17,6 +17,11 @@ import type {
   ModerationBulkCloseResponse,
   ModerationCasesSummary,
   ModerationCaseStatus,
+  CourseCategoriesSummary,
+  CourseDetail,
+  CoursesQuery,
+  CoursesSummary,
+  CourseTrendingSummary,
   CurriculumImpactSummary,
   CurriculumVersion,
   DashboardSummary,
@@ -151,6 +156,36 @@ export function getRoadmap(roadmapId: string) {
 
 export function listCurriculumVersions() {
   return request<CurriculumVersion[]>("/api/v1/curriculum");
+}
+
+export function getCourses(params?: CoursesQuery) {
+  const search = new URLSearchParams();
+  if (params?.q?.trim()) {
+    search.set("q", params.q.trim());
+  }
+  if (params?.category) {
+    search.set("category", params.category);
+  }
+  if (params?.level) {
+    search.set("level", params.level);
+  }
+  if (params?.sort) {
+    search.set("sort", params.sort);
+  }
+  const query = search.toString();
+  return request<CoursesSummary>(`/api/v1/courses${query ? `?${query}` : ""}`);
+}
+
+export function getCourse(slug: string) {
+  return request<CourseDetail>(`/api/v1/courses/${slug}`);
+}
+
+export function getCourseCategories() {
+  return request<CourseCategoriesSummary>("/api/v1/courses/categories");
+}
+
+export function getCourseTrending() {
+  return request<CourseTrendingSummary>("/api/v1/courses/trending");
 }
 
 export function publishCurriculum(payload: JsonValue) {

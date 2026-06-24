@@ -11,6 +11,7 @@ def now_iso() -> str:
 
 
 Role = Literal["learner", "recruiter", "admin", "content_editor", "mentor"]
+CourseSort = Literal["popular", "newest", "rating"]
 NotificationCategory = Literal["learning", "career", "dm", "admin"]
 MessageChannel = Literal["dm", "applications", "teams"]
 UserState = Literal["active", "invited", "suspended"]
@@ -108,6 +109,82 @@ class CurriculumVersion:
     estimated_minutes: int
     published: bool = True
     id: str = field(default_factory=lambda: f"cv-{uuid4().hex[:8]}")
+
+
+CourseLevel = Literal["beginner", "intermediate", "advanced"]
+CourseLessonKind = Literal["reading", "code"]
+
+
+@dataclass(slots=True)
+class CourseLesson:
+    """One learnable unit inside a course.
+
+    A lesson is either a `reading` (MDX explainer only) or a `code` lesson that
+    binds to an existing :class:`~domain.models` exercise the learner solves in
+    the browser. The teaching content lives in an MDX file (`content_ref`).
+    """
+
+    lesson_slug: str
+    title: str
+    kind: CourseLessonKind
+    estimated_minutes: int
+    skill_tags: list[str] = field(default_factory=list)
+    content_ref: str | None = None
+    exercise_id: str | None = None
+    is_preview: bool = False
+
+
+@dataclass(slots=True)
+class CourseSection:
+    title: str
+    lessons: list[CourseLesson]
+
+
+@dataclass(slots=True)
+class Course:
+    """A catalog course: marketing metadata plus an ordered set of lessons.
+
+    Courses group existing curriculum (MDX) and exercises into a browsable,
+    enrollable unit. Phase 1 is browse-only; enrollment/progress arrive later.
+    """
+
+    slug: str
+    title: str
+    subtitle: str
+    category: str
+    level: CourseLevel
+    instructor: str
+    summary: str
+    description: str
+    sections: list[CourseSection]
+    tags: list[str] = field(default_factory=list)
+    outcomes: list[str] = field(default_factory=list)
+    target_audience: list[str] = field(default_factory=list)
+    prerequisites: list[str] = field(default_factory=list)
+    rating: float = 0.0
+    rating_count: int = 0
+    enrolled_count: int = 0
+    is_bestseller: bool = False
+    is_top_rated: bool = False
+    published: bool = True
+    updated_at: str = field(default_factory=now_iso)
+    id: str = field(default_factory=lambda: f"course-{uuid4().hex[:8]}")
+
+    @property
+    def lessons(self) -> list[CourseLesson]:
+        return [lesson for section in self.sections for lesson in section.lessons]
+
+    @property
+    def total_lessons(self) -> int:
+        return len(self.lessons)
+
+    @property
+    def total_exercises(self) -> int:
+        return sum(1 for lesson in self.lessons if lesson.kind == "code")
+
+    @property
+    def estimated_minutes(self) -> int:
+        return sum(lesson.estimated_minutes for lesson in self.lessons)
 
 
 @dataclass(slots=True)
