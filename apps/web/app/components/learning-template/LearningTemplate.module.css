@@ -1,6 +1,9 @@
 .learningShell {
   display: grid;
   gap: 1.25rem;
+  max-width: var(--content-width, 1760px);
+  margin: 0 auto;
+  width: 100%;
 }
 
 .hero {

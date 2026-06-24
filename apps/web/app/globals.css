@@ -18,6 +18,9 @@
   --warm: #f59e0b;
   --shadow-card: 0 20px 40px rgba(26, 33, 188, 0.08);
   --shadow-soft: 0 10px 28px rgba(34, 44, 68, 0.08);
+  /* Max width of the central content inside the app shell. Fluid below this,
+     centered above it — keeps wide screens from leaving large empty margins. */
+  --content-width: 1760px;
 }
 
 html,
@@ -449,6 +452,13 @@ a:hover {
 main {
   max-width: 1180px;
   margin: 0 auto;
+}
+
+/* App-shell pages use the full available width (responsive) up to --content-width.
+   The marketing landing / auth pages keep the narrower default above.
+   (The lesson/exercise template centers itself via its own module CSS.) */
+.app-shell .content-area main {
+  max-width: var(--content-width);
 }
 
 h1,
