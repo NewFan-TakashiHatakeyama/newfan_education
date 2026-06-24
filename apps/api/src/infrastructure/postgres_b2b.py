@@ -215,6 +215,86 @@ class PostgresB2BRepository:
                     ),
                     metadata_json={"format": "invoice"},
                 ),
+                ExerciseModel(
+                    id="ex-genai-prompt-001",
+                    tenant_id=tenant_id,
+                    kind="notebook",
+                    title="プロンプトを組み立てる関数",
+                    prompt=(
+                        "役割・文脈・質問・出力形式を含むプロンプトを返す "
+                        "build_prompt(role, context, question) を実装してください。"
+                        "最後に print で生成結果を確認します。"
+                    ),
+                    starter_code=(
+                        "def build_prompt(role, context, question):\n"
+                        "    parts = []\n"
+                        "    parts.append('あなたは' + role + 'です。')\n"
+                        "    parts.append('# 前提')\n"
+                        "    parts.append(context)\n"
+                        "    parts.append('# 質問')\n"
+                        "    parts.append(question)\n"
+                        "    parts.append('# 出力形式: 箇条書き3点。文脈に無いことは不明と答える。')\n"
+                        "    return '\\n'.join(parts)\n"
+                        "\n"
+                        "prompt = build_prompt('業務改善コンサルタント', '請求書処理に月40時間かかる', 'AIで削減する方法は？')\n"
+                        "print('prompt_ready')\n"
+                        "print(prompt)\n"
+                    ),
+                    metadata_json={"language": "python", "requiredOutputKeyword": "prompt_ready"},
+                ),
+                ExerciseModel(
+                    id="ex-genai-structured-001",
+                    tenant_id=tenant_id,
+                    kind="notebook",
+                    title="生成AIの出力を構造化する",
+                    prompt=(
+                        "複数行の「キー: 値」テキストを辞書に変換する parse_fields(text) を実装し、"
+                        "必須キー amount の値を出力してください。"
+                    ),
+                    starter_code=(
+                        "def parse_fields(text):\n"
+                        "    result = {}\n"
+                        "    for line in text.strip().split('\\n'):\n"
+                        "        if ':' in line:\n"
+                        "            key, value = line.split(':', 1)\n"
+                        "            result[key.strip()] = value.strip()\n"
+                        "    return result\n"
+                        "\n"
+                        "raw = 'vendor: Newfan Supplies\\namount: 128000\\ndate: 2026-05-20'\n"
+                        "data = parse_fields(raw)\n"
+                        "print('amount=' + str(data.get('amount')))\n"
+                    ),
+                    metadata_json={"language": "python", "requiredOutputKeyword": "amount="},
+                ),
+                ExerciseModel(
+                    id="ex-genai-retrieval-001",
+                    tenant_id=tenant_id,
+                    kind="notebook",
+                    title="簡易検索でコンテキストを選ぶ",
+                    prompt=(
+                        "クエリと文書のキーワード一致数でスコアリングして上位k件を返す "
+                        "retrieve(query, docs, k) を実装してください（RAGの第一歩）。"
+                    ),
+                    starter_code=(
+                        "def score(query, doc):\n"
+                        "    q = set(query.lower().split())\n"
+                        "    d = set(doc.lower().split())\n"
+                        "    return len(q & d)\n"
+                        "\n"
+                        "def retrieve(query, docs, k):\n"
+                        "    ranked = sorted(docs, key=lambda doc: score(query, doc), reverse=True)\n"
+                        "    return ranked[:k]\n"
+                        "\n"
+                        "docs = [\n"
+                        "    'AI OCR で 請求書 を 読み取る',\n"
+                        "    'RAG で 社内文書 を 検索する',\n"
+                        "    '勤怠管理 を 自動化する',\n"
+                        "]\n"
+                        "top = retrieve('請求書 OCR', docs, 1)\n"
+                        "print('top_doc=' + top[0])\n"
+                    ),
+                    metadata_json={"language": "python", "requiredOutputKeyword": "top_doc="},
+                ),
             ]
         )
         self._db.add(

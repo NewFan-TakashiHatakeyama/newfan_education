@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from domain.models import Course, CourseLesson, CourseSection
 
-_PY_BASIC_MDX = "content/curriculum/python-basic/variables-v1.mdx"
 _FASTAPI_MDX = "content/curriculum/python-fastapi/intro-v1.mdx"
 
 
@@ -21,59 +20,102 @@ def default_courses() -> list[Course]:
             id="course-genai-foundations",
             slug="genai-foundations",
             title="生成AI基礎: プロンプトからアプリまで",
-            subtitle="ChatGPT・Claude・Geminiの違いを理解し、最初のAIスクリプトを書く",
+            subtitle="生成AIの全体像・プロンプト設計から、出力の構造化・簡易検索までをコードで学ぶ",
             category="生成AI基礎",
             level="beginner",
             instructor="矢野 哲平",
-            summary="生成AIの全体像をつかみ、コードを書きながら最初の一歩を踏み出す入門コース。",
+            summary=(
+                "生成AIの仕組みと使いどころを理解し、プロンプト設計・出力の構造化・"
+                "簡易検索（RAGの第一歩）をハンズオンで身につける入門コース。"
+            ),
             description=(
-                "生成AIの基本概念から、Pythonでの簡単な集計スクリプト作成までを"
-                "ハンズオンで学びます。動画ではなく、各レッスンで実際にコードを書いて実行します。"
+                "生成AIの基本概念から、業務でのAI活用に必要なプロンプト設計・出力の構造化・"
+                "簡易検索（RAGの第一歩）までを段階的に学びます。動画ではなく、各レッスンで実際に"
+                "コードを書いて実行・提出します。"
             ),
             sections=[
                 CourseSection(
-                    title="生成AIの基礎",
+                    title="生成AIの全体像",
                     lessons=[
                         CourseLesson(
                             lesson_slug="what-is-genai",
                             title="生成AIとは何か",
                             kind="reading",
-                            estimated_minutes=8,
-                            skill_tags=["genai.basics"],
+                            estimated_minutes=12,
+                            skill_tags=["genai.basics", "llm.fundamentals"],
+                            content_ref="content/curriculum/genai-foundations/01-what-is-genai.mdx",
                             is_preview=True,
                         ),
                         CourseLesson(
-                            lesson_slug="python-variables",
-                            title="Pythonの変数を復習する",
+                            lesson_slug="model-landscape",
+                            title="主要サービスと使い分け",
                             kind="reading",
-                            estimated_minutes=20,
-                            skill_tags=["python.syntax.variables"],
-                            content_ref=_PY_BASIC_MDX,
+                            estimated_minutes=12,
+                            skill_tags=["genai.services", "llm.selection"],
+                            content_ref="content/curriculum/genai-foundations/02-model-landscape.mdx",
                         ),
                     ],
                 ),
                 CourseSection(
-                    title="最初のスクリプト",
+                    title="プロンプトを設計する",
                     lessons=[
                         CourseLesson(
-                            lesson_slug="first-aggregation",
-                            title="スコアを集計するスクリプトを書く",
+                            lesson_slug="prompt-design",
+                            title="プロンプト設計の基本",
+                            kind="reading",
+                            estimated_minutes=15,
+                            skill_tags=["prompt.design"],
+                            content_ref="content/curriculum/genai-foundations/03-prompt-design.mdx",
+                        ),
+                        CourseLesson(
+                            lesson_slug="build-prompt",
+                            title="プロンプトを組み立てる関数を実装する",
                             kind="code",
                             estimated_minutes=25,
-                            skill_tags=["python.data"],
-                            exercise_id="ex-notebook-001",
+                            skill_tags=["prompt.design", "python.functions"],
+                            content_ref="content/curriculum/genai-foundations/04-build-prompt.mdx",
+                            exercise_id="ex-genai-prompt-001",
+                        ),
+                    ],
+                ),
+                CourseSection(
+                    title="コードから生成AIを使う",
+                    lessons=[
+                        CourseLesson(
+                            lesson_slug="structured-output",
+                            title="生成AIの出力を構造化データにする",
+                            kind="code",
+                            estimated_minutes=25,
+                            skill_tags=["genai.output", "python.parsing"],
+                            content_ref="content/curriculum/genai-foundations/05-structured-output.mdx",
+                            exercise_id="ex-genai-structured-001",
+                        ),
+                        CourseLesson(
+                            lesson_slug="retrieval-basics",
+                            title="簡易検索でコンテキストを選ぶ（RAGの第一歩）",
+                            kind="code",
+                            estimated_minutes=30,
+                            skill_tags=["rag.basics", "python.algorithms"],
+                            content_ref="content/curriculum/genai-foundations/06-retrieval-basics.mdx",
+                            exercise_id="ex-genai-retrieval-001",
                         ),
                     ],
                 ),
             ],
-            tags=["生成AI", "Python", "入門"],
+            tags=["生成AI", "プロンプト", "RAG", "Python", "入門"],
             outcomes=[
-                "生成AIの主要サービスの違いを説明できる",
-                "Pythonで簡単な集計スクリプトを書ける",
-                "実行結果を読み解いて改善できる",
+                "生成AIの仕組みと得意・不得意を説明できる",
+                "主要サービスを業務で使い分けられる",
+                "再利用できるプロンプトを設計・実装できる",
+                "生成AIの出力を構造化データに変換できる",
+                "簡易検索でコンテキストを選ぶ（RAGの第一歩）を実装できる",
             ],
-            target_audience=["AI開発をこれから始める方", "非エンジニアからの転向者"],
-            prerequisites=["基本的なPC操作"],
+            target_audience=[
+                "AI開発をこれから始める方",
+                "業務へのAI導入を検討する担当者",
+                "非エンジニアからの転向者",
+            ],
+            prerequisites=["基本的なPC操作", "Pythonの初歩（変数・関数）に触れたことがあると望ましい"],
             rating=4.5,
             rating_count=520,
             enrolled_count=2100,

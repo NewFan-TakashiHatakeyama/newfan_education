@@ -2,14 +2,29 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import styles from "./LearningTemplate.module.css";
 
-export type LearningLessonContent = {
+export type LessonTocItem = {
+  slug: string;
   title: string;
+  kind: "reading" | "code";
+};
+
+export type LearningLessonExperienceProps = {
+  courseSlug: string;
+  lessonSlug: string;
+  // Course-aware mode: the full ordered lesson list for the table of contents.
+  // Empty for the enterprise single-MDX fallback.
+  lessons: LessonTocItem[];
+  title: string;
+  body: string | null;
+  kind: "reading" | "code";
+  exerciseId?: string;
   skillTags: string[];
   estimatedMinutes?: number;
+  section?: string;
+  // Enterprise single-MDX extras.
   week?: number;
   phase?: string;
   deliverable?: string;
-  body: string;
 };
 
 function renderMarkdownBody(body: string) {
@@ -47,7 +62,7 @@ function renderMarkdownBody(body: string) {
     if (trimmed.startsWith("## ")) {
       flushList();
       nodes.push(
-        <h3 key={`h3-${nodes.length}`} style={{ margin: "0.75rem 0 0.35rem", fontSize: "1rem" }}>
+        <h3 key={`h3-${nodes.length}`} style={{ margin: "0.9rem 0 0.35rem", fontSize: "1rem" }}>
           {trimmed.slice(3)}
         </h3>
       );
@@ -59,7 +74,7 @@ function renderMarkdownBody(body: string) {
     }
     flushList();
     nodes.push(
-      <p key={`p-${nodes.length}`} style={{ margin: "0.35rem 0", lineHeight: 1.7 }}>
+      <p key={`p-${nodes.length}`} style={{ margin: "0.45rem 0", lineHeight: 1.8 }}>
         {trimmed}
       </p>
     );
@@ -68,17 +83,32 @@ function renderMarkdownBody(body: string) {
   return nodes;
 }
 
-export function LearningLessonExperience({
-  curriculumSlug,
-  lessonSlug,
-  content
-}: {
-  curriculumSlug: string;
-  lessonSlug: string;
-  content: LearningLessonContent | null;
-}) {
-  const tocItems = content?.body
-    ? content.body
+export function LearningLessonExperience(props: LearningLessonExperienceProps) {
+  const {
+    courseSlug,
+    lessonSlug,
+    lessons,
+    title,
+    body,
+    kind,
+    exerciseId,
+    skillTags,
+    estimatedMinutes,
+    section,
+    week,
+    phase,
+    deliverable
+  } = props;
+
+  const isCourseMode = lessons.length > 0;
+  const currentIndex = lessons.findIndex((lesson) => lesson.slug === lessonSlug);
+  const prevLesson = currentIndex > 0 ? lessons[currentIndex - 1] : null;
+  const nextLesson =
+    currentIndex >= 0 && currentIndex < lessons.length - 1 ? lessons[currentIndex + 1] : null;
+
+  // Enterprise fallback builds its TOC from the body's "## " headings.
+  const headingToc = body
+    ? body
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line.startsWith("## "))
@@ -89,38 +119,73 @@ export function LearningLessonExperience({
     <div className={styles.learningShell}>
       <section className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
-          <h1 className={styles.sectionTitle}>
-            {content?.title ?? "Enterprise カリキュラム"}
-          </h1>
+          <h1 className={styles.sectionTitle}>{title}</h1>
           <p className={styles.muted}>
-            curriculum: {curriculumSlug} / lesson: {lessonSlug}
-            {content?.week ? ` · Week ${content.week}` : ""}
-            {content?.phase ? ` · ${content.phase}` : ""}
+            {isCourseMode ? `コース: ${courseSlug}` : `curriculum: ${courseSlug}`}
+            {section ? ` · ${section}` : ""}
+            {week ? ` · Week ${week}` : ""}
+            {phase ? ` · ${phase}` : ""}
+            {isCourseMode ? ` · ${kind === "code" ? "コード演習" : "解説"}` : ""}
           </p>
-          {content ? (
-            <p className={styles.muted} style={{ marginTop: "0.35rem" }}>
-              想定学習時間: {content.estimatedMinutes ?? "—"} 分
-              {content.deliverable ? ` · 成果物: ${content.deliverable}` : ""}
-            </p>
-          ) : null}
+          <p className={styles.muted} style={{ marginTop: "0.35rem" }}>
+            想定学習時間: {estimatedMinutes ?? "—"} 分
+            {deliverable ? ` · 成果物: ${deliverable}` : ""}
+          </p>
         </div>
         <div className={styles.lessonLayout}>
           <aside className={styles.panel}>
             <h2 className={styles.sectionTitle}>目次</h2>
-            {tocItems.length > 0 ? (
+            {isCourseMode ? (
               <ol className={styles.tocList}>
-                {tocItems.map((item) => (
+                {lessons.map((lesson) => {
+                  const active = lesson.slug === lessonSlug;
+                  return (
+                    <li key={lesson.slug}>
+                      <Link
+                        href={`/learn/${courseSlug}/${lesson.slug}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.4rem",
+                          textDecoration: "none",
+                          color: active ? "#1a21bc" : "#475569",
+                          fontWeight: active ? 700 : 400
+                        }}
+                      >
+                        <span
+                          aria-hidden
+                          style={{
+                            fontSize: "0.65rem",
+                            border: "1px solid #dde5ff",
+                            borderRadius: 6,
+                            padding: "0 4px",
+                            color: lesson.kind === "code" ? "#6556ff" : "#2563eb"
+                          }}
+                        >
+                          {lesson.kind === "code" ? "演習" : "解説"}
+                        </span>
+                        {lesson.title}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : headingToc.length > 0 ? (
+              <ol className={styles.tocList}>
+                {headingToc.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ol>
             ) : (
               <p className={styles.muted}>教材の目次を読み込めませんでした。</p>
             )}
-            {content?.skillTags.length ? (
+            {skillTags.length ? (
               <>
-                <h2 className={styles.sectionTitle} style={{ marginTop: "1rem" }}>スキルタグ</h2>
+                <h2 className={styles.sectionTitle} style={{ marginTop: "1rem" }}>
+                  スキルタグ
+                </h2>
                 <ul className={styles.tocList}>
-                  {content.skillTags.map((tag) => (
+                  {skillTags.map((tag) => (
                     <li key={tag}>{tag}</li>
                   ))}
                 </ul>
@@ -131,22 +196,50 @@ export function LearningLessonExperience({
           <section className={styles.panel}>
             <h2 className={styles.sectionTitle}>教材本文</h2>
             <div className={styles.contentBody}>
-              {content ? renderMarkdownBody(content.body) : (
+              {body ? (
+                renderMarkdownBody(body)
+              ) : (
                 <p>
-                  指定されたカリキュラム（{curriculumSlug}）の MDX 教材が見つかりませんでした。
+                  指定されたカリキュラム（{courseSlug}）の MDX 教材が見つかりませんでした。
                   管理者が教材を公開しているか、スラッグを確認してください。
                 </p>
               )}
             </div>
             <div className={styles.actionRow}>
-              <Link
-                href={`/learn/${curriculumSlug}/${lessonSlug}/exercise`}
-                className={styles.actionButton}
-              >
-                演習へ進む
-              </Link>
-              <Link href="/learner/learn" className={`${styles.actionButton} ${styles.actionSecondary}`}>
-                学習ホームへ
+              {kind === "code" && exerciseId ? (
+                <Link href={`/learner/exercises/${exerciseId}`} className={styles.actionButton}>
+                  演習へ進む
+                </Link>
+              ) : nextLesson ? (
+                <Link href={`/learn/${courseSlug}/${nextLesson.slug}`} className={styles.actionButton}>
+                  次のレッスンへ
+                </Link>
+              ) : (
+                <Link
+                  href={`/learn/${courseSlug}/${lessonSlug}/exercise`}
+                  className={styles.actionButton}
+                >
+                  演習へ進む
+                </Link>
+              )}
+              {prevLesson ? (
+                <Link
+                  href={`/learn/${courseSlug}/${prevLesson.slug}`}
+                  className={`${styles.actionButton} ${styles.actionSecondary}`}
+                >
+                  前のレッスン
+                </Link>
+              ) : null}
+              {nextLesson && kind === "code" ? (
+                <Link
+                  href={`/learn/${courseSlug}/${nextLesson.slug}`}
+                  className={`${styles.actionButton} ${styles.actionSecondary}`}
+                >
+                  次のレッスン
+                </Link>
+              ) : null}
+              <Link href="/courses" className={`${styles.actionButton} ${styles.actionSecondary}`}>
+                コース一覧へ
               </Link>
             </div>
           </section>
@@ -154,10 +247,21 @@ export function LearningLessonExperience({
           <aside className={styles.panel}>
             <h2 className={styles.sectionTitle}>AIガイド</h2>
             <ul className={styles.tocList}>
-              <li>この週の成果物を先に確認する</li>
-              <li>業務課題との接続をメモする</li>
-              <li>演習前に評価観点をチェック</li>
-              <li>提出後は AI レビュー結果を改善に活かす</li>
+              {kind === "code" ? (
+                <>
+                  <li>まず課題の入出力例を確認する</li>
+                  <li>境界条件（空・欠損）を1ケース試す</li>
+                  <li>実行して出力を確認し、提出する</li>
+                  <li>AIレビュー結果を次の改善に活かす</li>
+                </>
+              ) : (
+                <>
+                  <li>業務のどの課題に使えるかをメモする</li>
+                  <li>用語は手を動かす前に整理する</li>
+                  <li>次の演習で実際にコードに落とす</li>
+                  <li>つまずいたら前のレッスンに戻る</li>
+                </>
+              )}
             </ul>
           </aside>
         </div>
