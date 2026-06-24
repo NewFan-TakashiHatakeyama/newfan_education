@@ -13,32 +13,82 @@ import { buildNotificationCenterLink } from "@/lib/notificationLinks";
 
 type NavSection = "company" | "learner" | "mentor" | "common";
 
-type NavItem = {
+type NavLeaf = {
   href: string;
   label: string;
-  section: NavSection;
   icon: AppIconName;
 };
 
+// A top-level nav entry is either a direct link (leaf) or a collapsible group
+// of related links. Grouping keeps each section to a few top-level menus.
+type NavEntry =
+  | ({ kind: "leaf" } & NavLeaf)
+  | { kind: "group"; key: string; label: string; icon: AppIconName; children: NavLeaf[] };
+
 const SIDEBAR_COLLAPSE_STORAGE_KEY = "newfan.sidebar.collapsed";
 
-const NAV_ITEMS: NavItem[] = [
-  { href: "/company/dashboard", label: "企業ダッシュボード", section: "company", icon: "layoutDashboard" },
-  { href: "/company/learners", label: "受講者進捗", section: "company", icon: "users" },
-  { href: "/company/roadmaps", label: "育成ロードマップ", section: "company", icon: "map" },
-  { href: "/company/requirements", label: "業務課題", section: "company", icon: "clipboardList" },
-  { href: "/company/fit-assessments", label: "AIテーマ診断", section: "company", icon: "chart" },
-  { href: "/company/evidence", label: "成果物一覧", section: "company", icon: "fileCheck2" },
-  { href: "/company/reports", label: "AIプロジェクト候補", section: "company", icon: "barChart3" },
-  { href: "/company/teams", label: "部門管理", section: "company", icon: "userRound" },
-  { href: "/company/settings", label: "企業設定", section: "company", icon: "building2" },
-  { href: "/learner/learn", label: "学習ホーム", section: "learner", icon: "bookOpen" },
-  { href: "/courses", label: "コースを探す", section: "learner", icon: "search" },
-  { href: "/learner/evidence", label: "自分の成果物", section: "learner", icon: "fileSearch" },
-  { href: "/mentor/reviews", label: "レビュー承認 (メンター)", section: "mentor", icon: "shieldCheck" },
-  { href: "/notifications", label: "通知一覧", section: "common", icon: "messageSquare" },
-  { href: "/admin", label: "管理者ダッシュボード", section: "common", icon: "gauge" },
-  { href: "/admin/task-templates", label: "課題テンプレート管理", section: "common", icon: "clipboardCheck" }
+const NAV_SECTIONS: { section: NavSection; entries: NavEntry[] }[] = [
+  {
+    section: "learner",
+    entries: [
+      { kind: "leaf", href: "/learner/learn", label: "学習ホーム", icon: "bookOpen" },
+      { kind: "leaf", href: "/courses", label: "コースを探す", icon: "search" },
+      { kind: "leaf", href: "/learner/evidence", label: "自分の成果物", icon: "fileSearch" }
+    ]
+  },
+  {
+    // 企業向けは9メニューを4つ（ダッシュボード＋3グループ）に集約。
+    section: "company",
+    entries: [
+      { kind: "leaf", href: "/company/dashboard", label: "ダッシュボード", icon: "layoutDashboard" },
+      {
+        kind: "group",
+        key: "company-develop",
+        label: "育成管理",
+        icon: "graduationCap",
+        children: [
+          { href: "/company/learners", label: "受講者進捗", icon: "users" },
+          { href: "/company/roadmaps", label: "育成ロードマップ", icon: "map" },
+          { href: "/company/evidence", label: "成果物一覧", icon: "fileCheck2" }
+        ]
+      },
+      {
+        kind: "group",
+        key: "company-projects",
+        label: "AIプロジェクト",
+        icon: "rocket",
+        children: [
+          { href: "/company/requirements", label: "業務課題", icon: "clipboardList" },
+          { href: "/company/fit-assessments", label: "AIテーマ診断", icon: "chart" },
+          { href: "/company/reports", label: "AIプロジェクト候補", icon: "barChart3" }
+        ]
+      },
+      {
+        kind: "group",
+        key: "company-org",
+        label: "組織・設定",
+        icon: "building2",
+        children: [
+          { href: "/company/teams", label: "部門管理", icon: "userRound" },
+          { href: "/company/settings", label: "企業設定", icon: "building2" }
+        ]
+      }
+    ]
+  },
+  {
+    section: "mentor",
+    entries: [
+      { kind: "leaf", href: "/mentor/reviews", label: "レビュー承認 (メンター)", icon: "shieldCheck" }
+    ]
+  },
+  {
+    section: "common",
+    entries: [
+      { kind: "leaf", href: "/notifications", label: "通知一覧", icon: "messageSquare" },
+      { kind: "leaf", href: "/admin", label: "管理者ダッシュボード", icon: "gauge" },
+      { kind: "leaf", href: "/admin/task-templates", label: "課題テンプレート管理", icon: "clipboardCheck" }
+    ]
+  }
 ];
 
 const SECTION_LABEL: Record<NavSection, string> = {
@@ -47,8 +97,6 @@ const SECTION_LABEL: Record<NavSection, string> = {
   mentor: "メンターメニュー",
   common: "共通機能"
 };
-
-const SECTION_ORDER: NavSection[] = ["learner", "company", "mentor", "common"];
 
 const ROLE_HOME_PATH: Record<Role, string> = {
   learner: "/learner/learn",
@@ -82,6 +130,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       return false;
     }
   });
+  const [openNavGroups, setOpenNavGroups] = useState<Set<string>>(new Set());
+
+  function toggleNavGroup(key: string) {
+    setOpenNavGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     try {
@@ -172,15 +233,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [isAuthResolved, isAuthenticated, pathname, shouldRenderShellChrome]);
 
-  const groupedNav: Record<NavSection, NavItem[]> = {
-    company: [],
-    learner: [],
-    mentor: [],
-    common: []
-  };
-  for (const item of NAV_ITEMS) {
-    groupedNav[item.section].push(item);
-  }
+  const isLeafActive = (href: string) =>
+    pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 
   const visibleUnreadCount = shouldRenderShellChrome ? unreadCount : 0;
   const visibleImportantUnreadCount = shouldRenderShellChrome ? importantUnreadCount : 0;
@@ -260,37 +314,96 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </div>
           <nav id="primary-side-nav" aria-label="メインナビゲーション" className="side-nav-nav">
-            {SECTION_ORDER.map((section) => {
-              const items = groupedNav[section];
-              if (items.length === 0) return null;
-              return (
-                <div key={section} className="nav-section">
-                  <p className="nav-section-label">{SECTION_LABEL[section]}</p>
-                  <ul>
-                    {items.map((item) => {
-                      const active =
-                        pathname === item.href ||
-                        (item.href !== "/" && pathname.startsWith(`${item.href}/`));
+            {NAV_SECTIONS.map(({ section, entries }) => (
+              <div key={section} className="nav-section">
+                <p className="nav-section-label">{SECTION_LABEL[section]}</p>
+                <ul>
+                  {entries.map((entry) => {
+                    if (entry.kind === "leaf") {
+                      const active = isLeafActive(entry.href);
                       return (
-                        <li key={item.href}>
+                        <li key={entry.href}>
                           <Link
-                            href={item.href}
+                            href={entry.href}
                             className={active ? "active-link" : ""}
-                            aria-label={isSideNavCollapsed ? item.label : undefined}
-                            title={isSideNavCollapsed ? item.label : undefined}
+                            aria-label={isSideNavCollapsed ? entry.label : undefined}
+                            title={isSideNavCollapsed ? entry.label : undefined}
                           >
                             <span className="nav-link-icon" aria-hidden>
-                              <AppIcon name={item.icon} size={16} />
+                              <AppIcon name={entry.icon} size={16} />
                             </span>
-                            <span className="nav-link-text">{item.label}</span>
+                            <span className="nav-link-text">{entry.label}</span>
                           </Link>
                         </li>
                       );
-                    })}
-                  </ul>
-                  </div>
-              );
-            })}
+                    }
+
+                    const groupActive = entry.children.some((child) => isLeafActive(child.href));
+
+                    // Collapsed rail: render the group as a single icon linking
+                    // to its first child so the rail stays compact.
+                    if (isSideNavCollapsed) {
+                      const target = entry.children[0]?.href ?? "#";
+                      return (
+                        <li key={entry.key}>
+                          <Link
+                            href={target}
+                            className={groupActive ? "active-link" : ""}
+                            aria-label={entry.label}
+                            title={entry.label}
+                          >
+                            <span className="nav-link-icon" aria-hidden>
+                              <AppIcon name={entry.icon} size={16} />
+                            </span>
+                            <span className="nav-link-text">{entry.label}</span>
+                          </Link>
+                        </li>
+                      );
+                    }
+
+                    const open = openNavGroups.has(entry.key) || groupActive;
+                    return (
+                      <li key={entry.key}>
+                        <button
+                          type="button"
+                          className={`nav-group-toggle ${groupActive ? "nav-group-active" : ""}`}
+                          aria-expanded={open}
+                          onClick={() => toggleNavGroup(entry.key)}
+                        >
+                          <span className="nav-link-icon" aria-hidden>
+                            <AppIcon name={entry.icon} size={16} />
+                          </span>
+                          <span className="nav-link-text">{entry.label}</span>
+                          <span className={`nav-group-chevron ${open ? "open" : ""}`} aria-hidden>
+                            <AppIcon name="arrowRight" size={14} />
+                          </span>
+                        </button>
+                        {open ? (
+                          <ul className="nav-group-children">
+                            {entry.children.map((child) => {
+                              const childActive = isLeafActive(child.href);
+                              return (
+                                <li key={child.href}>
+                                  <Link
+                                    href={child.href}
+                                    className={`nav-subitem ${childActive ? "active-link" : ""}`}
+                                  >
+                                    <span className="nav-link-icon" aria-hidden>
+                                      <AppIcon name={child.icon} size={15} />
+                                    </span>
+                                    <span className="nav-link-text">{child.label}</span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </nav>
         </aside>
         <div className="content-area">{children}</div>
