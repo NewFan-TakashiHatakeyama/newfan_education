@@ -3,11 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import type { AuthSession, Role } from "@newfan/contracts";
+import type { AuthSession } from "@newfan/contracts";
 
 import { AppIcon, type AppIconName } from "@/app/components/ui";
-import { getDemoAuthSession, isDemoAuthenticated, isPublicAuthPath } from "@/lib/auth";
-import { getMessageThreads, getNotifications } from "@/lib/api";
+import {
+  clearDemoAuthSession,
+  getDemoAuthSession,
+  getRoleHomePath,
+  isDemoAuthenticated,
+  isPublicAuthPath
+} from "@/lib/auth";
+import { getMessageThreads, getNotifications, signOutSession } from "@/lib/api";
 import { buildMessagesLink } from "@/lib/messageLinks";
 import { buildNotificationCenterLink } from "@/lib/notificationLinks";
 
@@ -50,16 +56,8 @@ const SECTION_LABEL: Record<NavSection, string> = {
 
 const SECTION_ORDER: NavSection[] = ["learner", "company", "mentor", "common"];
 
-const ROLE_HOME_PATH: Record<Role, string> = {
-  learner: "/learner/learn",
-  recruiter: "/company/dashboard",
-  admin: "/admin",
-  content_editor: "/admin/curriculum",
-  mentor: "/mentor/reviews"
-};
-
 function getDefaultHomePath(session: AuthSession): string {
-  return ROLE_HOME_PATH[session.role] ?? "/learner/learn";
+  return getRoleHomePath(session.role);
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -109,6 +107,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAuthenticated = isDemoAuthenticated(authSession);
   const isPublicAuthRoute = isPublicAuthPath(pathname);
   const isRootRoute = pathname === "/";
+
+  async function handleSignOut() {
+    // Best-effort server cookie clear; the source of truth for the SPA is the
+    // locally stored token, so clear that unconditionally to guarantee logout.
+    try {
+      await signOutSession();
+    } catch {
+      // Ignore network/410 errors — local sign-out below is what matters.
+    }
+    clearDemoAuthSession();
+    router.replace("/auth/sign-in");
+  }
   const shouldRedirectToSignIn = isAuthResolved && !isAuthenticated && !isPublicAuthRoute && !isRootRoute;
   const shouldRedirectToHome = isAuthResolved && isAuthenticated && isPublicAuthRoute;
   const shouldRenderShellChrome = isAuthResolved && isAuthenticated && !isPublicAuthRoute && !isRootRoute;
@@ -253,10 +263,22 @@ export function AppShell({ children }: { children: ReactNode }) {
               {`スレッド ${visibleUnreadThreadCount}`}
             </span>
           ) : null}
-          <Link href="/auth/sign-in" className="ghost-button">
-            <span aria-hidden>👤</span>
-            {isAuthenticated ? `${authSession.userId} · ${authSession.role}` : "ログイン"}
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <span className="account-chip" title={`${authSession.displayName || authSession.userId} · ${authSession.role}`}>
+                <span aria-hidden>👤</span>
+                {authSession.displayName || authSession.userId}
+              </span>
+              <button type="button" onClick={handleSignOut} className="ghost-button">
+                サインアウト
+              </button>
+            </>
+          ) : (
+            <Link href="/auth/sign-in" className="ghost-button">
+              <span aria-hidden>👤</span>
+              ログイン
+            </Link>
+          )}
         </div>
       </header>
 

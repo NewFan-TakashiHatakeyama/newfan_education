@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { setDemoAuthSession } from "@/lib/auth";
+import { getRoleHomePath, setDemoAuthSession } from "@/lib/auth";
 import { signUpDemoUser } from "@/lib/api";
 
 export default function SignUpPage() {
@@ -31,7 +31,7 @@ export default function SignUpPage() {
         tenantId
       });
       setDemoAuthSession(session);
-      router.push("/onboarding");
+      router.replace(getRoleHomePath(session.role));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "登録に失敗しました");
     } finally {

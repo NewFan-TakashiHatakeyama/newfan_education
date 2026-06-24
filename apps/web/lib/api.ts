@@ -65,7 +65,7 @@ import type {
   ReportExportJob,
   SkillsGapSummary
 } from "@newfan/contracts";
-import { getDemoAuthSession } from "@/lib/auth";
+import { getAuthHeaders, getDemoAuthSession } from "@/lib/auth";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -98,6 +98,12 @@ async function request<T>(
 ): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
+  // Attach the JWT as a bearer token so auth does not depend solely on the
+  // cross-origin cookie (which is fragile across localhost/127.0.0.1 and
+  // browsers that block third-party cookies). The API accepts either.
+  for (const [key, value] of Object.entries(getAuthHeaders())) {
+    headers.set(key, value);
+  }
   if (idempotencyKey) {
     headers.set("Idempotency-Key", idempotencyKey);
   }

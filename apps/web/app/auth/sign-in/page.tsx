@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { setDemoAuthSession } from "@/lib/auth";
+import { getRoleHomePath, setDemoAuthSession } from "@/lib/auth";
 import { signInDemoUser } from "@/lib/api";
 
 export default function SignInPage() {
@@ -20,7 +20,7 @@ export default function SignInPage() {
     try {
       const session = await signInDemoUser({ email: email.trim(), password });
       setDemoAuthSession(session);
-      router.push("/onboarding");
+      router.replace(getRoleHomePath(session.role));
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "サインインに失敗しました");
     } finally {
