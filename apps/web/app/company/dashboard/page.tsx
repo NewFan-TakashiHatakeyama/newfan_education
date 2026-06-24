@@ -168,11 +168,11 @@ export default function CompanyDashboardPage() {
           theme="company"
           ariaLabel="企業ダッシュボード"
           eyebrow="企業ダッシュボード"
-          title={company ? `${company.name} の待機人材育成・配属状況` : "企業ダッシュボード"}
+          title={company ? `${company.name} のAI人材育成・成果物状況` : "企業ダッシュボード"}
           lead={
             <>
-              待機人材のロードマップ進捗・実務証跡の蓄積・レビュー待ち・案件適合・配属判断を一画面で把握します。
-              待機人材の招待や育成優先度の設定から始められます。
+              受講者のロードマップ進捗・成果物の蓄積・レビュー待ち・AIテーマ診断・PoC候補化を一画面で把握します。
+              部門別の業務課題登録や育成優先度の設定から始められます。
             </>
           }
           metrics={[
@@ -182,32 +182,32 @@ export default function CompanyDashboardPage() {
               hint: company ? `契約ステータス: ${company.status}` : "未取得"
             },
             {
-              label: "待機人材",
+              label: "受講者",
               value: stats.totalLearners,
               suffix: "名",
-              hint: `即提案可 ${stats.readyCount} / 補助付き ${stats.almostCount}`
+              hint: `PoC候補可 ${stats.readyCount} / 要補強 ${stats.almostCount}`
             },
             {
               label: "ロードマップ平均進捗",
               value: stats.avgCompletion,
               suffix: "%",
               progress: stats.avgCompletion / 100,
-              hint: "個人別の進捗は待機人材一覧で確認"
+              hint: "個人別の進捗は受講者一覧で確認"
             }
           ]}
           actions={
             <>
               <Link href="/company/learners" className={styles.actionPrimary}>
-                <IconText icon="users">待機人材を一覧確認</IconText>
+                <IconText icon="users">受講者を一覧確認</IconText>
               </Link>
               <Link href="/company/roadmaps" className={styles.actionGhost}>
                 <IconText icon="map">ロードマップを割り当て</IconText>
               </Link>
               <Link href="/company/requirements" className={styles.actionGhost}>
-                <IconText icon="clipboardList">案件要件を登録</IconText>
+                <IconText icon="clipboardList">業務課題を登録</IconText>
               </Link>
               <Link href="/company/reports" className={styles.actionGhost}>
-                <IconText icon="barChart3">営業サマリーを生成</IconText>
+                <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
               </Link>
             </>
           }
@@ -226,18 +226,18 @@ export default function CompanyDashboardPage() {
       ) : null}
 
       <Section
-        title="育成・配属の主要指標"
-        meta="待機人材の育成状況と営業・配属判断の材料を数値で把握。配属可能候補 = 即提案可 + 補助付き。"
+        title="育成・プロジェクト推進の主要指標"
+        meta="受講者の育成状況とAIプロジェクト判断の材料を数値で把握。PoC推進候補 = PoC着手可 + メンター伴走。"
         theme="company"
         icon="chart"
       >
         <div className={styles.kpiGrid}>
-          <KpiCard label="待機人材" value={stats.totalLearners} suffix="名" hint="育成対象として登録済み" />
+          <KpiCard label="受講者" value={stats.totalLearners} suffix="名" hint="育成対象として登録済み" />
           <KpiCard
             label="ロードマップ平均進捗"
             value={stats.avgCompletion}
             suffix="%"
-            hint="個人別の進捗は待機人材一覧へ"
+            hint="個人別の進捗は受講者一覧へ"
           />
           <KpiCard
             label="レビュー待ち"
@@ -246,29 +246,29 @@ export default function CompanyDashboardPage() {
             hint="メンター承認待ちの育成演習提出"
           />
           <KpiCard
-            label="配属可能候補"
+            label="PoC推進候補"
             value={stats.proposable}
             suffix="名"
-            hint={`即提案可 ${stats.readyCount} / 補助付き ${stats.almostCount}`}
+            hint={`PoC着手可 ${stats.readyCount} / メンター伴走 ${stats.almostCount}`}
           />
           <KpiCard
-            label="実務証跡（蓄積）"
+            label="成果物（蓄積）"
             value={evidence?.length ?? 0}
             suffix="件"
-            hint={`営業利用可の強い証跡 ${stats.strongEvidenceCount} 件`}
+            hint={`レビュー合格の強い成果物 ${stats.strongEvidenceCount} 件`}
           />
           <KpiCard
-            label="案件要件"
+            label="業務課題"
             value={requirementCount ?? 0}
             suffix="件"
-            hint="登録すると案件適合度の評価が可能"
+            hint="登録するとAIテーマ適合度の評価が可能"
           />
         </div>
       </Section>
 
       <Section
         title="AI/DXロール別 育成到達度"
-        meta="目標ロールごとのロードマップ完了率。案件要件とのギャップ把握に使います。"
+        meta="目標ロールごとのロードマップ完了率。業務課題とのギャップ把握に使います。"
         theme="company"
         icon="target"
       >
@@ -276,7 +276,7 @@ export default function CompanyDashboardPage() {
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="ロール別の育成到達度はまだ表示できません"
-            message="待機人材を登録しロードマップを割り当てると、目標ロール別の到達度が表示されます。"
+            message="受講者を登録しロードマップを割り当てると、目標ロール別の到達度が表示されます。"
             action={
               <Link href="/company/roadmaps" className={styles.actionPrimary}>
                 <IconText icon="map">ロードマップを割り当て</IconText>
@@ -309,13 +309,13 @@ export default function CompanyDashboardPage() {
       </Section>
 
       <Section
-        title="直近の実務証跡"
-        meta="営業・配属判断に使える証跡を最新3件表示。一覧は『証跡 (企業)』ページから確認できます。"
+        title="直近の成果物"
+        meta="AIプロジェクト判断に使える成果物を最新3件表示。一覧は『成果物一覧』ページから確認できます。"
         theme="company"
         icon="fileCheck2"
         actions={
           <Link href="/company/evidence" className={styles.actionGhost}>
-            <IconText icon="listFilter">実務証跡一覧へ</IconText>
+            <IconText icon="listFilter">成果物一覧へ</IconText>
           </Link>
         }
       >
@@ -328,8 +328,8 @@ export default function CompanyDashboardPage() {
         ) : stats.recentEvidence.length === 0 ? (
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
-            title="まだ実務証跡がありません"
-            message="育成演習の提出とAIレビューが進むと、営業提案に使える実務証跡が蓄積されます。"
+            title="まだ成果物がありません"
+            message="演習の提出とAIレビューが進むと、AIプロジェクト判断に使える成果物が蓄積されます。"
           />
         ) : (
           <div className={styles.evidenceGrid}>
@@ -355,7 +355,7 @@ export default function CompanyDashboardPage() {
 
       <Section
         title="次のアクション"
-        meta="育成優先度の設定から、営業提案・配属判断まで。"
+        meta="育成優先度の設定から、AIプロジェクト候補の選定まで。"
         theme="company"
         icon="rocket"
       >
@@ -364,16 +364,16 @@ export default function CompanyDashboardPage() {
         ) : (
           <div className={styles.actionRow}>
             <Link href="/company/learners" className={styles.actionPrimary}>
-              <IconText icon="users">待機人材を招待 / 管理</IconText>
+              <IconText icon="users">受講者を招待 / 管理</IconText>
             </Link>
             <Link href="/company/roadmaps" className={styles.actionGhost}>
               <IconText icon="map">ロードマップを割り当て</IconText>
             </Link>
             <Link href="/company/requirements" className={styles.actionGhost}>
-              <IconText icon="clipboardList">案件要件を登録</IconText>
+              <IconText icon="clipboardList">業務課題を登録</IconText>
             </Link>
             <Link href="/company/reports" className={styles.actionGhost}>
-              <IconText icon="barChart3">営業サマリーを生成</IconText>
+              <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
             </Link>
           </div>
         )}

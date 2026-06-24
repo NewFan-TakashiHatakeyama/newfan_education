@@ -112,67 +112,11 @@ class SkillsGapResponse(BaseModel):
     items: list[SkillGapItemResponse]
 
 
-class OpportunityApplyRequest(BaseModel):
-    opportunityType: str = Field(pattern="^(employment|freelance)$")
-
-
-class OpportunityApplicationStateResponse(BaseModel):
-    userId: str
-    opportunityId: str
-    state: str
-
-
-class OpportunityApplicationProgressPatchRequest(BaseModel):
-    state: str = Field(
-        pattern="^(applied|screening|interview|offer|proposed|proposal_review|negotiation|contracted)$"
-    )
-
-
-class OpportunityApplicationsResponse(BaseModel):
-    userId: str
-    applications: dict[str, str]
-
-
-class OpportunityResponse(BaseModel):
-    id: str
-    type: str
-    title: str
-    provider: str
-    contractType: str
-    compensation: str
-    skillMatchScore: int
-    caution: str
-    summary: str
-    requiredSkills: list[str]
-    paymentTerms: str
-    isRecommended: bool
-    isSaved: bool
-
-
-class OpportunitiesResponse(BaseModel):
-    items: list[OpportunityResponse]
-
-
-class ApplicationListItemResponse(BaseModel):
-    opportunityId: str
-    opportunityType: str
-    state: str
-    title: str
-    provider: str
-    updatedAt: str
-
-
-class ApplicationsResponse(BaseModel):
-    userId: str
-    items: list[ApplicationListItemResponse]
-
-
 class CompanyResponse(BaseModel):
     id: str
     name: str
     industry: str
     status: str
-    openOpportunityCount: int
     contactEmail: str
     contactPersonName: str
     contactPersonPhone: str
@@ -233,25 +177,6 @@ class ModerationBulkCloseResponse(BaseModel):
     skippedCaseIds: list[str]
 
 
-class PortfolioArtifactResponse(BaseModel):
-    id: str
-    userId: str
-    title: str
-    summary: str
-    skillTags: list[str]
-    relatedSkills: list[str]
-    evidenceLinks: list[str]
-    visibility: str
-    evaluation: str
-    evaluationHistory: list[dict[str, str]]
-    submittedAt: str
-
-
-class PortfolioArtifactsResponse(BaseModel):
-    userId: str
-    items: list[PortfolioArtifactResponse]
-
-
 class CurriculumImpactResponse(BaseModel):
     curriculumVersionId: str
     affectedRoadmapCount: int
@@ -305,92 +230,6 @@ class NotificationDeliverySettingPatchRequest(BaseModel):
     emailEnabled: bool
     inAppEnabled: bool
     pushEnabled: bool
-
-
-class MessageThreadResponse(BaseModel):
-    id: str
-    channel: str
-    counterpartName: str
-    relatedOpportunityLabel: str | None
-    unreadCount: int
-    canSend: bool
-    restrictionReason: str | None
-    contextSummary: str
-    updatedAt: str
-
-
-class MessageResponse(BaseModel):
-    id: str
-    threadId: str
-    senderUserId: str
-    body: str
-    attachments: list[str]
-    createdAt: str
-
-
-class MessageThreadsResponse(BaseModel):
-    userId: str
-    threads: list[MessageThreadResponse]
-
-
-class MessageThreadDetailResponse(BaseModel):
-    thread: MessageThreadResponse
-    messages: list[MessageResponse]
-
-
-class SendMessageRequest(BaseModel):
-    body: str = Field(min_length=1, max_length=2000)
-    attachments: list[str] = Field(default_factory=list)
-
-
-class MessageTemplateResponse(BaseModel):
-    id: str
-    key: str
-    label: str
-    body: str
-    targetRoles: list[str]
-    channels: list[str]
-
-
-class MessageTemplatesResponse(BaseModel):
-    role: str
-    items: list[MessageTemplateResponse]
-
-
-class MessageTemplateCreateRequest(BaseModel):
-    key: str = Field(min_length=1, max_length=80)
-    label: str = Field(min_length=1, max_length=120)
-    body: str = Field(min_length=1, max_length=3000)
-    targetRoles: list[str] = Field(min_length=1)
-    channels: list[str] = Field(min_length=1)
-
-
-class MessageTemplatePatchRequest(BaseModel):
-    key: str | None = Field(default=None, min_length=1, max_length=80)
-    label: str | None = Field(default=None, min_length=1, max_length=120)
-    body: str | None = Field(default=None, min_length=1, max_length=3000)
-    targetRoles: list[str] | None = None
-    channels: list[str] | None = None
-
-
-class MessageTemplateDeleteResponse(BaseModel):
-    deleted: bool
-    templateId: str
-
-
-class MessageTemplateAuditLogResponse(BaseModel):
-    id: str
-    templateId: str
-    action: str
-    actorUserId: str
-    actorRole: str
-    templateKey: str
-    templateLabel: str
-    occurredAt: str
-
-
-class MessageTemplateAuditLogsResponse(BaseModel):
-    items: list[MessageTemplateAuditLogResponse]
 
 
 class AuthSignInRequest(BaseModel):
@@ -481,24 +320,6 @@ class ReportExportJobResponse(BaseModel):
     status: str
     resultUrl: str
     reportId: str
-
-
-class PublicProfileSettingResponse(BaseModel):
-    userId: str
-    visibility: str
-    showGoal: bool
-    showSkillEvidence: bool
-    showPortfolio: bool
-    allowRecruiterContact: bool
-    updatedAt: str
-
-
-class PublicProfileSettingPatchRequest(BaseModel):
-    visibility: str = Field(pattern="^(public|limited|private)$")
-    showGoal: bool
-    showSkillEvidence: bool
-    showPortfolio: bool
-    allowRecruiterContact: bool
 
 
 class UserAccountResponse(BaseModel):

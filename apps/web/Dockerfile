@@ -7,6 +7,7 @@ COPY apps/web/package.json /app/apps/web/package.json
 COPY packages/contracts/package.json /app/packages/contracts/package.json
 COPY packages/contracts/src /app/packages/contracts/src
 COPY apps/web /app/apps/web
+COPY content /app/content
 
 RUN npm ci
 RUN npm run build --workspace apps/web

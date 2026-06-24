@@ -134,7 +134,7 @@ export default function AdminCompaniesPage() {
     <main>
       <header className="page-header">
         <h1>企業管理</h1>
-        <p className="muted">登録企業の状態と公開中の求人/案件数を管理者が確認します。</p>
+        <p className="muted">登録企業の状態と公開中のキャリア機会数を管理者が確認します。</p>
       </header>
       {error ? <p className="error">{error}</p> : null}
       <section>
@@ -195,7 +195,6 @@ export default function AdminCompaniesPage() {
                   一括操作対象に追加
                 </label>
                 <p className="muted">{`業種: ${item.industry}`}</p>
-                <p className="muted">{`公開中求人/案件: ${item.openOpportunityCount}`}</p>
                 <p className="muted">{`連絡先: ${item.contactEmail}`}</p>
                 <p className="muted">{`担当者: ${item.contactPersonName}`}</p>
                 <p className="muted">{`電話: ${item.contactPersonPhone}`}</p>

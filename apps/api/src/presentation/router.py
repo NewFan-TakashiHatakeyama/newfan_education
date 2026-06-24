@@ -29,7 +29,6 @@ from presentation.schemas import (
     SalesSummaryCreateRequest,
     SubmissionResponse,
     SubmissionsResponse,
-    ApplicationsResponse,
     AuditLogEventsResponse,
     AuthSessionResponse,
     AuthSignInRequest,
@@ -61,36 +60,17 @@ from presentation.schemas import (
     ModerationCasePatchRequest,
     ModerationCaseResponse,
     ModerationCasesResponse,
-    MessageThreadDetailResponse,
-    MessageThreadsResponse,
-    MessageTemplateResponse,
-    MessageTemplateCreateRequest,
-    MessageTemplateAuditLogsResponse,
-    MessageTemplateDeleteResponse,
-    MessageTemplatePatchRequest,
-    MessageTemplatesResponse,
-    MessageResponse,
     NotificationReadAllResponse,
     NotificationReadResponse,
     NotificationDeliverySettingPatchRequest,
     NotificationDeliverySettingResponse,
     NotificationDeliverySettingsResponse,
     NotificationsResponse,
-    OpportunityApplicationsResponse,
-    OpportunityApplicationProgressPatchRequest,
-    OpportunityApplicationStateResponse,
-    OpportunityApplyRequest,
-    OpportunitiesResponse,
-    PortfolioArtifactResponse,
-    PortfolioArtifactsResponse,
-    PublicProfileSettingPatchRequest,
-    PublicProfileSettingResponse,
     ProgressEventRequest,
     ProgressEventResponse,
     RoadmapGenerateRequest,
     RoadmapItemResponse,
     RoadmapResponse,
-    SendMessageRequest,
     SkillsGapResponse,
     UserAccountPatchRequest,
     UserAccountResponse,
@@ -98,15 +78,6 @@ from presentation.schemas import (
 )
 
 router = APIRouter(prefix="/api/v1", tags=["priority-settings"])
-LEGACY_B2C_ENABLED = False
-
-
-def _ensure_legacy_b2c_enabled() -> None:
-    if not LEGACY_B2C_ENABLED:
-        raise HTTPException(
-            status_code=410,
-            detail="Legacy B2C career/message/profile/portfolio features are retired",
-        )
 
 
 def _to_consent_response(consent) -> ConsentResponse:
@@ -419,122 +390,6 @@ def get_skills_gap(actor: UserContext = Depends(get_current_user)):
     return CONTAINER.skill_gap_service.get_gap(actor)
 
 
-@router.get("/opportunities", response_model=OpportunitiesResponse)
-def list_opportunities(
-    type: str | None = None,
-    recommended: bool = False,
-    saved: bool = False,
-):
-    _ensure_legacy_b2c_enabled()
-    return CONTAINER.opportunity_service.list_catalog(
-        opportunity_type=type,
-        recommended_only=recommended,
-        saved_only=saved,
-    )
-
-
-@router.get("/opportunities/applications/me", response_model=OpportunityApplicationsResponse)
-def list_my_opportunity_applications(actor: UserContext = Depends(get_current_user)):
-    _ensure_legacy_b2c_enabled()
-    return CONTAINER.opportunity_application_service.list_mine(actor)
-
-
-@router.get("/applications/me", response_model=ApplicationsResponse)
-def list_my_applications(
-    state: str | None = None,
-    opportunityType: str | None = None,
-    updatedFrom: str | None = None,
-    updatedTo: str | None = None,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    return CONTAINER.application_service.list_mine(
-        actor=actor,
-        state=state,
-        opportunity_type=opportunityType,
-        updated_from=updatedFrom,
-        updated_to=updatedTo,
-    )
-
-
-@router.post(
-    "/opportunities/{opportunity_id}/apply",
-    response_model=OpportunityApplicationStateResponse,
-)
-def apply_opportunity(
-    opportunity_id: str,
-    payload: OpportunityApplyRequest,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.opportunity_application_service.apply(
-            actor=actor,
-            opportunity_id=opportunity_id,
-            opportunity_type=payload.opportunityType,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.post(
-    "/opportunities/{opportunity_id}/withdraw",
-    response_model=OpportunityApplicationStateResponse,
-)
-def withdraw_opportunity(
-    opportunity_id: str,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.opportunity_application_service.withdraw(
-            actor=actor,
-            opportunity_id=opportunity_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.patch(
-    "/opportunities/{opportunity_id}/state",
-    response_model=OpportunityApplicationStateResponse,
-)
-def patch_opportunity_state(
-    opportunity_id: str,
-    payload: OpportunityApplicationProgressPatchRequest,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.opportunity_application_service.update_progress_state(
-            actor=actor,
-            opportunity_id=opportunity_id,
-            state=payload.state,
-        )
-    except ValueError as exc:
-        if str(exc) == "Opportunity not found":
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.get("/portfolio/artifacts/me", response_model=PortfolioArtifactsResponse)
-def list_my_portfolio_artifacts(actor: UserContext = Depends(get_current_user)):
-    _ensure_legacy_b2c_enabled()
-    return CONTAINER.portfolio_artifact_service.list_mine(actor)
-
-
-@router.get("/portfolio/artifacts/{artifact_id}", response_model=PortfolioArtifactResponse)
-def get_my_portfolio_artifact(
-    artifact_id: str,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.portfolio_artifact_service.get_mine(actor, artifact_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
 @router.get(
     "/admin/curriculum/{curriculum_version_id}/impact",
     response_model=CurriculumImpactResponse,
@@ -597,162 +452,6 @@ def patch_notification_delivery_setting(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.get("/messages/threads", response_model=MessageThreadsResponse)
-def list_message_threads(
-    q: str | None = None,
-    unread: bool = False,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    return CONTAINER.message_service.list_threads(actor, query=q, unread_only=unread)
-
-
-@router.get("/messages/threads/{thread_id}", response_model=MessageThreadDetailResponse)
-def get_message_thread_detail(
-    thread_id: str,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.message_service.get_thread_detail(actor, thread_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.post("/messages/threads/{thread_id}/messages", response_model=MessageResponse)
-def send_message(
-    thread_id: str,
-    payload: SendMessageRequest,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.message_service.send_message(
-            actor=actor,
-            thread_id=thread_id,
-            body=payload.body,
-            attachments=payload.attachments,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-
-
-@router.get("/messages/templates", response_model=MessageTemplatesResponse)
-def list_message_templates(
-    role: str | None = None,
-    channel: str | None = None,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.message_template_service.list_templates(
-            actor=actor,
-            role=role,
-            channel=channel,
-        )
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-
-
-@router.post("/messages/templates", response_model=MessageTemplateResponse)
-def create_message_template(
-    payload: MessageTemplateCreateRequest,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.message_template_service.create_template(
-            actor=actor,
-            key=payload.key,
-            label=payload.label,
-            body=payload.body,
-            target_roles=payload.targetRoles,
-            channels=payload.channels,
-        )
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.patch("/messages/templates/{template_id}", response_model=MessageTemplateResponse)
-def patch_message_template(
-    template_id: str,
-    payload: MessageTemplatePatchRequest,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.message_template_service.update_template(
-            actor=actor,
-            template_id=template_id,
-            key=payload.key,
-            label=payload.label,
-            body=payload.body,
-            target_roles=payload.targetRoles,
-            channels=payload.channels,
-        )
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-    except ValueError as exc:
-        if str(exc) == "Template not found":
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.delete("/messages/templates/{template_id}", response_model=MessageTemplateDeleteResponse)
-def delete_message_template(
-    template_id: str,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.message_template_service.delete_template(
-            actor=actor,
-            template_id=template_id,
-        )
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.get("/admin/messages/templates/audit-logs", response_model=MessageTemplateAuditLogsResponse)
-def list_message_template_audit_logs(
-    limit: int = 100,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    try:
-        return CONTAINER.message_template_service.list_audit_logs(actor, limit=limit)
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-
-
-@router.get("/public-profile/settings/me", response_model=PublicProfileSettingResponse)
-def get_public_profile_settings(actor: UserContext = Depends(get_current_user)):
-    _ensure_legacy_b2c_enabled()
-    return CONTAINER.public_profile_setting_service.get_mine(actor)
-
-
-@router.patch("/public-profile/settings/me", response_model=PublicProfileSettingResponse)
-def patch_public_profile_settings(
-    payload: PublicProfileSettingPatchRequest,
-    actor: UserContext = Depends(get_current_user),
-):
-    _ensure_legacy_b2c_enabled()
-    return CONTAINER.public_profile_setting_service.update_mine(
-        actor=actor,
-        visibility=payload.visibility,
-        show_goal=payload.showGoal,
-        show_skill_evidence=payload.showSkillEvidence,
-        show_portfolio=payload.showPortfolio,
-        allow_recruiter_contact=payload.allowRecruiterContact,
-    )
 
 
 @router.get("/admin/users", response_model=UserAccountsResponse)

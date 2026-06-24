@@ -25,8 +25,8 @@ type StatusFilter = "all" | "passed" | "submitted" | "completed";
 
 const STRENGTH_FILTERS: Array<FilterOption<StrengthFilter>> = [
   { value: "all", label: "すべて" },
-  { value: "strong-only", label: "案件面談向け" },
-  { value: "approved", label: "営業証跡向け" },
+  { value: "strong-only", label: "PoC判断向け" },
+  { value: "approved", label: "レビュー合格" },
   { value: "improved", label: "改善履歴あり" },
   { value: "weak", label: "要改善" }
 ];
@@ -88,7 +88,7 @@ export default function LearnerEvidencePage() {
   const [error, setError] = useState<string | null>(null);
   const [completionRate, setCompletionRate] = useState<number | null>(null);
   const [targetSkillsCount, setTargetSkillsCount] = useState<number | null>(null);
-  const [targetRole, setTargetRole] = useState<string>("AI/DX 補助業務");
+  const [targetRole, setTargetRole] = useState<string>("AI/DX 推進");
 
   const [skillFilter, setSkillFilter] = useState<SkillFilter>("all");
   const [strengthFilter, setStrengthFilter] = useState<StrengthFilter>("all");
@@ -106,7 +106,7 @@ export default function LearnerEvidencePage() {
       .catch((err: unknown) => {
         if (active) {
           setItems([]);
-          setError(err instanceof Error ? err.message : "実務証跡の読み込みに失敗しました。");
+          setError(err instanceof Error ? err.message : "成果物の読み込みに失敗しました。");
         }
       });
     getDashboard()
@@ -200,22 +200,22 @@ export default function LearnerEvidencePage() {
         <HeroSkeleton />
       ) : (
         <LearnerHero
-          eyebrow="実務証跡"
-          title={`${learnerName} さんの実務証跡`}
+          eyebrow="成果物"
+          title={`${learnerName} さんの成果物`}
           lead={
             <>
-              案件面談・配属・営業の説明に使える提出物と評価履歴を一覧しています。AIレビュー／メンター承認／案件適合の状況を
+              部門・経営の判断に使える提出物と評価履歴を一覧しています。AIレビュー／メンター承認／AIプロジェクト適合の状況を
               確認し、足りないスキルや改善の経緯も見える化します。
             </>
           }
           readiness={readiness}
           metrics={[
             {
-              label: "配属先ロール",
+              label: "育成ロール",
               value: targetRole,
               hint:
                 targetSkillsCount !== null
-                  ? `案件面談で問われるスキル ${targetSkillsCount} 項目`
+                  ? `AIプロジェクトに必要なスキル ${targetSkillsCount} 項目`
                   : "ロードマップに紐づくスキルを評価中"
             },
             {
@@ -226,13 +226,13 @@ export default function LearnerEvidencePage() {
               hint:
                 completionRate === null
                   ? "ダッシュボードの取得に失敗しました"
-                  : "育成演習の完了と提出で実務証跡を増やしていきます"
+                  : "育成演習の完了と提出で成果物を増やしていきます"
             },
             {
-              label: "実務証跡（累計）",
+              label: "成果物（累計）",
               value: items?.length ?? 0,
               suffix: "件",
-              hint: `営業・配属に使える ${counts.strongCount} 件 / レビュー合格 ${counts.approvedCount} 件`
+              hint: `PoC判断向け ${counts.strongCount} 件 / レビュー合格 ${counts.approvedCount} 件`
             }
           ]}
           actions={
@@ -251,7 +251,7 @@ export default function LearnerEvidencePage() {
       {error ? (
         <div className={pageStyles.section} role="alert">
           <p className="muted" style={{ margin: 0 }}>
-            実務証跡の読み込み中にエラーが発生しました: {error}
+            成果物の読み込み中にエラーが発生しました: {error}
             <br />
             空状態またはサンプルとして以下の内容を表示しています。
           </p>
@@ -259,8 +259,8 @@ export default function LearnerEvidencePage() {
       ) : null}
 
       <LearnerSection
-        title="実務証跡を絞り込む"
-        meta="スキル／証跡強度／状態の組み合わせで、案件面談・営業説明に使える証跡だけを抽出できます。"
+        title="成果物を絞り込む"
+        meta="スキル／成果物強度／状態の組み合わせで、PoC判断・部門提案に使える成果物だけを抽出できます。"
         icon="funnel"
       >
         <div style={{ display: "grid", gap: "0.7rem" }}>
@@ -271,7 +271,7 @@ export default function LearnerEvidencePage() {
             onChange={setSkillFilter}
           />
           <FilterChips
-            label="証跡強度"
+            label="成果物強度"
             options={STRENGTH_FILTERS}
             selected={strengthFilter}
             onChange={setStrengthFilter}
@@ -286,8 +286,8 @@ export default function LearnerEvidencePage() {
       </LearnerSection>
 
       <LearnerSection
-        title={`実務証跡一覧 (${filtered.length} 件)`}
-        meta="営業・育成責任者にそのまま共有できる形式か、案件面談で説明できる内容かを確認できます。"
+        title={`成果物一覧 (${filtered.length} 件)`}
+        meta="育成責任者・部門リーダーにそのまま共有できる形式か、PoC判断で説明できる内容かを確認できます。"
         icon="fileCheck2"
       >
         {isLoading ? (
@@ -300,8 +300,8 @@ export default function LearnerEvidencePage() {
           (items?.length ?? 0) === 0 ? (
             <LearnerEmptyState
               icon={<AppIcon name="circleDashed" size={24} />}
-              title="まだ実務証跡がありません"
-              message="育成演習を提出するとAIレビューと実務証跡レポートが自動生成されます。まず本日の演習から着手してください。"
+              title="まだ成果物がありません"
+              message="育成演習を提出するとAIレビューと成果物レポートが自動生成されます。まず本日の演習から着手してください。"
               action={
                 <Link href="/learner/learn" className={pageStyles.actionPrimary}>
                   <IconText icon="layoutDashboard">受講者ホームへ</IconText>
@@ -311,8 +311,8 @@ export default function LearnerEvidencePage() {
           ) : (
             <LearnerEmptyState
               icon={<AppIcon name="funnel" size={24} />}
-              title="絞り込み条件に一致する実務証跡はありません"
-              message="フィルタを緩めるか、別のスキルタグを選んで案件面談向けの証跡を探してください。"
+              title="絞り込み条件に一致する成果物はありません"
+              message="フィルタを緩めるか、別のスキルタグを選んでPoC判断向けの成果物を探してください。"
               action={
                 <button
                   type="button"
@@ -334,8 +334,8 @@ export default function LearnerEvidencePage() {
               <EvidenceCard
                 key={item.id}
                 evidence={item}
-                useCaseLabel="案件での想定シーン:"
-                rubricLabel="案件面談・配属で問われる観点"
+                useCaseLabel="業務での適用シーン:"
+                rubricLabel="評価観点"
               />
             ))}
           </div>

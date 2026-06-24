@@ -5,12 +5,12 @@ import styles from "./ui.module.css";
 type StrengthLike = EvidenceStrength | null | undefined;
 
 const STRENGTH_LABEL: Record<EvidenceStrength, string> = {
-  weak: "弱い証跡",
-  standard: "標準証跡",
-  strong: "強い証跡",
-  improved: "改善履歴付き",
-  approved: "営業利用可",
-  matched: "案件適合"
+  weak: "要改善",
+  standard: "標準成果物",
+  strong: "PoC判断向け",
+  improved: "改善履歴あり",
+  approved: "レビュー合格",
+  matched: "AIプロジェクト適合"
 };
 
 const STRENGTH_CLASS: Record<EvidenceStrength, string> = {

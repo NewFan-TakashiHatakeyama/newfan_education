@@ -94,7 +94,7 @@ export default function CompanyReportsPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "営業提案サマリーの生成に失敗しました。必要な権限を持つアカウントでサインインしてください。"
+          : "AIプロジェクト候補レポートの生成に失敗しました。必要な権限を持つアカウントでサインインしてください。"
       );
     } finally {
       setSubmitting(false);
@@ -144,27 +144,27 @@ export default function CompanyReportsPage() {
     <main className={styles.page}>
       <PageHero
         theme="company"
-        ariaLabel="営業提案サマリー"
-        eyebrow="営業提案サマリー"
-        title="実務証跡と案件要件から営業提案サマリーを自動生成"
+        ariaLabel="AIプロジェクト候補"
+        eyebrow="AIプロジェクト候補"
+        title="成果物と業務課題からAIプロジェクト候補レポートを自動生成"
         lead={
           <>
-            待機人材の実務証跡と案件要件の適合度をもとに、SES 営業向けの提案資料を自動生成します。
-            生成結果はコピー / Markdown ダウンロードで、案件面談・営業提案ですぐ使えます。
+            受講者の成果物と業務課題の適合度をもとに、社内AIプロジェクトの推進候補資料を自動生成します。
+            生成結果はコピー / Markdown ダウンロードで、部門提案・経営判断資料のたたき台として活用できます。
           </>
         }
         metrics={[
           {
-            label: "登録済み案件要件",
+            label: "登録済み業務課題",
             value: requirements?.length ?? 0,
             suffix: "件",
-            hint: "受注案件の要件数"
+            hint: "社内の業務課題数"
           },
           {
-            label: "待機人材",
+            label: "受講者",
             value: learners?.length ?? 0,
             suffix: "名",
-            hint: "提案候補として選択可能"
+            hint: "候補として選択可能"
           },
           {
             label: "本セッションで生成",
@@ -176,10 +176,10 @@ export default function CompanyReportsPage() {
         actions={
           <>
             <Link href="/company/evidence" className={styles.actionGhost}>
-              <IconText icon="fileCheck2">実務証跡を確認</IconText>
+              <IconText icon="fileCheck2">成果物を確認</IconText>
             </Link>
             <Link href="/company/requirements" className={styles.actionGhost}>
-              <IconText icon="clipboardList">案件要件を登録</IconText>
+              <IconText icon="clipboardList">業務課題を登録</IconText>
             </Link>
           </>
         }
@@ -201,8 +201,8 @@ export default function CompanyReportsPage() {
       ) : null}
 
       <Section
-        title="営業提案サマリーを生成"
-        meta="案件要件と待機人材を選び、実務証跡に基づく提案文を確認します。"
+        title="AIプロジェクト候補レポートを生成"
+        meta="業務課題と受講者を選び、成果物に基づく提案文を確認します。"
         theme="company"
         icon="barChart3"
       >
@@ -213,7 +213,7 @@ export default function CompanyReportsPage() {
             <div className={styles.formGridTwo}>
               <div className={styles.field}>
                 <label htmlFor="rep-req" className={styles.fieldLabel}>
-                  案件要件
+                  業務課題
                 </label>
                 <select
                   id="rep-req"
@@ -227,13 +227,13 @@ export default function CompanyReportsPage() {
                     </option>
                   ))}
                   {(requirements ?? []).length === 0 ? (
-                    <option value="">(案件要件がありません)</option>
+                    <option value="">(業務課題がありません)</option>
                   ) : null}
                 </select>
               </div>
               <div className={styles.field}>
                 <label htmlFor="rep-learner" className={styles.fieldLabel}>
-                  待機人材
+                  受講者
                 </label>
                 <select
                   id="rep-learner"
@@ -247,7 +247,7 @@ export default function CompanyReportsPage() {
                     </option>
                   ))}
                   {(learners ?? []).length === 0 ? (
-                    <option value="">(待機人材がいません)</option>
+                    <option value="">(受講者がいません)</option>
                   ) : null}
                 </select>
               </div>
@@ -262,7 +262,7 @@ export default function CompanyReportsPage() {
             >
               {selectedRequirement ? (
                 <div className={`${styles.kpiTile} ${styles.kpiTileAccent}`}>
-                  <p className={styles.kpiLabel}>選択案件要件</p>
+                  <p className={styles.kpiLabel}>選択業務課題</p>
                   <p
                     style={{
                       margin: "0.2rem 0 0.4rem",
@@ -281,7 +281,7 @@ export default function CompanyReportsPage() {
               ) : null}
               {selectedLearner ? (
                 <div className={`${styles.kpiTile}`}>
-                  <p className={styles.kpiLabel}>選択待機人材</p>
+                  <p className={styles.kpiLabel}>選択受講者</p>
                   <p
                     style={{
                       margin: "0.2rem 0 0.4rem",
@@ -318,7 +318,7 @@ export default function CompanyReportsPage() {
                 onClick={handleGenerate}
                 disabled={!selectedRequirement || !selectedLearner || submitting}
               >
-                {submitting ? "生成中…" : <IconText icon="send">営業提案サマリーを生成</IconText>}
+                {submitting ? "生成中…" : <IconText icon="send">AIプロジェクト候補レポートを生成</IconText>}
               </button>
             </div>
           </div>
@@ -327,7 +327,7 @@ export default function CompanyReportsPage() {
 
       <Section
         title="最新の生成結果"
-        meta="案件面談・営業提案でそのままコピー / Markdown としてダウンロードできます。"
+        meta="部門提案・経営判断資料としてそのままコピー / Markdown としてダウンロードできます。"
         theme="company"
         icon="notebookText"
       >
@@ -390,8 +390,8 @@ export default function CompanyReportsPage() {
               }}
             >
               <span>レポートID: {report.id}</span>
-              <span>案件: {report.requirementId}</span>
-              <span>待機人材: {report.learnerId}</span>
+              <span>業務課題: {report.requirementId}</span>
+              <span>受講者: {report.learnerId}</span>
               <span>生成: {report.generatedAt.slice(0, 19).replace("T", " ")}</span>
             </div>
           </article>
@@ -399,7 +399,7 @@ export default function CompanyReportsPage() {
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="まだ生成していません"
-            message="案件要件と待機人材を選んで『営業提案サマリーを生成』を押すと、ここに表示されます。"
+            message="業務課題と受講者を選んで『AIプロジェクト候補レポートを生成』を押すと、ここに表示されます。"
           />
         )}
       </Section>
@@ -414,7 +414,7 @@ export default function CompanyReportsPage() {
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="履歴なし"
-            message="まだ生成された営業提案サマリーはありません。"
+            message="まだ生成されたAIプロジェクト候補レポートはありません。"
           />
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "0.5rem" }}>

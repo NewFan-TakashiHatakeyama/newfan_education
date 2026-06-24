@@ -1,6 +1,5 @@
 export type Role = "learner" | "recruiter" | "admin" | "content_editor" | "mentor";
 export type UserState = "active" | "invited" | "suspended";
-export type ProfileVisibility = "public" | "limited" | "private";
 
 export interface ConsentRecord {
   id: string;
@@ -84,76 +83,11 @@ export interface SkillsGapSummary {
   items: SkillGapItem[];
 }
 
-export type OpportunityType = "employment" | "freelance";
-export type OpportunityApplicationState =
-  | "none"
-  | "applied"
-  | "screening"
-  | "interview"
-  | "offer"
-  | "proposed"
-  | "proposal_review"
-  | "negotiation"
-  | "contracted";
-
-export interface OpportunityApplication {
-  userId: string;
-  opportunityId: string;
-  state: OpportunityApplicationState;
-}
-
-export interface OpportunityApplicationsSummary {
-  userId: string;
-  applications: Record<string, OpportunityApplicationState>;
-}
-
-export interface Opportunity {
-  id: string;
-  type: OpportunityType;
-  title: string;
-  provider: string;
-  contractType: string;
-  compensation: string;
-  skillMatchScore: number;
-  caution: string;
-  summary: string;
-  requiredSkills: string[];
-  paymentTerms: string;
-  isRecommended: boolean;
-  isSaved: boolean;
-}
-
-export interface OpportunitiesSummary {
-  items: Opportunity[];
-}
-
-export interface ApplicationListItem {
-  opportunityId: string;
-  opportunityType: OpportunityType;
-  state: OpportunityApplicationState;
-  title: string;
-  provider: string;
-  updatedAt: string;
-}
-
-export interface ApplicationsSummary {
-  userId: string;
-  items: ApplicationListItem[];
-}
-
-export interface ApplicationsQuery {
-  state?: OpportunityApplicationState;
-  opportunityType?: OpportunityType;
-  updatedFrom?: string;
-  updatedTo?: string;
-}
-
 export interface Company {
   id: string;
   name: string;
   industry: string;
   status: "active" | "stopped";
-  openOpportunityCount: number;
   contactEmail: string;
   contactPersonName: string;
   contactPersonPhone: string;
@@ -185,7 +119,7 @@ export type ModerationCaseStatus = "accepted" | "investigating" | "acted" | "clo
 
 export interface ModerationCase {
   id: string;
-  targetType: "message" | "portfolio" | "profile";
+  targetType: "evidence" | "submission" | "profile";
   targetId: string;
   reason: string;
   status: ModerationCaseStatus;
@@ -209,30 +143,6 @@ export interface ModerationBulkClosePayload {
 export interface ModerationBulkCloseResponse {
   closedCaseIds: string[];
   skippedCaseIds: string[];
-}
-
-export interface PortfolioArtifact {
-  id: string;
-  userId: string;
-  title: string;
-  summary: string;
-  skillTags: string[];
-  relatedSkills: string[];
-  evidenceLinks: string[];
-  visibility: "private" | "limited" | "public";
-  evaluation: string;
-  evaluationHistory: {
-    evaluatedAt: string;
-    evaluator: string;
-    score: string;
-    comment: string;
-  }[];
-  submittedAt: string;
-}
-
-export interface PortfolioArtifactsSummary {
-  userId: string;
-  items: PortfolioArtifact[];
 }
 
 export interface CurriculumImpactSummary {
@@ -275,68 +185,6 @@ export interface NotificationDeliverySetting {
 export interface NotificationDeliverySettingsSummary {
   userId: string;
   items: NotificationDeliverySetting[];
-}
-
-export type MessageChannel = "dm" | "applications" | "teams";
-
-export interface MessageThread {
-  id: string;
-  channel: MessageChannel;
-  counterpartName: string;
-  relatedOpportunityLabel: string | null;
-  unreadCount: number;
-  canSend: boolean;
-  restrictionReason: string | null;
-  contextSummary: string;
-  updatedAt: string;
-}
-
-export interface MessageItem {
-  id: string;
-  threadId: string;
-  senderUserId: string;
-  body: string;
-  attachments: string[];
-  createdAt: string;
-}
-
-export interface MessageThreadsSummary {
-  userId: string;
-  threads: MessageThread[];
-}
-
-export interface MessageThreadDetail {
-  thread: MessageThread;
-  messages: MessageItem[];
-}
-
-export interface MessageTemplate {
-  id: string;
-  key: string;
-  label: string;
-  body: string;
-  targetRoles: Role[];
-  channels: MessageChannel[];
-}
-
-export interface MessageTemplatesSummary {
-  role: Role;
-  items: MessageTemplate[];
-}
-
-export interface MessageTemplateAuditLogItem {
-  id: string;
-  templateId: string;
-  action: "create" | "update" | "delete";
-  actorUserId: string;
-  actorRole: Role;
-  templateKey: string;
-  templateLabel: string;
-  occurredAt: string;
-}
-
-export interface MessageTemplateAuditLogsSummary {
-  items: MessageTemplateAuditLogItem[];
 }
 
 export interface AuthSession {
@@ -393,16 +241,6 @@ export interface ReportExportJob {
   status: string;
   resultUrl: string;
   reportId: string;
-}
-
-export interface PublicProfileSetting {
-  userId: string;
-  visibility: ProfileVisibility;
-  showGoal: boolean;
-  showSkillEvidence: boolean;
-  showPortfolio: boolean;
-  allowRecruiterContact: boolean;
-  updatedAt: string;
 }
 
 export interface UserAccount {

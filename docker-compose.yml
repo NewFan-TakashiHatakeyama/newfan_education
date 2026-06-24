@@ -72,6 +72,9 @@ services:
       - api
     ports:
       - "3000:3000"
+    volumes:
+      - ./content:/app/content:ro
 
 volumes:
   postgres_data:
+

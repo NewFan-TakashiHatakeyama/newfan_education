@@ -19,14 +19,14 @@ const CONSENT_OPTIONS: ConsentOption[] = [
   {
     id: "career_profile",
     title: "企業にプロフィールを表示",
-    purpose: "候補者として学習証跡を確認してもらうため",
-    scope: "企業担当者・営業担当",
-    dataTarget: "プロフィール、スキル証跡、成果物"
+    purpose: "社内育成担当者に成果物と進捗を確認してもらうため",
+    scope: "育成担当者・DX推進責任者",
+    dataTarget: "プロフィール、育成成果物、スキル進捗"
   },
   {
     id: "talent_search",
-    title: "案件/求人推薦に学習データを利用",
-    purpose: "適切なキャリア機会を提案するため",
+    title: "キャリア機会の推薦に学習データを利用",
+    purpose: "育成成果物に基づき適切な社内・外部キャリア機会を提案するため",
     scope: "レコメンドエンジン、許可済み担当者",
     dataTarget: "学習履歴、進捗、目標情報"
   }

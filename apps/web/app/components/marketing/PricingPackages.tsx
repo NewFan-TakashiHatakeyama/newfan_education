@@ -18,7 +18,7 @@ export function PricingPackages() {
         return (
           <article key={plan.id} className={cardClass}>
             {plan.highlight ? (
-              <span className={styles.pricingRecommendBadge}>営業強化におすすめ</span>
+              <span className={styles.pricingRecommendBadge}>おすすめ</span>
             ) : null}
             <h3>{plan.title}</h3>
             <p className={styles.pricingPurpose}>{plan.audience}</p>

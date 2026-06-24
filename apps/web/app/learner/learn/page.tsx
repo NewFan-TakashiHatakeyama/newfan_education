@@ -18,6 +18,7 @@ import { LearnerSection } from "@/app/components/learner/Section";
 import { LearnerEmptyState } from "@/app/components/learner/EmptyState";
 import { EvidenceCardSkeleton, HeroSkeleton } from "@/app/components/learner/Skeleton";
 import { EvidenceCard } from "@/app/components/learner/EvidenceCard";
+import { EnterpriseCurriculumTimeline } from "@/app/components/learner/EnterpriseCurriculumTimeline";
 import { AppIcon, IconText } from "@/app/components/ui/Icon";
 import {
   deriveReadiness,
@@ -36,10 +37,10 @@ const STRONG_LIKE: ReadonlyArray<EvidenceStrength> = [
 ];
 
 const TODAY_TASK = {
-  title: "Python API演習 — 業務TODO API",
+  title: "業務課題整理演習 — AI活用テーマの具体化",
   estimatedMinutes: 45,
-  useCase: "案件参画前の説明として、業務システム向けの簡易バックエンドAPIを実装する場面",
-  rubricFocus: ["API設計", "入出力検証", "テスト分割"],
+  useCase: "自部門の業務課題をAIプロジェクト候補に落とし込む前準備として、課題・KPI・制約を整理する場面",
+  rubricFocus: ["業務課題の具体性", "KPI設計", "ガバナンス観点"],
   exerciseId: "ex-python-api-001"
 };
 
@@ -147,8 +148,8 @@ export default function LearnerLearnPage() {
           title={`おかえりなさい、${learnerName} さん`}
           lead={
             <>
-              本日の演習を完了し、営業・配属の説明に使える実務証跡を1件増やしましょう。学習完走より、
-              案件面談で問われる成果物づくりを優先して進めます。
+              本日の演習を完了し、部門・経営の判断に使える成果物を1件増やしましょう。学習完走より、
+              AIプロジェクト化に必要な成果物づくりを優先して進めます。
             </>
           }
           readiness={readiness}
@@ -166,13 +167,13 @@ export default function LearnerLearnPage() {
               hint: `完了 ${dashboard?.completedItems ?? 0} / 全 ${dashboard?.totalItems ?? 0}`
             },
             {
-              label: "実務証跡（累計）",
+              label: "成果物（累計）",
               value: evidence?.length ?? 0,
               suffix: "件",
               hint:
                 pendingReview.length > 0
-                  ? `レビュー待ち ${pendingReview.length} 件 — 営業証跡の材料`
-                  : "演習提出で実務証跡が追加されます"
+                  ? `レビュー待ち ${pendingReview.length} 件 — 承認待ちの成果物`
+                  : "演習提出で成果物が追加されます"
             }
           ]}
           actions={
@@ -184,12 +185,20 @@ export default function LearnerLearnPage() {
                 <IconText icon="bookOpen">本日の演習を開始</IconText>
               </Link>
               <Link href="/learner/evidence" className={styles.actionGhost}>
-                <IconText icon="fileCheck2">実務証跡を確認</IconText>
+                <IconText icon="fileCheck2">成果物を確認</IconText>
               </Link>
             </>
           }
         />
       )}
+
+      <LearnerSection
+        title="12週間 Enterprise カリキュラム"
+        meta="業務課題定義からAIプロジェクト提案まで、各週の成果物を順に積み上げます。"
+        icon="calendarDays"
+      >
+        <EnterpriseCurriculumTimeline completionRate={dashboard?.completionRate ?? 0} />
+      </LearnerSection>
 
       <div
         style={{
@@ -199,8 +208,8 @@ export default function LearnerLearnPage() {
         }}
       >
         <LearnerSection
-          title="本日の育成演習（案件に近づく実務）"
-          meta="1演習30〜90分。再提出は減点ではなく、案件面談で説明できる改善履歴として残します。"
+          title="本日の育成演習（AIプロジェクトに近づく実務）"
+          meta="1演習30〜90分。再提出は減点ではなく、PoC判断で説明できる改善履歴として残します。"
           icon="bookOpen"
           actions={
             <Link
@@ -237,8 +246,8 @@ export default function LearnerLearnPage() {
                   lineHeight: 1.65
                 }}
               >
-                推定 {TODAY_TASK.estimatedMinutes} 分。FastAPI で TODO の作成・取得・更新エンドポイントを実装し、
-                AIレビュー合格で実務証跡に加算します。
+                推定 {TODAY_TASK.estimatedMinutes} 分。業務課題とKPIを整理し、
+                AIレビュー合格で成果物に加算します。
               </p>
             </div>
             <div className={styles.evidenceUseCase}>
@@ -246,12 +255,12 @@ export default function LearnerLearnPage() {
                 <AppIcon name="briefcase" size={12} />
               </span>
               <span>
-                <strong>案件での想定シーン:</strong> {TODAY_TASK.useCase}
+                <strong>業務での適用シーン:</strong> {TODAY_TASK.useCase}
               </span>
             </div>
             <div>
               <p className={styles.evidenceMetaLabel} style={{ margin: "0 0 0.4rem" }}>
-                案件面談・配属で問われる観点
+                評価観点
               </p>
               <SkillChipList skills={TODAY_TASK.rubricFocus} />
             </div>
@@ -260,7 +269,7 @@ export default function LearnerLearnPage() {
 
         <LearnerSection
           title="レビュー待ち・再提出"
-          meta="提出後24時間以内にAIレビューが返ります。合格・改善内容は営業証跡に反映されます。"
+          meta="提出後24時間以内にAIレビューが返ります。合格・改善内容は成果物レポートに反映されます。"
           icon="clock3"
         >
           {evidence === null ? (
@@ -272,7 +281,7 @@ export default function LearnerLearnPage() {
             <LearnerEmptyState
               icon={<AppIcon name="checkCircle2" size={24} />}
               title="レビュー待ちはありません"
-              message="提出済み演習はすべてレビュー済みです。次の育成演習で実務証跡を増やしましょう。"
+              message="提出済み演習はすべてレビュー済みです。次の育成演習で成果物を増やしましょう。"
               action={
                 <Link
                   href={`/learner/exercises/${TODAY_TASK.exerciseId}`}
@@ -341,12 +350,12 @@ export default function LearnerLearnPage() {
       </div>
 
       <LearnerSection
-        title="直近の実務証跡"
-        meta="営業・配属判断に使える証跡を新しい順に最大3件表示。一覧は実務証跡ページへ。"
+        title="直近の成果物"
+        meta="部門・経営判断に使える成果物を新しい順に最大3件表示。一覧は成果物ページへ。"
         icon="fileCheck2"
         actions={
           <Link href="/learner/evidence" className={styles.actionGhost}>
-            <IconText icon="listFilter">実務証跡一覧へ</IconText>
+            <IconText icon="listFilter">成果物一覧へ</IconText>
           </Link>
         }
       >
@@ -359,8 +368,8 @@ export default function LearnerLearnPage() {
         ) : recentEvidence.length === 0 ? (
           <LearnerEmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
-            title="まだ実務証跡がありません"
-            message="演習を提出するとAIレビューと実務証跡レポートが自動生成されます。まず本日の演習から着手してください。"
+            title="まだ成果物がありません"
+            message="演習を提出するとAIレビューと成果物レポートが自動生成されます。まず本日の演習から着手してください。"
             action={
               <Link
                 href={`/learner/exercises/${TODAY_TASK.exerciseId}`}
@@ -381,7 +390,7 @@ export default function LearnerLearnPage() {
 
       <LearnerSection
         title="育成・レビュー通知"
-        meta="ロードマップ割当・レビュー結果・教材更新など、待機期間の育成に関わる通知を要約表示します。"
+        meta="ロードマップ割当・レビュー結果・教材更新など、プログラム期間の育成に関わる通知を要約表示します。"
         icon="messageSquare"
         actions={
           <Link href="/notifications" className={styles.actionGhost}>

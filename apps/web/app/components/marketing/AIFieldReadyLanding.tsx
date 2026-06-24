@@ -11,59 +11,51 @@ import { trackLpEvent } from "@/lib/lp-analytics";
 
 import styles from "./aiFieldReadyLanding.module.css";
 import { ComparisonTable4 } from "./ComparisonTable4";
-import { EvidenceReportPreview } from "./EvidenceReportPreview";
+import { CurriculumTimeline } from "./CurriculumTimeline";
+import { DeliverablesPreview } from "./DeliverablesPreview";
 import { FaqSection } from "./FaqSection";
 import { HeroMock } from "./HeroMock";
+import { ImplementationFlowSection } from "./ImplementationFlowSection";
 import {
   LP_BRAND,
   LP_CHALLENGE_SECTION,
-  LP_COMPARISON,
-  LP_EVIDENCE_REPORT_SECTION,
+  LP_CTA,
   LP_FINAL_CTA,
   LP_HEADER_NAV,
   LP_HERO,
   LP_PRODUCT_DEMO,
-  LP_ROLES,
-  LP_SCENARIO,
-  LP_TRUST_SECTION,
-  LP_VALUE_FOOTNOTE,
-  LP_VALUE_PROPS
+  LP_SOLUTION_SECTION,
+  LP_USE_CASES
 } from "./lpContent";
 import { PricingPackages } from "./PricingPackages";
 import { ProductDemoTabs } from "./ProductDemoTabs";
-import { ScenarioTimeline } from "./ScenarioTimeline";
+import { ReviewSystemSection } from "./ReviewSystemSection";
+import { RoleTracksSection } from "./RoleTracksSection";
+import { StakeholderValueTabs } from "./StakeholderValueTabs";
 import { StickyCtaBar } from "./StickyCtaBar";
-import { TrustSection } from "./TrustSection";
-import { WorkflowTimeline } from "./WorkflowTimeline";
+import { UseCasesSection } from "./UseCasesSection";
 
 function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(false);
-
   useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia === "undefined") {
-      return;
-    }
+    if (typeof window === "undefined" || typeof window.matchMedia === "undefined") return;
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setReduced(media.matches);
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
-
   return reduced;
 }
 
 function useRevealSections(reducedMotion: boolean) {
   useEffect(() => {
     const nodes = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal='section']"));
-    if (nodes.length === 0) {
-      return;
-    }
+    if (nodes.length === 0) return;
     if (reducedMotion || typeof IntersectionObserver === "undefined") {
       nodes.forEach((node) => node.classList.add(styles.revealVisible));
       return;
     }
-
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -84,13 +76,13 @@ export function AIFieldReadyLanding() {
   const reducedMotion = usePrefersReducedMotion();
   useRevealSections(reducedMotion);
 
+  const heroLines = LP_HERO.heading.split("\n");
+
   return (
     <main className={`${uiStyles.marketingPage} ${styles.page}`}>
       <header className={`${uiStyles.lpHeader} ${styles.lpHeader}`}>
         <Link href="/" className={`${uiStyles.lpHeaderBrand} ${styles.headerBrand}`}>
-          <span className={uiStyles.lpHeaderBrandMark} aria-hidden>
-            ▲
-          </span>
+          <span className={uiStyles.lpHeaderBrandMark} aria-hidden>▲</span>
           <span className={styles.headerBrandText}>
             <strong>{LP_BRAND.name}</strong>
             <small>{LP_BRAND.tagline}</small>
@@ -107,79 +99,69 @@ export function AIFieldReadyLanding() {
 
         <div className={`${uiStyles.lpHeaderActions} ${styles.headerActions}`}>
           <Link
-            href="#sample-report"
+            href="#curriculum-download"
             className={uiStyles.actionGhost}
-            onClick={() => trackLpEvent("sample_report_cta_clicked", { source: "header" })}
+            onClick={() => trackLpEvent("curriculum_download_clicked", { source: "header" })}
           >
-            <IconText icon="fileCheck2">サンプル証跡レポートを見る</IconText>
+            <IconText icon="notebookText">{LP_CTA.secondary}</IconText>
           </Link>
           <Link
-            href="#demo"
+            href="/business/sign-up"
             className={uiStyles.actionPrimary}
-            onClick={() => trackLpEvent("hero_demo_cta_clicked", { source: "header" })}
+            onClick={() => trackLpEvent("hero_primary_cta_clicked", { source: "header" })}
           >
-            <IconText icon="rocket">無料デモを見る</IconText>
+            <IconText icon="rocket">{LP_CTA.primary}</IconText>
           </Link>
-          <Link href="/auth/sign-in" className={styles.loginLink}>
-            ログイン
-          </Link>
+          <Link href="/auth/sign-in" className={styles.loginLink}>ログイン</Link>
         </div>
       </header>
 
-      <section className={`${uiStyles.hero} ${uiStyles.heroMarketing} ${styles.hero}`} data-reveal="section">
+      <section className={`${uiStyles.hero} ${uiStyles.heroMarketing} ${styles.hero} ${styles.heroSplit}`} data-reveal="section">
         <div className={styles.heroContent}>
-          <span className={`${uiStyles.heroEyebrow} ${uiStyles.heroEyebrowMarketing}`}>
-            SES企業向け B2B 育成プラットフォーム
-          </span>
-          <h1 className={`${uiStyles.heroTitle} ${styles.heroTitle}`}>{LP_HERO.heading}</h1>
-          <p className={styles.heroBrandLine} aria-label="サービス名">
-            <span className={styles.heroBrandMark} aria-hidden>
-              ▲
-            </span>
-            <span>
-              <strong>{LP_BRAND.name}</strong>
-              <small>{LP_BRAND.tagline}</small>
-            </span>
-          </p>
-          <p className={uiStyles.heroLead}>{LP_HERO.subcopy}</p>
-
-          <ul className={styles.heroOutcomeList} aria-label="導入で得られる成果">
-            {LP_HERO.outcomes.map((outcome) => (
-              <li key={outcome.title} className={styles.heroOutcomeCard}>
-                <strong>{outcome.title}</strong>
-                <p>{outcome.body}</p>
-              </li>
+          <span className={`${uiStyles.heroEyebrow} ${uiStyles.heroEyebrowMarketing}`}>{LP_HERO.badge}</span>
+          <h1 className={`${uiStyles.heroTitle} ${styles.heroTitle}`}>
+            {heroLines.map((line, i) => (
+              <span key={line}>
+                {line}
+                {i < heroLines.length - 1 ? <br /> : null}
+              </span>
             ))}
-          </ul>
+          </h1>
+          <p className={styles.heroLead}>{LP_HERO.subcopy}</p>
+          <p className={styles.heroMessage}>{LP_HERO.trustMicrocopy}</p>
+
+          <div className={styles.heroBeforeAfter}>
+            <div>
+              <span>Before</span>
+              <p>{LP_HERO.beforeAfter.before}</p>
+            </div>
+            <div>
+              <span>After</span>
+              <p>{LP_HERO.beforeAfter.after}</p>
+            </div>
+          </div>
 
           <div className={styles.heroActions}>
             <Link
               href="/business/sign-up"
               className={uiStyles.actionPrimary}
-              onClick={() => trackLpEvent("diagnosis_cta_clicked", { source: "hero" })}
+              onClick={() => trackLpEvent("hero_primary_cta_clicked", { source: "hero" })}
             >
-              <IconText icon="rocket">待機人材10名の育成診断を相談する</IconText>
+              <IconText icon="rocket">{LP_CTA.primary}</IconText>
             </Link>
             <Link
-              href="#sample-report"
+              href="#curriculum-download"
               className={uiStyles.actionGhost}
-              onClick={() => trackLpEvent("sample_report_cta_clicked", { source: "hero" })}
+              onClick={() => trackLpEvent("curriculum_download_clicked", { source: "hero" })}
             >
-              <IconText icon="notebookText">サンプル証跡レポートを見る</IconText>
-            </Link>
-            <Link
-              href="#demo"
-              className={uiStyles.actionGhost}
-              onClick={() => trackLpEvent("hero_demo_cta_clicked", { source: "hero" })}
-            >
-              <IconText icon="layoutDashboard">無料デモを見る</IconText>
+              <IconText icon="notebookText">{LP_CTA.secondary}</IconText>
             </Link>
           </div>
-          <p className={styles.heroMessage}>
-            営業・教育・経営の共通言語は「実務証跡」。提案判断を早める材料を、SaaSで標準出力します。
-          </p>
         </div>
-        <HeroMock reducedMotion={reducedMotion} />
+
+        <div className={styles.heroVisual}>
+          <HeroMock reducedMotion={reducedMotion} />
+        </div>
       </section>
 
       <div id="challenges" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
@@ -197,29 +179,28 @@ export function AIFieldReadyLanding() {
       </div>
 
       <div id="solution" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
-        <Section
-          title="AI Field Readyとは"
-          meta="経営者 / 営業 / 教育担当の 3 つの立場から、導入価値を整理します。"
-        >
+        <Section title={LP_SOLUTION_SECTION.title} meta={LP_SOLUTION_SECTION.meta}>
           <div className={styles.valueGrid}>
-            {LP_VALUE_PROPS.map((prop) => (
+            {LP_SOLUTION_SECTION.values.map((prop) => (
               <article key={prop.id} className={styles.valueCard}>
                 <span className={styles.valueIconBadge}>
                   <AppIcon name={prop.icon} size={16} />
                 </span>
-                <p className={styles.valueStakeholder}>{prop.stakeholder}</p>
-                <h3>{prop.benefit}</h3>
-                <p>{prop.detail}</p>
+                <h3>{prop.title}</h3>
+                <p>{prop.body}</p>
               </article>
             ))}
           </div>
-          <p className={styles.valueFootnote}>{LP_VALUE_FOOTNOTE}</p>
+          <p className={styles.valueFootnote}>{LP_SOLUTION_SECTION.footnote}</p>
         </Section>
       </div>
 
-      <div data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
-        <Section title={LP_TRUST_SECTION.title} meta={LP_TRUST_SECTION.meta}>
-          <TrustSection />
+      <div id="stakeholders" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
+        <Section
+          title="経営・DX推進・人材開発・事業部門が、同じ成果物で意思決定できる"
+          meta="複数部門が関与するB2B購買で、各部門に刺さる導入価値を整理します。"
+        >
+          <StakeholderValueTabs reducedMotion={reducedMotion} />
         </Section>
       </div>
 
@@ -229,70 +210,79 @@ export function AIFieldReadyLanding() {
         </Section>
       </div>
 
-      <div id="evidence-report" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone4}`}>
+      <div id="curriculum" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone4}`}>
         <Section
-          title={
-            <>
-              <span className={styles.sectionHeadlineEyebrow}>{LP_EVIDENCE_REPORT_SECTION.eyebrow}</span>
-              <span className={styles.sectionHeadline}>{LP_EVIDENCE_REPORT_SECTION.title}</span>
-            </>
-          }
-          meta={LP_EVIDENCE_REPORT_SECTION.meta}
+          title="12週間で、AI活用アイデアをPoC計画・実装ロードマップまで引き上げる"
+          meta="各Weekで成果物を残し、最終週に経営・部門向け提案へ接続します。"
         >
-          <div id="sample-report">
-            <EvidenceReportPreview />
+          <CurriculumTimeline reducedMotion={reducedMotion} />
+        </Section>
+      </div>
+
+      <div id="roles" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
+        <Section
+          title="部門や役割に合わせて、7つのAI人材トラックを設計"
+          meta="受講者の職種や部門に応じて、ロール別の学習モジュールと成果物を割り当てます。"
+        >
+          <RoleTracksSection />
+        </Section>
+      </div>
+
+      <div id="deliverables" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
+        <Section
+          title="受講完了ではなく、AIプロジェクト化に必要な成果物を残す"
+          meta="研修のゴールは学習ログではなく、経営・部門が判断できる資料です。"
+        >
+          <div id="sample-deliverables">
+            <DeliverablesPreview />
           </div>
+          <div className={styles.deliverablesCta}>
+            <Link
+              href="#sample-deliverables"
+              className={uiStyles.actionGhost}
+              onClick={() => trackLpEvent("sample_deliverable_clicked", { source: "deliverables_section" })}
+            >
+              <IconText icon="fileCheck2">{LP_CTA.tertiary}</IconText>
+            </Link>
+          </div>
+        </Section>
+      </div>
+
+      <div id="review" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
+        <Section
+          title="提出して終わりではなく、実務品質までレビューする"
+          meta="AIレビューとメンターレビューの二段構えで、経営判断に使える品質まで引き上げます。"
+        >
+          <ReviewSystemSection />
+        </Section>
+      </div>
+
+      <div id="use-cases" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone4}`}>
+        <Section title={LP_USE_CASES.title} meta={LP_USE_CASES.meta}>
+          <UseCasesSection />
         </Section>
       </div>
 
       <div data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
-        <Section
-          title="育成できるAI/DX補助ロール"
-          meta="案件現場で説明しやすい、実務タスク単位のロールを 6 種育成対象としています。"
-        >
-          <div className={styles.roleGrid}>
-            {LP_ROLES.map((role) => (
-              <div key={role} className={styles.roleCard}>
-                <AppIcon name="target" size={16} />
-                <span>{role}</span>
-              </div>
-            ))}
-          </div>
-        </Section>
-      </div>
-
-      <div data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
-        <Section
-          title="業務フロー"
-          meta="案件要件 → 必要スキル → 育成 → 提出 → レビュー → 実務証跡 → 提案サマリーの一気通貫プロセス。"
-        >
-          <WorkflowTimeline reducedMotion={reducedMotion} />
-        </Section>
-      </div>
-
-      <div data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
-        <Section title={LP_COMPARISON.title} meta={LP_COMPARISON.meta}>
+        <Section title="AIリテラシー研修ではなく、AIプロジェクトを生み出す実践プログラム" meta="一般的なAI研修との比較です。">
           <ComparisonTable4 />
         </Section>
       </div>
 
-      <div data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
-        <Section title={LP_SCENARIO.title} meta={LP_SCENARIO.meta}>
-          <ScenarioTimeline />
-        </Section>
-      </div>
-
-      <div id="pricing" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone4}`}>
-        <Section
-          title="料金プラン（導入パッケージ）"
-          meta="導入目的別に 3 つのパッケージを用意しています。価格は補足情報、まずは得られる価値で選んでください。"
-        >
+      <div id="pricing" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
+        <Section title="目的に合わせて、AI人材育成からPoC創出まで段階導入" meta="企業規模・目的別の導入プランです。">
           <PricingPackages />
         </Section>
       </div>
 
-      <div id="faq" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
-        <Section title="FAQ" meta="導入検討時によくいただく質問。重要な 5 問は初期から開いてあります。">
+      <div id="implementation" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
+        <Section title="まずは1部門・1テーマから、無理なく開始できます" meta="導入から成果発表までの標準フローです。">
+          <ImplementationFlowSection />
+        </Section>
+      </div>
+
+      <div id="faq" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
+        <Section title="FAQ" meta="導入検討時によくいただく質問です。">
           <FaqSection />
         </Section>
       </div>
@@ -306,27 +296,28 @@ export function AIFieldReadyLanding() {
             href="/business/sign-up"
             className={uiStyles.actionPrimary}
             onClick={() => {
-              trackLpEvent("diagnosis_cta_clicked", { source: "final_cta" });
+              trackLpEvent("hero_primary_cta_clicked", { source: "final_cta" });
               trackLpEvent("final_cta_clicked", { cta: "diagnosis" });
             }}
           >
             <IconText icon="rocket">{LP_FINAL_CTA.primaryCta}</IconText>
           </Link>
           <Link
-            href="#sample-report"
+            href="#curriculum-download"
             className={uiStyles.actionGhost}
             onClick={() => {
-              trackLpEvent("sample_report_cta_clicked", { source: "final_cta" });
-              trackLpEvent("final_cta_clicked", { cta: "sample_report" });
+              trackLpEvent("curriculum_download_clicked", { source: "final_cta" });
+              trackLpEvent("final_cta_clicked", { cta: "curriculum" });
             }}
           >
             {LP_FINAL_CTA.secondaryCta}
           </Link>
         </div>
-        <p className={styles.finalCtaNote}>
-          ※ 診断レポートは無料です。導入の判断は診断後に決めていただけます。
-        </p>
       </section>
+
+      <div id="curriculum-download" className={styles.srOnly} aria-hidden>
+        カリキュラム資料請求フォーム（導入相談へ接続）
+      </div>
 
       <StickyCtaBar />
     </main>

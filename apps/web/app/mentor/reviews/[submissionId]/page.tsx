@@ -57,7 +57,7 @@ export default function MentorReviewDetailPage() {
   const [review, setReview] = useState<ReviewResult | null>(null);
   const [mentorReview, setMentorReview] = useState<ReviewResult | null>(null);
   const [comments, setComments] = useState(
-    "RAG評価の改善点を整理してください。指標 (MRR / Hit@K) の数値と、改善前後の比較を加えると営業利用可になります。"
+    "RAG評価の改善点を整理してください。指標 (MRR / Hit@K) の数値と、改善前後の比較を加えるとレビュー合格になります。"
   );
   const [reviewing, setReviewing] = useState(false);
   const [submittingMentor, setSubmittingMentor] = useState(false);
@@ -151,7 +151,7 @@ export default function MentorReviewDetailPage() {
         lead={
           <>
             AIレビュー結果・ルーブリックスコア・再提出履歴を確認し、承認 / 再提出 / 要面談を判断します。
-            承認すると営業利用可な証跡として記録されます。
+            承認するとPoC判断・部門提案に使える成果物として記録されます。
           </>
         }
         metrics={[
@@ -253,7 +253,7 @@ export default function MentorReviewDetailPage() {
 
         <Section
           title="メンター判断"
-          meta="承認 / 再提出 / 要面談 を選択。承認は営業利用可能証跡になります。"
+          meta="承認 / 再提出 / 要面談 を選択。承認はレビュー合格成果物になります。"
           theme="mentor"
           icon="shieldCheck"
         >
@@ -276,7 +276,7 @@ export default function MentorReviewDetailPage() {
               onClick={() => handleMentorDecision("approved")}
               disabled={submittingMentor}
             >
-              {submittingMentor ? "登録中…" : <IconText icon="checkCircle2">承認 (営業利用可)</IconText>}
+              {submittingMentor ? "登録中…" : <IconText icon="checkCircle2">承認 (レビュー合格)</IconText>}
             </button>
             <button
               type="button"

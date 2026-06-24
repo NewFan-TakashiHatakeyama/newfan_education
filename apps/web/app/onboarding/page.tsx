@@ -30,16 +30,15 @@ export default function OnboardingPage() {
       <section>
         <h2>同意ガイダンス</h2>
         <ul>
-          <li>学習データ・証跡データの利用目的を確認して同意してください。</li>
+          <li>学習データ・成果物データの利用目的を確認して同意してください。</li>
           <li>同意はいつでも変更可能で、変更履歴は設定画面で確認できます。</li>
-          <li>企業向けレポートに使う証跡品質を高めるため、演習提出時の記述を具体化してください。</li>
+          <li>企業向けレポートに使う成果物品質を高めるため、演習提出時の記述を具体化してください。</li>
         </ul>
       </section>
 
       <section>
         <h2>次のアクション</h2>
         <div className="inline-actions">
-          <Link href="/goals/new">目標を設定する</Link>
           <Link href="/settings/consents">同意設定を確認する</Link>
           <Link href="/learner/learn">受講者ホームへ進む</Link>
         </div>

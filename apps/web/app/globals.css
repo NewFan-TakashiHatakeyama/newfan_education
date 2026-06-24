@@ -173,6 +173,74 @@ a:hover {
   transform: translateY(-1px);
 }
 
+.user-menu {
+  position: relative;
+}
+
+.user-menu-trigger {
+  cursor: pointer;
+  font: inherit;
+}
+
+.user-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 8px;
+  z-index: 40;
+}
+
+.user-menu-heading {
+  margin: 0;
+  padding: 8px 10px 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.user-menu-role {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.user-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.user-menu-item:hover {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.user-menu-item-danger {
+  color: var(--danger);
+}
+
+.user-menu-item-danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--danger);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

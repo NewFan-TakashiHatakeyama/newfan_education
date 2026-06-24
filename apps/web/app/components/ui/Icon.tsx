@@ -156,15 +156,15 @@ export function resolveIconByText(text: string): AppIconName {
   const normalized = text.toLowerCase();
   if (includesAny(normalized, ["ダッシュボード", "dashboard", "ホーム", "hero"])) return "layoutDashboard";
   if (includesAny(normalized, ["要件", "requirement", "課題"])) return "clipboardList";
-  if (includesAny(normalized, ["待機人材", "受講者", "learner", "ユーザー"])) return "users";
+  if (includesAny(normalized, ["社内人材", "受講者", "learner", "ユーザー"])) return "users";
   if (includesAny(normalized, ["進捗", "達成", "completion", "到達"])) return "gauge";
   if (includesAny(normalized, ["レビュー待ち", "pending"])) return "clock3";
   if (includesAny(normalized, ["レビュー", "review", "評価"])) return "checkCircle2";
-  if (includesAny(normalized, ["証跡", "evidence", "提出"])) return "fileCheck2";
+  if (includesAny(normalized, ["成果物", "証跡", "evidence", "提出"])) return "fileCheck2";
   if (includesAny(normalized, ["ロール", "role"])) return "target";
   if (includesAny(normalized, ["フィルタ", "絞り込み", "filter"])) return "listFilter";
   if (includesAny(normalized, ["検索", "search", "キーワード"])) return "search";
-  if (includesAny(normalized, ["営業", "提案", "report", "サマリー"])) return "barChart3";
+  if (includesAny(normalized, ["経営", "部門", "提案", "report", "サマリー"])) return "barChart3";
   if (includesAny(normalized, ["ロードマップ", "roadmap"])) return "map";
   if (includesAny(normalized, ["学習", "演習", "教材", "learn"])) return "bookOpen";
   if (includesAny(normalized, ["企業", "company", "b2b"])) return "building2";

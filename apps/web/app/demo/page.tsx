@@ -11,7 +11,7 @@ export default function DemoPage() {
         <h2>デモで確認できる内容</h2>
         <ul>
           <li>学習計画から成果物作成までの学習導線</li>
-          <li>成果物証跡と評価履歴を用いた候補者確認</li>
+          <li>成果物と評価履歴を用いた受講者確認</li>
           <li>応募/提案の進行ステージ管理</li>
         </ul>
         <div className="inline-actions">

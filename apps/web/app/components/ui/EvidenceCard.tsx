@@ -45,8 +45,8 @@ function accentClass(strength?: string | null): string {
 export function EvidenceCard({
   evidence,
   ownerSlot,
-  useCaseLabel = "現場での使いどころ:",
-  rubricLabel = "評価ルーブリック"
+  useCaseLabel = "業務での適用シーン:",
+  rubricLabel = "評価観点"
 }: {
   evidence: EvidenceItem;
   ownerSlot?: ReactNode;

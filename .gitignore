@@ -16,3 +16,5 @@ __pycache__/
 # IDE
 .DS_Store
 Thumbs.db
+docs/*.md
+docs/*.zip

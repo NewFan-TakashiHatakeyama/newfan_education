@@ -109,11 +109,11 @@ export default function MentorReviewsPage() {
         theme="mentor"
         ariaLabel="メンターレビュー"
         eyebrow="レビュー待ち"
-        title="待機人材の育成演習を承認し、実務証跡を育てる"
+        title="受講者の育成演習を承認し、成果物を育てる"
         lead={
           <>
-            待機人材の育成演習提出を確認し、AI 評価・ルーブリックスコアをもとに承認 / 差戻し / 要面談を判断します。
-            メンター承認後に営業証跡として活用でき、案件面談の品質向上と教育担当の負荷軽減につながります。
+            受講者の育成演習提出を確認し、AI 評価・ルーブリックスコアをもとに承認 / 差戻し / 要面談を判断します。
+            メンター承認後にPoC判断・部門提案に活用でき、成果物品質の向上と教育担当の負荷軽減につながります。
           </>
         }
         metrics={[
@@ -148,7 +148,7 @@ export default function MentorReviewsPage() {
 
       <Section
         title={`レビューキュー (${filtered.length} 件)`}
-        meta="提出日 / 待機人材 / 育成演習 / AI 評価サマリーを一覧表示。"
+        meta="提出日 / 受講者 / 育成演習 / AI 評価サマリーを一覧表示。"
         theme="mentor"
         icon="clipboardCheck"
       >
@@ -159,7 +159,7 @@ export default function MentorReviewsPage() {
             <EmptyState
               icon={<AppIcon name="circleDashed" size={24} />}
               title="レビュー待ちはありません"
-              message="待機人材の新しい育成演習提出があると、ここに表示されます。"
+              message="受講者の新しい育成演習提出があると、ここに表示されます。"
             />
           ) : (
             <EmptyState
@@ -253,8 +253,8 @@ export default function MentorReviewsPage() {
                     {s.status === "submitted"
                       ? "AI 評価とルーブリックを確認 → 承認 / 差戻し / 要面談を判断"
                       : s.status === "needs_resubmit"
-                      ? "差戻し理由を明示。改善履歴として実務証跡に残ります"
-                      : "AI 評価済。営業証跡の材料にするにはメンター承認を実施"}
+                      ? "差戻し理由を明示。改善履歴として成果物に残ります"
+                      : "AI 評価済。PoC判断向け成果物にするにはメンター承認を実施"}
                   </div>
 
                   <div className={styles.actionRow}>

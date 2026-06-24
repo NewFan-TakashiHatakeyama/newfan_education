@@ -33,8 +33,8 @@ const TABS: Array<TabOption<TabKey>> = [
   { value: "roadmap", label: "ロードマップ" },
   { value: "submissions", label: "提出物" },
   { value: "review", label: "レビュー" },
-  { value: "evidence", label: "証跡" },
-  { value: "fit", label: "案件適合" },
+  { value: "evidence", label: "成果物" },
+  { value: "fit", label: "AIテーマ適合" },
   { value: "history", label: "履歴" }
 ];
 
@@ -117,7 +117,7 @@ export default function CompanyLearnerDetailPage() {
         lead={
           <>
             {detail.teamName} / 目標ロール:{" "}
-            <strong>{detail.targetRole}</strong> · タブ切替で進捗・提出・レビュー・証跡・案件適合・履歴を確認できます。
+            <strong>{detail.targetRole}</strong> · タブ切替で進捗・提出・レビュー・成果物・AIテーマ適合・履歴を確認できます。
           </>
         }
         readiness={readiness}
@@ -136,10 +136,10 @@ export default function CompanyLearnerDetailPage() {
             hint: "メンター承認待ちの提出"
           },
           {
-            label: "累計証跡",
+            label: "累計成果物",
             value: learnerEvidence.length,
             suffix: "件",
-            hint: `強い証跡 ${strongCount} 件`
+            hint: `強い成果物 ${strongCount} 件`
           }
         ]}
         actions={
@@ -151,7 +151,7 @@ export default function CompanyLearnerDetailPage() {
               ロードマップを再割当
             </Link>
             <Link href="/company/reports" className={styles.actionPrimary}>
-              営業サマリーを生成
+              AIプロジェクト候補レポートを生成
             </Link>
           </>
         }
@@ -168,7 +168,7 @@ export default function CompanyLearnerDetailPage() {
                 {detail.targetRole}
               </p>
               <p className={styles.kpiHint}>
-                配属準備度: <strong>{readiness}</strong>
+                実務準備度: <strong>{readiness}</strong>
               </p>
             </div>
             <div className={styles.kpiTile}>
@@ -237,8 +237,8 @@ export default function CompanyLearnerDetailPage() {
           learnerEvidence.length === 0 ? (
             <EmptyState
               icon="✶"
-              title="この受講者の証跡はまだありません"
-              message="課題提出と AI レビューが進むと証跡が積み上がります。"
+              title="この受講者の成果物はまだありません"
+              message="課題提出と AI レビューが進むと成果物が積み上がります。"
             />
           ) : (
             <div className={styles.evidenceGrid}>
@@ -252,11 +252,11 @@ export default function CompanyLearnerDetailPage() {
         {activeTab === "fit" ? (
           <EmptyState
             icon="◆"
-            title="案件適合タブ"
-            message="登録済み案件要件との適合度評価は、案件要件画面から個別に実行してください。"
+            title="AIテーマ適合タブ"
+            message="登録済み業務課題との適合度評価は、業務課題画面から個別に実行してください。"
             action={
               <Link href="/company/requirements" className={styles.actionPrimary}>
-                案件要件画面へ
+                業務課題画面へ
               </Link>
             }
           />

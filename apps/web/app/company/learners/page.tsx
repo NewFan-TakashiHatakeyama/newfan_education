@@ -26,8 +26,8 @@ type ReadinessFilter = "all" | ReadinessLevel;
 
 const READINESS_FILTERS: Array<FilterOption<ReadinessFilter>> = [
   { value: "all", label: "すべて" },
-  { value: "Ready", label: "Ready（即提案可）" },
-  { value: "Almost", label: "Almost（補助付き）" },
+  { value: "Ready", label: "Ready（PoC着手可）" },
+  { value: "Almost", label: "Almost（メンター伴走）" },
   { value: "Need Training", label: "Need Training（追加育成）" },
   { value: "Not Started", label: "Not Started（未着手）" }
 ];
@@ -55,7 +55,7 @@ export default function CompanyLearnersPage() {
           setError(
             err instanceof Error
               ? err.message
-              : "待機人材一覧の取得に失敗しました。"
+              : "受講者一覧の取得に失敗しました。"
           );
         }
       });
@@ -121,19 +121,19 @@ export default function CompanyLearnersPage() {
     <main className={styles.page}>
       <PageHero
         theme="company"
-        ariaLabel="待機人材一覧"
+        ariaLabel="受講者一覧"
         eyebrow="受講者一覧"
-        title="待機人材の育成進捗と配属準備度を一覧で確認"
+        title="受講者の育成進捗と実務準備度を一覧で確認"
         lead={
           <>
-            待機人材の氏名・所属・目標ロール・ロードマップ進捗・レビュー待ち提出・到達スキル・配属準備度を
-            横断的に比較します。即提案可・補助付きの候補や追加育成が必要なメンバーを素早く特定できます。
+            受講者の氏名・所属・目標ロール・ロードマップ進捗・レビュー待ち提出・到達スキル・実務準備度を
+            横断的に比較します。PoC着手可・メンター伴走が必要なメンバーを素早く特定できます。
           </>
         }
         metrics={[
-          { label: "待機人材", value: summary.total, suffix: "名", hint: "育成対象として登録済み" },
-          { label: "Ready", value: summary.ready, suffix: "名", hint: "即提案可" },
-          { label: "Almost", value: summary.almost, suffix: "名", hint: "補助付き" },
+          { label: "受講者", value: summary.total, suffix: "名", hint: "育成対象として登録済み" },
+          { label: "Ready", value: summary.ready, suffix: "名", hint: "PoC着手可" },
+          { label: "Almost", value: summary.almost, suffix: "名", hint: "メンター伴走" },
           {
             label: "Need Training",
             value: summary.need,
@@ -147,7 +147,7 @@ export default function CompanyLearnersPage() {
               <IconText icon="map">ロードマップを割り当て</IconText>
             </Link>
             <Link href="/company/reports" className={styles.actionGhost}>
-              <IconText icon="barChart3">営業サマリーを生成</IconText>
+              <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
             </Link>
           </>
         }
@@ -164,7 +164,7 @@ export default function CompanyLearnersPage() {
 
       <Section
         title="絞り込み"
-        meta="氏名・所属・目標ロール・配属準備度で絞り込みできます。"
+        meta="氏名・所属・目標ロール・実務準備度で絞り込みできます。"
         theme="company"
         icon="funnel"
       >
@@ -195,7 +195,7 @@ export default function CompanyLearnersPage() {
             onChange={setRoleFilter}
           />
           <FilterChips
-            label="配属準備度"
+            label="実務準備度"
             options={READINESS_FILTERS}
             selected={readinessFilter}
             onChange={setReadinessFilter}
@@ -204,8 +204,8 @@ export default function CompanyLearnersPage() {
       </Section>
 
       <Section
-        title={`待機人材一覧 (${filtered.length} 名)`}
-        meta="詳細画面からロードマップ・実務証跡・案件適合・営業・配属判断を確認できます。"
+        title={`受講者一覧 (${filtered.length} 名)`}
+        meta="詳細画面からロードマップ・成果物・AIテーマ適合・プロジェクト候補を確認できます。"
         theme="company"
         icon="users"
       >
@@ -215,8 +215,8 @@ export default function CompanyLearnersPage() {
           (learners?.length ?? 0) === 0 ? (
             <EmptyState
               icon={<AppIcon name="circleDashed" size={24} />}
-              title="待機人材がまだ登録されていません"
-              message="必要な権限を持つアカウントでサインインし、待機人材を招待してください。"
+              title="受講者がまだ登録されていません"
+              message="必要な権限を持つアカウントでサインインし、受講者を招待してください。"
               action={
                 <Link href="/auth/sign-in" className={styles.actionPrimary}>
                   <IconText icon="userRound">サインインを開く</IconText>
@@ -226,7 +226,7 @@ export default function CompanyLearnersPage() {
           ) : (
             <EmptyState
               icon={<AppIcon name="funnel" size={24} />}
-              title="該当する待機人材がありません"
+              title="該当する受講者がありません"
               message="絞り込み条件を緩めるか、別のキーワードでお試しください。"
               action={
                 <button
@@ -254,7 +254,7 @@ export default function CompanyLearnersPage() {
                   <th scope="col">育成進捗</th>
                   <th scope="col">レビュー待ち提出</th>
                   <th scope="col">到達スキル</th>
-                  <th scope="col">配属準備度</th>
+                  <th scope="col">実務準備度</th>
                   <th scope="col">操作</th>
                 </tr>
               </thead>

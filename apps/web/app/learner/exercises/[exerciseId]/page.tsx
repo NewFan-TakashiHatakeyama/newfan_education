@@ -141,7 +141,7 @@ export default function LearnerExercisePage() {
           <>
             <strong>{exercise.prompt}</strong>
             <br />
-            実行と提出を繰り返し、AI レビュー合格を目指します。失敗は減点ではなく改善履歴として証跡化されます。
+            実行と提出を繰り返し、AI レビュー合格を目指します。失敗は減点ではなく改善履歴として成果物化されます。
           </>
         }
         metrics={[

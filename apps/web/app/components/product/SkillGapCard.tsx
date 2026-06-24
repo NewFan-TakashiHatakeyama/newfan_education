@@ -15,7 +15,7 @@ export function SkillGapCard({
     <li>
       <strong>{skill}</strong>
       <p className="muted">
-        現在: {current} / 目標: {target} / 差分: {gap} / 証跡数: {evidenceCount}
+        現在: {current} / 目標: {target} / 差分: {gap} / 成果物数: {evidenceCount}
       </p>
     </li>
   );

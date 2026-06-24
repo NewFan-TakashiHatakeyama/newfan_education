@@ -7,50 +7,51 @@ import { AppIcon } from "@/app/components/ui";
 import { trackLpEvent } from "@/lib/lp-analytics";
 
 import styles from "./aiFieldReadyLanding.module.css";
+import { LP_CTA } from "./lpContent";
 
 export function StickyCtaBar() {
   return (
     <>
       <aside className={styles.stickyDesktop} aria-label="固定アクション">
-        <p className={styles.stickyHeading}>商談化のための最短ルート</p>
+        <p className={styles.stickyHeading}>AI人材育成の第一歩</p>
         <Link
           href="/business/sign-up"
           className={styles.stickyPrimary}
           onClick={() => trackLpEvent("sticky_cta_clicked", { cta: "diagnosis" })}
         >
           <AppIcon name="rocket" size={14} />
-          待機人材10名の育成診断を相談する
+          {LP_CTA.primary}
         </Link>
         <Link
-          href="#sample-report"
+          href="#curriculum-download"
           className={styles.stickyGhost}
-          onClick={() => trackLpEvent("sticky_cta_clicked", { cta: "sample_report" })}
+          onClick={() => trackLpEvent("sticky_cta_clicked", { cta: "curriculum" })}
         >
-          サンプル証跡レポートを見る
+          {LP_CTA.secondary}
         </Link>
         <Link
-          href="#demo"
+          href="#sample-deliverables"
           className={styles.stickyGhost}
-          onClick={() => trackLpEvent("sticky_cta_clicked", { cta: "demo" })}
+          onClick={() => trackLpEvent("sticky_cta_clicked", { cta: "sample" })}
         >
-          無料デモを見る
+          {LP_CTA.tertiary}
         </Link>
       </aside>
 
       <div className={styles.stickyMobile} aria-label="モバイル用 固定 CTA">
         <Link
-          href="#sample-report"
+          href="#curriculum-download"
           className={styles.stickyMobileGhost}
-          onClick={() => trackLpEvent("sticky_cta_clicked", { cta: "sample_report" })}
+          onClick={() => trackLpEvent("sticky_cta_clicked", { cta: "curriculum" })}
         >
-          サンプル証跡レポート
+          資料を見る
         </Link>
         <Link
-          href="#demo"
+          href="/business/sign-up"
           className={styles.stickyMobilePrimary}
-          onClick={() => trackLpEvent("sticky_cta_clicked", { cta: "demo" })}
+          onClick={() => trackLpEvent("sticky_cta_clicked", { cta: "diagnosis" })}
         >
-          無料デモを見る
+          診断を相談
         </Link>
       </div>
     </>

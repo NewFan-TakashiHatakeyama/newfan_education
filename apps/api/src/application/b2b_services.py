@@ -212,7 +212,7 @@ class B2BService:
             f"{learner['name']} は {learner['targetRole']} として {learner['roadmapCompletionRate']}% を達成。"
             f" 要件 {requirement['title']} に対し {', '.join(requirement['requiredSkills'][:2])} の証跡が確認できます。"
         )
-        return {"id": report_id, "title": "営業提案サマリー", "summary": summary}
+        return {"id": report_id, "title": "AIプロジェクト提案書", "summary": summary}
 
     def create_report_export_job(self, actor: UserContext, report_id: str, report_format: str) -> dict:
         self._assert_roles(actor, {"admin", "recruiter", "content_editor"})
@@ -243,7 +243,7 @@ class B2BService:
         self._assert_roles(actor, {"admin", "recruiter", "content_editor"})
         return {
             "id": report_id,
-            "title": "営業提案サマリー",
+            "title": "AIプロジェクト提案書",
             "summary": "レポートは非同期エクスポート対象です。",
         }
 

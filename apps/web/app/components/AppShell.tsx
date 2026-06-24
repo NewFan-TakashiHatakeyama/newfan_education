@@ -6,9 +6,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { AuthSession, Role } from "@newfan/contracts";
 
 import { AppIcon, type AppIconName } from "@/app/components/ui";
+import { UserMenu } from "@/app/components/UserMenu";
 import { getDemoAuthSession, isDemoAuthenticated, isPublicAuthPath } from "@/lib/auth";
-import { getMessageThreads, getNotifications } from "@/lib/api";
-import { buildMessagesLink } from "@/lib/messageLinks";
+import { getNotifications } from "@/lib/api";
 import { buildNotificationCenterLink } from "@/lib/notificationLinks";
 
 type NavSection = "company" | "learner" | "mentor" | "common";
@@ -23,17 +23,17 @@ type NavItem = {
 const SIDEBAR_COLLAPSE_STORAGE_KEY = "newfan.sidebar.collapsed";
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/company/dashboard", label: "企業サマリー", section: "company", icon: "layoutDashboard" },
+  { href: "/company/dashboard", label: "企業ダッシュボード", section: "company", icon: "layoutDashboard" },
   { href: "/company/learners", label: "受講者進捗", section: "company", icon: "users" },
-  { href: "/company/roadmaps", label: "育成計画", section: "company", icon: "map" },
-  { href: "/company/requirements", label: "案件要件", section: "company", icon: "clipboardList" },
-  { href: "/company/fit-assessments", label: "案件適合度の履歴", section: "company", icon: "chart" },
-  { href: "/company/evidence", label: "証跡一覧", section: "company", icon: "fileCheck2" },
-  { href: "/company/reports", label: "営業提案サマリー", section: "company", icon: "barChart3" },
-  { href: "/company/teams", label: "チーム管理", section: "company", icon: "userRound" },
+  { href: "/company/roadmaps", label: "育成ロードマップ", section: "company", icon: "map" },
+  { href: "/company/requirements", label: "業務課題", section: "company", icon: "clipboardList" },
+  { href: "/company/fit-assessments", label: "AIテーマ診断", section: "company", icon: "chart" },
+  { href: "/company/evidence", label: "成果物一覧", section: "company", icon: "fileCheck2" },
+  { href: "/company/reports", label: "AIプロジェクト候補", section: "company", icon: "barChart3" },
+  { href: "/company/teams", label: "部門管理", section: "company", icon: "userRound" },
   { href: "/company/settings", label: "企業設定", section: "company", icon: "building2" },
   { href: "/learner/learn", label: "学習ホーム", section: "learner", icon: "bookOpen" },
-  { href: "/learner/evidence", label: "自分の証跡", section: "learner", icon: "fileSearch" },
+  { href: "/learner/evidence", label: "自分の成果物", section: "learner", icon: "fileSearch" },
   { href: "/mentor/reviews", label: "レビュー承認 (メンター)", section: "mentor", icon: "shieldCheck" },
   { href: "/notifications", label: "通知一覧", section: "common", icon: "messageSquare" },
   { href: "/admin", label: "管理者ダッシュボード", section: "common", icon: "gauge" },
@@ -66,10 +66,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [importantUnreadCount, setImportantUnreadCount] = useState<number>(0);
-  const [unreadThreadCount, setUnreadThreadCount] = useState<number>(0);
   const [notificationHref, setNotificationHref] = useState<string>("/notifications");
   const [importantNotificationHref, setImportantNotificationHref] = useState<string>("/notifications?unread=true");
-  const [, setMessagesHref] = useState<string>("/messages");
   const [authSession, setAuthSession] = useState<AuthSession>(() => getDemoAuthSession());
   const [isAuthResolved, setIsAuthResolved] = useState<boolean>(false);
   const [isSideNavCollapsed, setIsSideNavCollapsed] = useState<boolean>(() => {
@@ -127,15 +125,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [router, shouldRedirectToSignIn]);
 
   useEffect(() => {
-    if (!isAuthenticated || !isAuthResolved) {
+    if (!shouldRenderShellChrome || !isAuthenticated || !isAuthResolved) {
       return;
     }
     let active = true;
-    Promise.all([
-      getNotifications({ unread: true }),
-      getMessageThreads({ unread: true })
-    ])
-      .then(([notificationResult, threadResult]) => {
+    Promise.all([getNotifications({ unread: true })])
+      .then(([notificationResult]) => {
         if (active) {
           setUnreadCount(notificationResult.unreadCount);
           setImportantUnreadCount(
@@ -161,33 +156,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           } else {
             setImportantNotificationHref("/notifications?unread=true");
           }
-          const firstUnreadThread = threadResult.threads[0];
-          setUnreadThreadCount(threadResult.threads.length);
-          if (firstUnreadThread) {
-            setMessagesHref(buildMessagesLink({
-              tab: firstUnreadThread.channel,
-              unreadOnly: true,
-              threadId: firstUnreadThread.id
-            }));
-          } else {
-            setMessagesHref("/messages");
-          }
         }
       })
       .catch(() => {
         if (active) {
           setUnreadCount(0);
           setImportantUnreadCount(0);
-          setUnreadThreadCount(0);
           setNotificationHref("/notifications");
           setImportantNotificationHref("/notifications?unread=true");
-          setMessagesHref("/messages");
         }
       });
     return () => {
       active = false;
     };
-  }, [isAuthResolved, isAuthenticated, pathname]);
+  }, [isAuthResolved, isAuthenticated, pathname, shouldRenderShellChrome]);
 
   const groupedNav: Record<NavSection, NavItem[]> = {
     company: [],
@@ -201,7 +183,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const visibleUnreadCount = shouldRenderShellChrome ? unreadCount : 0;
   const visibleImportantUnreadCount = shouldRenderShellChrome ? importantUnreadCount : 0;
-  const visibleUnreadThreadCount = shouldRenderShellChrome ? unreadThreadCount : 0;
   const visibleNotificationHref = shouldRenderShellChrome ? notificationHref : "/notifications";
   const visibleImportantNotificationHref = shouldRenderShellChrome
     ? importantNotificationHref
@@ -228,11 +209,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               ▲
             </span>
             <strong>Newfan Education</strong>
-            <span className="brand-tag">AI Field Ready</span>
+            <span className="brand-tag">AI Field Ready Enterprise</span>
           </Link>
           <input
             aria-label="横断検索"
-            placeholder="受講者・教材・証跡・レポートを検索"
+            placeholder="受講者・教材・成果物・AIテーマを検索"
             className="top-search"
           />
         </div>
@@ -247,15 +228,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               {`重要 ${visibleImportantUnreadCount}`}
             </Link>
           ) : null}
-          {visibleUnreadThreadCount > 0 ? (
-            <span className="status-pill status-info" aria-label={`未読スレッド ${visibleUnreadThreadCount} 件`}>
-              {`スレッド ${visibleUnreadThreadCount}`}
-            </span>
-          ) : null}
-          <Link href="/auth/sign-in" className="ghost-button">
-            <span aria-hidden>👤</span>
-            {isAuthenticated ? `${authSession.userId} · ${authSession.role}` : "ログイン"}
-          </Link>
+          {isAuthenticated ? (
+            <UserMenu session={authSession} />
+          ) : (
+            <Link href="/auth/sign-in" className="ghost-button">
+              <span aria-hidden>👤</span>
+              ログイン
+            </Link>
+          )}
         </div>
       </header>
 

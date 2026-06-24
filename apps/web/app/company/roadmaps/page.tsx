@@ -110,11 +110,11 @@ export default function CompanyRoadmapsPage() {
         theme="company"
         ariaLabel="ロードマップ割当"
         eyebrow="ロードマップ割当"
-        title="待機人材へ、案件要件から逆算した育成ロードマップを割り当てる"
+        title="受講者へ、業務課題起点の育成ロードマップを割り当てる"
         lead={
           <>
-            AI/DXロール別テンプレを選び、待機人材へ案件に近づく育成タスクを割り当てます。
-            案件で求められるスキルを30〜90分のスモールタスクに分解し、実務証跡の蓄積と配属準備度の向上につなげます。
+            7つのAI人材トラック別テンプレを選び、受講者へ12週間プログラムの学習タスクを割り当てます。
+            業務課題から逆算した成果物作成タスクを配布し、PoC候補化につなげます。
           </>
         }
         metrics={[
@@ -122,13 +122,13 @@ export default function CompanyRoadmapsPage() {
             label: "ロールテンプレート",
             value: templates?.length ?? 0,
             suffix: "種",
-            hint: "AI/DXロール別の育成テンプレ"
+            hint: "AI人材トラック別の育成テンプレ"
           },
           {
-            label: "待機人材",
+            label: "受講者",
             value: learners?.length ?? 0,
             suffix: "名",
-            hint: "待機人材一覧と同期"
+            hint: "受講者一覧と同期"
           },
           {
             label: "本セッションの割当",
@@ -140,10 +140,10 @@ export default function CompanyRoadmapsPage() {
         actions={
           <>
             <Link href="/company/learners" className={styles.actionGhost}>
-              <IconText icon="users">待機人材一覧へ</IconText>
+              <IconText icon="users">受講者一覧へ</IconText>
             </Link>
             <Link href="/company/requirements" className={styles.actionGhost}>
-              <IconText icon="clipboardList">案件要件を登録</IconText>
+              <IconText icon="clipboardList">業務課題を登録</IconText>
             </Link>
           </>
         }
@@ -160,7 +160,7 @@ export default function CompanyRoadmapsPage() {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: "1rem" }}>
         <Section
           title="ロールテンプレートを選ぶ"
-          meta="AI/DXロール別に、案件適合に必要なスキルと育成タスクが定義済みです。"
+          meta="AI人材トラック別に、成果物作成に必要な学習モジュールと演習タスクが定義済みです。"
           theme="company"
           icon="target"
         >
@@ -228,19 +228,19 @@ export default function CompanyRoadmapsPage() {
         </Section>
 
         <Section
-          title="待機人材に割り当てる"
-          meta="選択したテンプレの育成タスクを待機人材へ割当。割当履歴はこのセッション中のみ保持されます。"
+          title="受講者に割り当てる"
+          meta="選択したテンプレの育成タスクを受講者へ割当。割当履歴はこのセッション中のみ保持されます。"
           theme="company"
           icon="users"
         >
           {(learners ?? []).length === 0 ? (
             <EmptyState
               icon={<AppIcon name="circleDashed" size={24} />}
-              title="待機人材がまだ登録されていません"
-              message="待機人材一覧から登録・招待してください。"
+              title="受講者がまだ登録されていません"
+              message="受講者一覧から登録・招待してください。"
               action={
                 <Link href="/company/learners" className={styles.actionGhost}>
-                  <IconText icon="users">待機人材一覧へ</IconText>
+                  <IconText icon="users">受講者一覧へ</IconText>
                 </Link>
               }
             />
@@ -248,7 +248,7 @@ export default function CompanyRoadmapsPage() {
             <>
               <div className={styles.field}>
                 <label htmlFor="assign-learner" className={styles.fieldLabel}>
-                  割当対象の待機人材
+                  割当対象の受講者
                 </label>
                 <select
                   id="assign-learner"
@@ -329,7 +329,7 @@ export default function CompanyRoadmapsPage() {
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="まだ割当がありません"
-            message="左でテンプレを選び、右で待機人材を選んで「育成ロードマップを割当する」を押すと、ここに記録されます。"
+            message="左でテンプレを選び、右で受講者を選んで「育成ロードマップを割当する」を押すと、ここに記録されます。"
           />
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "0.5rem" }}>

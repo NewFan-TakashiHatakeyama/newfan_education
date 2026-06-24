@@ -27,13 +27,13 @@ import { AppIcon, IconText } from "@/app/components/ui/Icon";
 import styles from "@/app/components/ui/ui.module.css";
 
 const STARTER_TEMPLATE = {
-  title: "FAQ RAG検証支援",
-  description: "受注案件のPoC事前検証。検索精度評価と改善案提示を待機人材が担当する想定。",
+  title: "社内FAQ RAG検証",
+  description: "カスタマーサポート部門の問い合わせ対応を改善するため、社内FAQ文書を対象にRAG検証を行う業務課題。",
   requiredSkills: "Python, RAG, 検索評価",
   optionalSkills: "LangChain, Bedrock, OpenSearch",
-  expectedTasks: "データ整理、検索評価、改善レポート作成",
-  engagementLevel: "補助",
-  salesNote: "顧客は AWS Bedrock 環境。検索改善PoC向けに即提案可〜補助付きの待機人材を探している。"
+  expectedTasks: "文書棚卸し、検索評価、改善レポート作成",
+  engagementLevel: "担当",
+  salesNote: "Bedrock環境を利用予定。DX推進チームと情シスが連携し、PoC着手候補として整理中。"
 };
 
 export default function CompanyRequirementsPage() {
@@ -62,7 +62,7 @@ export default function CompanyRequirementsPage() {
         setError(
           err instanceof Error
             ? err.message
-            : "登録済み案件要件の取得に失敗しました。必要な権限を持つアカウントでサインインして、再読み込みしてください。"
+            : "登録済み業務課題の取得に失敗しました。必要な権限を持つアカウントでサインインして、再読み込みしてください。"
         );
       });
   };
@@ -92,7 +92,7 @@ export default function CompanyRequirementsPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "案件要件の登録に失敗しました。必要な権限を持つアカウントでサインインしてください。"
+          : "業務課題の登録に失敗しました。必要な権限を持つアカウントでサインインしてください。"
       );
     } finally {
       setSubmitting(false);
@@ -112,7 +112,7 @@ export default function CompanyRequirementsPage() {
       const result = await assessRequirement(drawerRequirement.id);
       setAssessment(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "案件適合度の評価に失敗しました。");
+      setError(err instanceof Error ? err.message : "AIテーマ適合度の評価に失敗しました。");
     } finally {
       setAssessing(false);
     }
@@ -130,45 +130,45 @@ export default function CompanyRequirementsPage() {
     <main className={styles.page}>
       <PageHero
         theme="company"
-        ariaLabel="案件要件管理"
-        eyebrow="案件要件管理"
-        title="受注案件の要件を登録し、待機人材育成と営業提案に活かす"
+        ariaLabel="業務課題管理"
+        eyebrow="業務課題"
+        title="社内の業務課題を登録し、AIテーマ化と育成計画に活かす"
         lead={
           <>
-            顧客案件の必須/歓迎スキル・業務内容を登録し、待機人材との案件適合度を即時評価します。
-            一致スキル・不足スキル・提案候補を把握し、育成計画の逆算と営業・配属判断につなげます。
+            部門ごとの業務課題・必須/歓迎スキル・業務内容を登録し、受講者とのAIテーマ適合度を即時評価します。
+            一致スキル・不足スキル・推奨受講者を把握し、育成計画の逆算とAIプロジェクト候補の選定につなげます。
           </>
         }
         metrics={[
           {
-            label: "登録済み案件要件",
+            label: "登録済み業務課題",
             value: items?.length ?? 0,
             suffix: "件",
-            hint: "受注案件の要件登録数"
+            hint: "社内業務課題の登録数"
           },
           {
-            label: "待機人材",
+            label: "受講者",
             value: learners.length,
             suffix: "名",
-            hint: "案件適合度の評価対象"
+            hint: "AIテーマ適合度の評価対象"
           },
           {
-            label: "営業提案候補",
+            label: "PoC推進候補",
             value: learners.filter((l) => l.readiness === "Ready" || l.readiness === "Almost").length,
             suffix: "名",
-            hint: "即提案可 / 補助付き"
+            hint: "PoC着手可 / メンター伴走"
           }
         ]}
         actions={
           <>
             <Link href="/company/reports" className={styles.actionPrimary}>
-              <IconText icon="barChart3">営業サマリーを生成</IconText>
+              <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
             </Link>
             <Link href="/company/fit-assessments" className={styles.actionGhost}>
-              <IconText icon="scanSearch">適合度履歴を表示</IconText>
+              <IconText icon="scanSearch">診断履歴を表示</IconText>
             </Link>
             <Link href="/company/learners" className={styles.actionGhost}>
-              <IconText icon="users">待機人材一覧へ</IconText>
+              <IconText icon="users">受講者一覧へ</IconText>
             </Link>
           </>
         }
@@ -183,8 +183,8 @@ export default function CompanyRequirementsPage() {
       ) : null}
 
       <Section
-        title="受注案件の要件を登録"
-        meta="必須/歓迎スキル・業務内容・稼働レベルを入力。営業メモはチーム内メモとして利用できます。"
+        title="業務課題を登録"
+        meta="必須/歓迎スキル・業務内容・担当レベルを入力。部門メモはチーム内の整理用として利用できます。"
         theme="company"
         icon="clipboardList"
       >
@@ -192,7 +192,7 @@ export default function CompanyRequirementsPage() {
           <div className={styles.formGridTwo}>
             <div className={styles.field}>
               <label htmlFor="req-title" className={styles.fieldLabel}>
-                案件名
+                課題名
               </label>
               <input
                 id="req-title"
@@ -204,7 +204,7 @@ export default function CompanyRequirementsPage() {
             </div>
             <div className={styles.field}>
               <label htmlFor="req-level" className={styles.fieldLabel}>
-                稼働レベル（補助 / 担当 / リード）
+                担当レベル（補助 / 担当 / リード）
               </label>
               <select
                 id="req-level"
@@ -268,7 +268,7 @@ export default function CompanyRequirementsPage() {
             </div>
             <div className={styles.field}>
               <label htmlFor="req-sales" className={styles.fieldLabel}>
-                営業メモ（顧客背景・商談状況）
+                部門メモ（背景・優先度・連携先）
               </label>
               <input
                 id="req-sales"
@@ -280,7 +280,7 @@ export default function CompanyRequirementsPage() {
           </div>
           <div className={styles.actionRow}>
             <button type="submit" className={styles.actionPrimary} disabled={submitting}>
-              {submitting ? "登録中…" : <IconText icon="send">要件を登録する</IconText>}
+              {submitting ? "登録中…" : <IconText icon="send">業務課題を登録する</IconText>}
             </button>
             <button
               type="button"
@@ -302,8 +302,8 @@ export default function CompanyRequirementsPage() {
       </Section>
 
       <Section
-        title={`登録済み案件要件 (${items?.length ?? 0} 件)`}
-        meta="『案件適合度を評価』から、待機人材とのマッチング結果を確認できます。"
+        title={`登録済み業務課題 (${items?.length ?? 0} 件)`}
+        meta="『AIテーマ適合度を評価』から、受講者とのマッチング結果を確認できます。"
         theme="company"
         icon="notebookText"
       >
@@ -312,8 +312,8 @@ export default function CompanyRequirementsPage() {
         ) : (items ?? []).length === 0 ? (
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
-            title="案件要件がまだ登録されていません"
-            message="上のフォームから受注案件の要件を登録すると、待機人材との案件適合度評価と営業提案の準備ができます。"
+            title="業務課題がまだ登録されていません"
+            message="上のフォームから業務課題を登録すると、AIテーマ適合度評価とAIプロジェクト候補の準備ができます。"
           />
         ) : (
           <div
@@ -349,7 +349,7 @@ export default function CompanyRequirementsPage() {
                     onClick={() => openDrawer(req)}
                     style={{ fontSize: 12 }}
                   >
-                    <IconText icon="scanSearch">案件適合度を評価</IconText>
+                    <IconText icon="scanSearch">AIテーマ適合度を評価</IconText>
                   </button>
                 </div>
               </article>
@@ -360,7 +360,7 @@ export default function CompanyRequirementsPage() {
 
       <Drawer
         open={drawerRequirement !== null}
-        title={drawerRequirement ? `案件適合度: ${drawerRequirement.title}` : ""}
+        title={drawerRequirement ? `AIテーマ適合度: ${drawerRequirement.title}` : ""}
         onClose={() => setDrawerRequirement(null)}
       >
         {drawerRequirement ? (
@@ -379,13 +379,13 @@ export default function CompanyRequirementsPage() {
             {assessment ? (
               <div style={{ display: "grid", gap: "0.7rem" }}>
                 <div className={`${styles.kpiTile} ${styles.kpiTileAccent}`}>
-                  <p className={styles.kpiLabel}>案件適合度スコア</p>
+                  <p className={styles.kpiLabel}>AIテーマ適合スコア</p>
                   <p className={styles.kpiValue}>
                     {assessment.fitScore}
                     <span className={styles.kpiValueSuffix}>/ 100</span>
                   </p>
                   <p className={styles.kpiHint}>
-                    提案候補（待機人材）: {learnerNameById.get(assessment.recommendedLearnerId) ?? assessment.recommendedLearnerId}
+                    推奨受講者: {learnerNameById.get(assessment.recommendedLearnerId) ?? assessment.recommendedLearnerId}
                   </p>
                 </div>
                 <div className={styles.field}>
@@ -414,7 +414,7 @@ export default function CompanyRequirementsPage() {
                     className={styles.actionPrimary}
                     style={{ fontSize: 12 }}
                   >
-                    <IconText icon="barChart3">営業サマリーを生成</IconText>
+                    <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
                   </Link>
                   <button
                     type="button"
@@ -434,13 +434,13 @@ export default function CompanyRequirementsPage() {
                   onClick={handleAssess}
                   disabled={assessing}
                 >
-                  {assessing ? "評価中…" : <IconText icon="scanSearch">案件適合度を評価する</IconText>}
+                  {assessing ? "評価中…" : <IconText icon="scanSearch">AIテーマ適合度を評価する</IconText>}
                 </button>
               </div>
             )}
 
             <div style={{ marginTop: "0.5rem" }}>
-              <SkillChip label={`要件ID: ${drawerRequirement.id}`} />
+              <SkillChip label={`業務課題ID: ${drawerRequirement.id}`} />
             </div>
           </>
         ) : null}

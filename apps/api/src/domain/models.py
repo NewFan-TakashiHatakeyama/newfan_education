@@ -12,9 +12,7 @@ def now_iso() -> str:
 
 Role = Literal["learner", "recruiter", "admin", "content_editor", "mentor"]
 NotificationCategory = Literal["learning", "career", "dm", "admin"]
-MessageChannel = Literal["dm", "applications", "teams"]
 UserState = Literal["active", "invited", "suspended"]
-PublicProfileVisibility = Literal["public", "limited", "private"]
 
 
 @dataclass(slots=True, frozen=True)
@@ -31,17 +29,6 @@ class UserAccount:
     role: Role
     state: UserState = "active"
     created_at: str = field(default_factory=now_iso)
-    updated_at: str = field(default_factory=now_iso)
-
-
-@dataclass(slots=True)
-class PublicProfileSetting:
-    user_id: str
-    visibility: PublicProfileVisibility
-    show_goal: bool
-    show_skill_evidence: bool
-    show_portfolio: bool
-    allow_recruiter_contact: bool
     updated_at: str = field(default_factory=now_iso)
 
 
@@ -121,51 +108,11 @@ class ProgressEvent:
     occurred_at: str = field(default_factory=now_iso)
 
 
-OpportunityType = Literal["employment", "freelance"]
-OpportunityApplicationState = Literal[
-    "none",
-    "applied",
-    "screening",
-    "interview",
-    "offer",
-    "proposed",
-    "proposal_review",
-    "negotiation",
-    "contracted",
-]
-
-
-@dataclass(slots=True)
-class Opportunity:
-    type: OpportunityType
-    title: str
-    provider: str
-    contract_type: str
-    compensation: str
-    skill_match_score: int
-    caution: str
-    summary: str
-    required_skills: list[str]
-    payment_terms: str
-    is_recommended: bool = False
-    is_saved: bool = False
-    id: str = field(default_factory=lambda: f"opp-{uuid4().hex[:8]}")
-
-
-@dataclass(slots=True)
-class OpportunityApplicationSnapshot:
-    user_id: str
-    opportunity_id: str
-    state: OpportunityApplicationState
-    updated_at: str = field(default_factory=now_iso)
-
-
 @dataclass(slots=True)
 class Company:
     name: str
     industry: str
     status: Literal["active", "stopped"]
-    open_opportunity_count: int
     contact_email: str
     contact_person_name: str
     contact_person_phone: str
@@ -175,7 +122,7 @@ class Company:
 
 @dataclass(slots=True)
 class ModerationCase:
-    target_type: Literal["message", "portfolio", "profile"]
+    target_type: Literal["evidence", "submission", "profile"]
     target_id: str
     reason: str
     status: Literal["accepted", "investigating", "acted", "closed"]
@@ -185,21 +132,6 @@ class ModerationCase:
     id: str = field(default_factory=lambda: f"mod-{uuid4().hex[:8]}")
     created_at: str = field(default_factory=now_iso)
     updated_at: str = field(default_factory=now_iso)
-
-
-@dataclass(slots=True)
-class PortfolioArtifact:
-    user_id: str
-    title: str
-    summary: str
-    skill_tags: list[str]
-    related_skills: list[str]
-    evidence_links: list[str]
-    visibility: Literal["private", "limited", "public"]
-    evaluation: str
-    evaluation_history: list[dict[str, str]]
-    id: str = field(default_factory=lambda: f"artifact-{uuid4().hex[:8]}")
-    submitted_at: str = field(default_factory=now_iso)
 
 
 @dataclass(slots=True)
@@ -213,52 +145,6 @@ class Notification:
     read_at: str | None = None
     id: str = field(default_factory=lambda: f"notification-{uuid4().hex[:8]}")
     created_at: str = field(default_factory=now_iso)
-
-
-@dataclass(slots=True)
-class Message:
-    thread_id: str
-    sender_user_id: str
-    body: str
-    attachments: list[str]
-    id: str = field(default_factory=lambda: f"message-{uuid4().hex[:8]}")
-    created_at: str = field(default_factory=now_iso)
-
-
-@dataclass(slots=True)
-class MessageThread:
-    owner_user_id: str
-    counterpart_name: str
-    channel: MessageChannel
-    related_opportunity_label: str | None
-    can_send: bool
-    restriction_reason: str | None
-    context_summary: str
-    unread_count: int = 0
-    id: str = field(default_factory=lambda: f"thread-{uuid4().hex[:8]}")
-    updated_at: str = field(default_factory=now_iso)
-
-
-@dataclass(slots=True)
-class MessageTemplate:
-    key: str
-    label: str
-    body: str
-    target_roles: list[Role]
-    channels: list[MessageChannel]
-    id: str = field(default_factory=lambda: f"template-{uuid4().hex[:8]}")
-
-
-@dataclass(slots=True)
-class MessageTemplateAuditLog:
-    template_id: str
-    action: Literal["create", "update", "delete"]
-    actor_user_id: str
-    actor_role: Role
-    template_key: str
-    template_label: str
-    id: str = field(default_factory=lambda: f"audit-{uuid4().hex[:8]}")
-    occurred_at: str = field(default_factory=now_iso)
 
 
 @dataclass(slots=True)

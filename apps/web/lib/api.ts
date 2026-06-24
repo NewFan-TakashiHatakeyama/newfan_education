@@ -2,8 +2,6 @@ import type {
   AdminAuditLogsQuery,
   AssignRoadmapPayload,
   AssignRoadmapResult,
-  ApplicationsQuery,
-  ApplicationsSummary,
   AuditLogEventsSummary,
   B2BCompany,
   AuthSession,
@@ -30,26 +28,14 @@ import type {
   Goal,
   LearnersSummary,
   LearnerSummary,
-  PublicProfileSetting,
   Requirement,
   RequirementsSummary,
-  MessageItem,
   ReviewResult,
-  MessageTemplateAuditLogsSummary,
-  MessageTemplatesSummary,
-  MessageThreadDetail,
-  MessageThreadsSummary,
   NotificationDeliverySettingsSummary,
   NotificationsSummary,
   Role,
   UserAccount,
   UserAccountsSummary,
-  OpportunityApplication,
-  OpportunityApplicationsSummary,
-  OpportunitiesSummary,
-  OpportunityType,
-  PortfolioArtifact,
-  PortfolioArtifactsSummary,
   Roadmap,
   SalesSummaryReport,
   Submission,
@@ -60,7 +46,7 @@ import type {
   ReportExportJob,
   SkillsGapSummary
 } from "@newfan/contracts";
-import { getDemoAuthSession } from "@/lib/auth";
+import { getAuthHeaders, handleUnauthorizedSession, isDemoAuthenticated, getDemoAuthSession } from "@/lib/auth";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -86,15 +72,29 @@ function mapApiErrorMessage(status: number): string {
   return "通信に失敗しました。時間をおいて再度お試しください。";
 }
 
+const PUBLIC_API_PATH_PREFIXES = ["/api/v1/auth/sign-in", "/api/v1/auth/sign-up"] as const;
+
+function isPublicApiPath(path: string): boolean {
+  return PUBLIC_API_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
   idempotencyKey?: string
 ): Promise<T> {
+  if (!isPublicApiPath(path) && !isDemoAuthenticated(getDemoAuthSession())) {
+    throw new Error(mapApiErrorMessage(401));
+  }
+
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
   if (idempotencyKey) {
     headers.set("Idempotency-Key", idempotencyKey);
+  }
+  const authHeaders = getAuthHeaders();
+  for (const [key, value] of Object.entries(authHeaders)) {
+    headers.set(key, value);
   }
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -105,6 +105,9 @@ async function request<T>(
   });
 
   if (!res.ok) {
+    if (res.status === 401 && authHeaders.Authorization && !isPublicApiPath(path)) {
+      handleUnauthorizedSession();
+    }
     throw new Error(mapApiErrorMessage(res.status));
   }
   return (await res.json()) as T;
@@ -175,79 +178,6 @@ export function getSkillsGap() {
   return request<SkillsGapSummary>("/api/v1/skills/gap");
 }
 
-export function getOpportunities(params?: {
-  type?: OpportunityType;
-  recommended?: boolean;
-  saved?: boolean;
-}) {
-  const search = new URLSearchParams();
-  if (params?.type) {
-    search.set("type", params.type);
-  }
-  if (params?.recommended) {
-    search.set("recommended", "true");
-  }
-  if (params?.saved) {
-    search.set("saved", "true");
-  }
-  const query = search.toString();
-  return request<OpportunitiesSummary>(`/api/v1/opportunities${query ? `?${query}` : ""}`);
-}
-
-export function getMyOpportunityApplications() {
-  return request<OpportunityApplicationsSummary>("/api/v1/opportunities/applications/me");
-}
-
-export function getMyApplications(params?: ApplicationsQuery) {
-  const search = new URLSearchParams();
-  if (params?.state) {
-    search.set("state", params.state);
-  }
-  if (params?.opportunityType) {
-    search.set("opportunityType", params.opportunityType);
-  }
-  if (params?.updatedFrom) {
-    search.set("updatedFrom", params.updatedFrom);
-  }
-  if (params?.updatedTo) {
-    search.set("updatedTo", params.updatedTo);
-  }
-  const query = search.toString();
-  return request<ApplicationsSummary>(`/api/v1/applications/me${query ? `?${query}` : ""}`);
-}
-
-export function applyOpportunity(opportunityId: string, opportunityType: OpportunityType) {
-  return request<OpportunityApplication>(`/api/v1/opportunities/${opportunityId}/apply`, {
-    method: "POST",
-    body: JSON.stringify({ opportunityType })
-  });
-}
-
-export function withdrawOpportunity(opportunityId: string) {
-  return request<OpportunityApplication>(`/api/v1/opportunities/${opportunityId}/withdraw`, {
-    method: "POST",
-    body: JSON.stringify({})
-  });
-}
-
-export function patchOpportunityApplicationState(
-  opportunityId: string,
-  state:
-    | "applied"
-    | "screening"
-    | "interview"
-    | "offer"
-    | "proposed"
-    | "proposal_review"
-    | "negotiation"
-    | "contracted"
-) {
-  return request<OpportunityApplication>(`/api/v1/opportunities/${opportunityId}/state`, {
-    method: "PATCH",
-    body: JSON.stringify({ state })
-  });
-}
-
 export function getCurriculumImpact(curriculumVersionId: string) {
   return request<CurriculumImpactSummary>(`/api/v1/admin/curriculum/${curriculumVersionId}/impact`);
 }
@@ -296,44 +226,6 @@ export function patchNotificationDeliverySetting(
     method: "PATCH",
     body: JSON.stringify(payload)
   });
-}
-
-export function getMessageThreads(params?: { q?: string; unread?: boolean }) {
-  const search = new URLSearchParams();
-  if (params?.q?.trim()) {
-    search.set("q", params.q.trim());
-  }
-  if (params?.unread) {
-    search.set("unread", "true");
-  }
-  const query = search.toString();
-  return request<MessageThreadsSummary>(`/api/v1/messages/threads${query ? `?${query}` : ""}`);
-}
-
-export function getMessageThreadDetail(threadId: string) {
-  return request<MessageThreadDetail>(`/api/v1/messages/threads/${threadId}`);
-}
-
-export function sendThreadMessage(threadId: string, payload: { body: string; attachments?: string[] }) {
-  return request<MessageItem>(`/api/v1/messages/threads/${threadId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({
-      body: payload.body,
-      attachments: payload.attachments ?? []
-    })
-  });
-}
-
-export function getMessageTemplates(params?: { role?: "learner" | "recruiter" | "admin" | "content_editor" | "mentor"; channel?: "dm" | "applications" | "teams" }) {
-  const search = new URLSearchParams();
-  if (params?.role) {
-    search.set("role", params.role);
-  }
-  if (params?.channel) {
-    search.set("channel", params.channel);
-  }
-  const query = search.toString();
-  return request<MessageTemplatesSummary>(`/api/v1/messages/templates${query ? `?${query}` : ""}`);
 }
 
 export function getCurrentCompany() {
@@ -442,56 +334,6 @@ export function getSalesSummaryReport(reportId: string) {
   return request<SalesSummaryReport>(`/api/v1/reports/${reportId}`);
 }
 
-export function createMessageTemplate(payload: {
-  key: string;
-  label: string;
-  body: string;
-  targetRoles: Array<"learner" | "recruiter" | "admin" | "content_editor" | "mentor">;
-  channels: Array<"dm" | "applications" | "teams">;
-}) {
-  return request<{
-    id: string;
-    key: string;
-    label: string;
-    body: string;
-    targetRoles: string[];
-    channels: string[];
-  }>("/api/v1/messages/templates", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
-}
-
-export function patchMessageTemplate(templateId: string, payload: {
-  key?: string;
-  label?: string;
-  body?: string;
-  targetRoles?: Array<"learner" | "recruiter" | "admin" | "content_editor" | "mentor">;
-  channels?: Array<"dm" | "applications" | "teams">;
-}) {
-  return request<{
-    id: string;
-    key: string;
-    label: string;
-    body: string;
-    targetRoles: string[];
-    channels: string[];
-  }>(`/api/v1/messages/templates/${templateId}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload)
-  });
-}
-
-export function deleteMessageTemplate(templateId: string) {
-  return request<{ deleted: boolean; templateId: string }>(`/api/v1/messages/templates/${templateId}`, {
-    method: "DELETE"
-  });
-}
-
-export function getMessageTemplateAuditLogs(limit = 100) {
-  return request<MessageTemplateAuditLogsSummary>(`/api/v1/admin/messages/templates/audit-logs?limit=${limit}`);
-}
-
 export function signInDemoUser(payload: { email: string; password: string }) {
   return request<AuthSession>("/api/v1/auth/sign-in", {
     method: "POST",
@@ -577,23 +419,6 @@ export function getAdminTaskTemplates() {
   return request<{ items: Array<{ id: string; title: string; category: string; defaultDifficulty: number }> }>(
     "/api/v1/admin/task-templates"
   );
-}
-
-export function getPublicProfileSettings() {
-  return request<PublicProfileSetting>("/api/v1/public-profile/settings/me");
-}
-
-export function patchPublicProfileSettings(payload: {
-  visibility: "public" | "limited" | "private";
-  showGoal: boolean;
-  showSkillEvidence: boolean;
-  showPortfolio: boolean;
-  allowRecruiterContact: boolean;
-}) {
-  return request<PublicProfileSetting>("/api/v1/public-profile/settings/me", {
-    method: "PATCH",
-    body: JSON.stringify(payload)
-  });
 }
 
 export function getAdminUsers(params?: { role?: Role; state?: "active" | "invited" | "suspended"; q?: string }) {
@@ -696,12 +521,4 @@ export function patchAdminModerationBulkClose(payload: ModerationBulkClosePayloa
     method: "PATCH",
     body: JSON.stringify(payload)
   });
-}
-
-export function getPortfolioArtifacts() {
-  return request<PortfolioArtifactsSummary>("/api/v1/portfolio/artifacts/me");
-}
-
-export function getPortfolioArtifact(artifactId: string) {
-  return request<PortfolioArtifact>(`/api/v1/portfolio/artifacts/${artifactId}`);
 }

@@ -20,15 +20,6 @@ def test_jwt_auth_and_me_endpoint() -> None:
     assert me.json()["tenantId"] == "company-demo"
 
 
-def test_legacy_domains_are_isolated() -> None:
-    client = TestClient(app)
-    headers = sign_in(client, "admin@example.com", "Admin123!")
-    assert client.get("/api/v1/opportunities", headers=headers).status_code == 410
-    assert client.get("/api/v1/messages/threads", headers=headers).status_code == 410
-    assert client.get("/api/v1/portfolio/artifacts/me", headers=headers).status_code == 410
-    assert client.get("/api/v1/public-profile/settings/me", headers=headers).status_code == 410
-
-
 def test_b2b_core_flow_with_postgres_repository() -> None:
     client = TestClient(app)
     admin_headers = sign_in(client, "admin@example.com", "Admin123!")

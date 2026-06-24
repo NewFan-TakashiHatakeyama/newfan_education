@@ -9,16 +9,9 @@ from application.ports import (
     ConsentRepository,
     CurriculumRepository,
     GoalRepository,
-    MessageRepository,
-    MessageTemplateAuditLogRepository,
-    MessageTemplateRepository,
     NotificationDeliverySettingRepository,
     NotificationRepository,
     ModerationRepository,
-    OpportunityRepository,
-    OpportunityApplicationRepository,
-    PortfolioArtifactRepository,
-    PublicProfileSettingRepository,
     ProgressRepository,
     RoadmapRepository,
     UserRepository,
@@ -29,15 +22,8 @@ from domain.models import (
     ConsentRecord,
     CurriculumVersion,
     Goal,
-    Message,
-    MessageTemplateAuditLog,
-    MessageTemplate,
     ModerationCase,
     Notification,
-    Opportunity,
-    OpportunityApplicationSnapshot,
-    PortfolioArtifact,
-    PublicProfileSetting,
     ProgressEvent,
     Roadmap,
     RoadmapItem,
@@ -252,65 +238,65 @@ class SkillGapService:
         # Minimal deterministic profile until dedicated skill assessment is introduced.
         base_skills = [
             {
-                "id": "python-basic",
-                "name": "Python基礎",
+                "id": "ai-dx-foundation",
+                "name": "AI/DX基礎",
                 "targetLevel": 3,
                 "isCareerVisible": True,
-                "evidenceLink": "/learn",
+                "evidenceLink": "/learn/afr-enterprise-ai-dx-foundation/main",
             },
             {
-                "id": "api-design",
-                "name": "API設計",
+                "id": "business-issue",
+                "name": "業務課題定義",
                 "targetLevel": 3,
                 "isCareerVisible": True,
-                "evidenceLink": "/learn/python-fastapi/intro-v1",
+                "evidenceLink": "/learn/afr-enterprise-business-issue-definition/main",
             },
             {
-                "id": "database",
-                "name": "DB",
-                "targetLevel": 3,
-                "isCareerVisible": False,
-                "evidenceLink": "/portfolio",
-            },
-            {
-                "id": "git",
-                "name": "Git",
+                "id": "rag-verification",
+                "name": "RAG/ナレッジ活用",
                 "targetLevel": 3,
                 "isCareerVisible": True,
-                "evidenceLink": "/portfolio",
+                "evidenceLink": "/learn/afr-enterprise-rag-verification/main",
             },
             {
-                "id": "testing",
-                "name": "テスト",
+                "id": "poc-planning",
+                "name": "PoC計画",
                 "targetLevel": 3,
-                "isCareerVisible": False,
-                "evidenceLink": "/learn",
+                "isCareerVisible": True,
+                "evidenceLink": "/learn/afr-enterprise-poc-planning/main",
             },
             {
-                "id": "deploy",
-                "name": "デプロイ",
+                "id": "ai-governance",
+                "name": "AIガバナンス",
                 "targetLevel": 2,
                 "isCareerVisible": False,
-                "evidenceLink": "/learn",
+                "evidenceLink": "/learn/afr-enterprise-ai-governance-foundation/main",
+            },
+            {
+                "id": "project-proposal",
+                "name": "AIプロジェクト提案",
+                "targetLevel": 3,
+                "isCareerVisible": True,
+                "evidenceLink": "/learn/afr-enterprise-project-proposal/main",
             },
         ]
 
         completed_count = len([event for event in events if event.event_type == "lesson_completed"])
         current_by_skill = {
-            "python-basic": 1 + min(completed_count, 2),
-            "api-design": 1 + min(completed_count // 2, 2),
-            "database": min(completed_count // 3, 2),
-            "git": 1 + min(completed_count // 2, 2),
-            "testing": min(completed_count // 3, 2),
-            "deploy": min(completed_count // 4, 2),
+            "ai-dx-foundation": 1 + min(completed_count, 2),
+            "business-issue": 1 + min(completed_count // 2, 2),
+            "rag-verification": min(completed_count // 2, 2),
+            "poc-planning": min(completed_count // 3, 2),
+            "ai-governance": min(completed_count // 4, 2),
+            "project-proposal": min(completed_count // 3, 2),
         }
         evidence_by_skill = {
-            "python-basic": max(1, completed_count),
-            "api-design": max(1, completed_count // 2),
-            "database": max(1, completed_count // 3),
-            "git": max(1, completed_count // 2),
-            "testing": max(1, completed_count // 3),
-            "deploy": max(1, completed_count // 4),
+            "ai-dx-foundation": max(1, completed_count),
+            "business-issue": max(1, completed_count // 2),
+            "rag-verification": max(1, completed_count // 2),
+            "poc-planning": max(1, completed_count // 3),
+            "ai-governance": max(1, completed_count // 4),
+            "project-proposal": max(1, completed_count // 3),
         }
 
         items: list[dict] = []
@@ -342,228 +328,6 @@ class SkillGapService:
         }
 
 
-class OpportunityApplicationService:
-    def __init__(
-        self,
-        repository: OpportunityApplicationRepository,
-        opportunity_repository: OpportunityRepository,
-        audit_log_repository: AuditLogRepository | None = None,
-    ) -> None:
-        self._repository = repository
-        self._opportunity_repository = opportunity_repository
-        self._audit_log_repository = audit_log_repository
-
-    def apply(self, actor: UserContext, opportunity_id: str, opportunity_type: str) -> dict:
-        opportunity = self._opportunity_repository.get(opportunity_id)
-        if opportunity is None:
-            raise ValueError("Opportunity not found")
-        if opportunity.type != opportunity_type:
-            raise ValueError("Opportunity type does not match")
-        state = "applied" if opportunity_type == "employment" else "proposed"
-        previous_state = self._repository.get_state(actor.user_id, opportunity_id)
-        saved = self._repository.set_state(actor.user_id, opportunity_id, state)
-        self._append_audit_log(
-            actor=actor,
-            opportunity=opportunity,
-            previous_state=previous_state,
-            next_state=saved,
-            action="apply",
-        )
-        return {
-            "userId": actor.user_id,
-            "opportunityId": opportunity_id,
-            "state": saved,
-        }
-
-    def withdraw(self, actor: UserContext, opportunity_id: str) -> dict:
-        opportunity = self._opportunity_repository.get(opportunity_id)
-        if opportunity is None:
-            raise ValueError("Opportunity not found")
-        previous_state = self._repository.get_state(actor.user_id, opportunity_id)
-        saved = self._repository.set_state(actor.user_id, opportunity_id, "none")
-        self._append_audit_log(
-            actor=actor,
-            opportunity=opportunity,
-            previous_state=previous_state,
-            next_state=saved,
-            action="withdraw",
-        )
-        return {
-            "userId": actor.user_id,
-            "opportunityId": opportunity_id,
-            "state": saved,
-        }
-
-    def update_progress_state(self, actor: UserContext, opportunity_id: str, state: str) -> dict:
-        opportunity = self._opportunity_repository.get(opportunity_id)
-        if opportunity is None:
-            raise ValueError("Opportunity not found")
-        current_state = self._repository.get_state(actor.user_id, opportunity_id)
-        next_state = self._resolve_transition(opportunity.type, current_state, state)
-        saved = self._repository.set_state(actor.user_id, opportunity_id, next_state)
-        self._append_audit_log(
-            actor=actor,
-            opportunity=opportunity,
-            previous_state=current_state,
-            next_state=saved,
-            action="progress",
-        )
-        return {
-            "userId": actor.user_id,
-            "opportunityId": opportunity_id,
-            "state": saved,
-        }
-
-    def list_mine(self, actor: UserContext) -> dict:
-        return {
-            "userId": actor.user_id,
-            "applications": self._repository.list_by_user(actor.user_id),
-        }
-
-    def _resolve_transition(self, opportunity_type: str, current_state: str, requested_state: str) -> str:
-        if opportunity_type == "employment":
-            allowed = ["none", "applied", "screening", "interview", "offer"]
-        else:
-            allowed = ["none", "proposed", "proposal_review", "negotiation", "contracted"]
-        if requested_state not in allowed:
-            raise ValueError("Unsupported state transition")
-        if current_state not in allowed:
-            current_state = "none"
-        if allowed.index(requested_state) < allowed.index(current_state):
-            raise ValueError("Cannot move application state backward")
-        return requested_state
-
-    def _append_audit_log(
-        self,
-        actor: UserContext,
-        opportunity: Opportunity,
-        previous_state: str,
-        next_state: str,
-        action: str,
-    ) -> None:
-        if self._audit_log_repository is None:
-            return
-        self._audit_log_repository.append(
-            AuditLogEvent(
-                event_type="application.state.updated",
-                resource_type="opportunity_application",
-                resource_id=f"{actor.user_id}:{opportunity.id}",
-                action=action,
-                actor_user_id=actor.user_id,
-                actor_role=actor.role,
-                summary="応募/提案ステータスを更新",
-                metadata={
-                    "opportunityId": opportunity.id,
-                    "opportunityType": opportunity.type,
-                    "previousState": previous_state,
-                    "nextState": next_state,
-                },
-            )
-        )
-
-
-class OpportunityService:
-    def __init__(self, repository: OpportunityRepository) -> None:
-        self._repository = repository
-
-    def list_catalog(
-        self,
-        opportunity_type: str | None = None,
-        recommended_only: bool = False,
-        saved_only: bool = False,
-    ) -> dict:
-        values = self._repository.list_all()
-        if opportunity_type is not None:
-            values = [value for value in values if value.type == opportunity_type]
-        if recommended_only:
-            values = [value for value in values if value.is_recommended]
-        if saved_only:
-            values = [value for value in values if value.is_saved]
-        values.sort(key=lambda value: value.skill_match_score, reverse=True)
-        return {
-            "items": [self._to_opportunity_response(value) for value in values],
-        }
-
-    def _to_opportunity_response(self, value: Opportunity) -> dict:
-        return {
-            "id": value.id,
-            "type": value.type,
-            "title": value.title,
-            "provider": value.provider,
-            "contractType": value.contract_type,
-            "compensation": value.compensation,
-            "skillMatchScore": value.skill_match_score,
-            "caution": value.caution,
-            "summary": value.summary,
-            "requiredSkills": value.required_skills,
-            "paymentTerms": value.payment_terms,
-            "isRecommended": value.is_recommended,
-            "isSaved": value.is_saved,
-        }
-
-
-class ApplicationService:
-    def __init__(
-        self,
-        application_repository: OpportunityApplicationRepository,
-        opportunity_repository: OpportunityRepository,
-    ) -> None:
-        self._application_repository = application_repository
-        self._opportunity_repository = opportunity_repository
-
-    def list_mine(
-        self,
-        actor: UserContext,
-        state: str | None = None,
-        opportunity_type: str | None = None,
-        updated_from: str | None = None,
-        updated_to: str | None = None,
-    ) -> dict:
-        records = self._application_repository.list_records_by_user(actor.user_id)
-        active_records = [record for record in records if record.state != "none"]
-        if state is not None:
-            active_records = [record for record in active_records if record.state == state]
-        if opportunity_type is not None:
-            opportunities = {
-                value.id: value
-                for value in self._opportunity_repository.list_all()
-                if value.type == opportunity_type
-            }
-        else:
-            opportunities = {value.id: value for value in self._opportunity_repository.list_all()}
-        if updated_from is not None:
-            from_dt = _parse_iso_datetime(updated_from)
-            active_records = [
-                record
-                for record in active_records
-                if _parse_iso_datetime(record.updated_at) >= from_dt
-            ]
-        if updated_to is not None:
-            to_dt = _parse_iso_datetime(updated_to)
-            active_records = [
-                record
-                for record in active_records
-                if _parse_iso_datetime(record.updated_at) <= to_dt
-            ]
-        items: list[dict] = []
-        for record in active_records:
-            opportunity = opportunities.get(record.opportunity_id)
-            if opportunity is None:
-                continue
-            items.append(
-                {
-                    "opportunityId": opportunity.id,
-                    "opportunityType": opportunity.type,
-                    "state": record.state,
-                    "title": opportunity.title,
-                    "provider": opportunity.provider,
-                    "updatedAt": record.updated_at,
-                }
-            )
-        items.sort(key=lambda value: value["updatedAt"], reverse=True)
-        return {"userId": actor.user_id, "items": items}
-
-
 class CompanyService:
     def __init__(
         self,
@@ -584,7 +348,6 @@ class CompanyService:
                     "name": value.name,
                     "industry": value.industry,
                     "status": value.status,
-                    "openOpportunityCount": value.open_opportunity_count,
                     "contactEmail": value.contact_email,
                     "contactPersonName": value.contact_person_name,
                     "contactPersonPhone": value.contact_person_phone,
@@ -617,7 +380,6 @@ class CompanyService:
                 name=current.name,
                 industry=current.industry,
                 status=status if status is not None else current.status,  # type: ignore[arg-type]
-                open_opportunity_count=current.open_opportunity_count,
                 contact_email=current.contact_email,
                 contact_person_name=(
                     contact_person_name if contact_person_name is not None else current.contact_person_name
@@ -649,7 +411,6 @@ class CompanyService:
             "name": saved.name,
             "industry": saved.industry,
             "status": saved.status,
-            "openOpportunityCount": saved.open_opportunity_count,
             "contactEmail": saved.contact_email,
             "contactPersonName": saved.contact_person_name,
             "contactPersonPhone": saved.contact_person_phone,
@@ -681,7 +442,6 @@ class CompanyService:
                     name=current.name,
                     industry=current.industry,
                     status=status,  # type: ignore[arg-type]
-                    open_opportunity_count=current.open_opportunity_count,
                     contact_email=current.contact_email,
                     contact_person_name=current.contact_person_name,
                     contact_person_phone=current.contact_person_phone,
@@ -858,39 +618,6 @@ class ModerationService:
         return due < datetime.now(timezone.utc)
 
 
-class PortfolioArtifactService:
-    def __init__(self, repository: PortfolioArtifactRepository) -> None:
-        self._repository = repository
-
-    def list_mine(self, actor: UserContext) -> dict:
-        values = self._repository.list_by_user(actor.user_id)
-        return {
-            "userId": actor.user_id,
-            "items": [self._to_response(value) for value in values],
-        }
-
-    def get_mine(self, actor: UserContext, artifact_id: str) -> dict:
-        value = self._repository.get_by_user(actor.user_id, artifact_id)
-        if value is None:
-            raise ValueError("Portfolio artifact not found")
-        return self._to_response(value)
-
-    def _to_response(self, value: PortfolioArtifact) -> dict:
-        return {
-            "id": value.id,
-            "userId": value.user_id,
-            "title": value.title,
-            "summary": value.summary,
-            "skillTags": value.skill_tags,
-            "relatedSkills": value.related_skills,
-            "evidenceLinks": value.evidence_links,
-            "visibility": value.visibility,
-            "evaluation": value.evaluation,
-            "evaluationHistory": value.evaluation_history,
-            "submittedAt": value.submitted_at,
-        }
-
-
 class CurriculumImpactService:
     def __init__(self, roadmap_repository: RoadmapRepository) -> None:
         self._roadmap_repository = roadmap_repository
@@ -1009,107 +736,6 @@ class NotificationService:
         }
 
 
-class MessageService:
-    def __init__(self, repository: MessageRepository) -> None:
-        self._repository = repository
-
-    def list_threads(
-        self,
-        actor: UserContext,
-        query: str | None = None,
-        unread_only: bool = False,
-    ) -> dict:
-        threads = self._repository.list_threads_by_user(actor.user_id)
-        normalized_query = (query or "").strip().lower()
-        if normalized_query:
-            threads = [
-                thread
-                for thread in threads
-                if normalized_query in thread.counterpart_name.lower()
-                or (
-                    thread.related_opportunity_label is not None
-                    and normalized_query in thread.related_opportunity_label.lower()
-                )
-            ]
-        if unread_only:
-            threads = [thread for thread in threads if thread.unread_count > 0]
-        return {
-            "userId": actor.user_id,
-            "threads": [
-                {
-                    "id": thread.id,
-                    "channel": thread.channel,
-                    "counterpartName": thread.counterpart_name,
-                    "relatedOpportunityLabel": thread.related_opportunity_label,
-                    "unreadCount": thread.unread_count,
-                    "canSend": thread.can_send,
-                    "restrictionReason": thread.restriction_reason,
-                    "contextSummary": thread.context_summary,
-                    "updatedAt": thread.updated_at,
-                }
-                for thread in threads
-            ],
-        }
-
-    def get_thread_detail(self, actor: UserContext, thread_id: str) -> dict:
-        thread = self._repository.get_thread_by_user(actor.user_id, thread_id)
-        if thread is None:
-            raise ValueError("Thread not found")
-        messages = self._repository.list_messages(thread_id)
-        return {
-            "thread": {
-                "id": thread.id,
-                "channel": thread.channel,
-                "counterpartName": thread.counterpart_name,
-                "relatedOpportunityLabel": thread.related_opportunity_label,
-                "unreadCount": thread.unread_count,
-                "canSend": thread.can_send,
-                "restrictionReason": thread.restriction_reason,
-                "contextSummary": thread.context_summary,
-                "updatedAt": thread.updated_at,
-            },
-            "messages": [
-                {
-                    "id": message.id,
-                    "threadId": message.thread_id,
-                    "senderUserId": message.sender_user_id,
-                    "body": message.body,
-                    "attachments": message.attachments,
-                    "createdAt": message.created_at,
-                }
-                for message in messages
-            ],
-        }
-
-    def send_message(
-        self,
-        actor: UserContext,
-        thread_id: str,
-        body: str,
-        attachments: list[str],
-    ) -> dict:
-        thread = self._repository.get_thread_by_user(actor.user_id, thread_id)
-        if thread is None:
-            raise ValueError("Thread not found")
-        if not thread.can_send:
-            raise PermissionError(thread.restriction_reason or "Message sending is restricted")
-        message = Message(
-            thread_id=thread_id,
-            sender_user_id=actor.user_id,
-            body=body,
-            attachments=attachments,
-        )
-        saved = self._repository.append_message(message)
-        return {
-            "id": saved.id,
-            "threadId": saved.thread_id,
-            "senderUserId": saved.sender_user_id,
-            "body": saved.body,
-            "attachments": saved.attachments,
-            "createdAt": saved.created_at,
-        }
-
-
 class AuthService:
     def __init__(self, user_repository: UserRepository) -> None:
         self._user_repository = user_repository
@@ -1153,73 +779,6 @@ class AuthService:
             "displayName": user.display_name,
             "role": user.role,
             "state": user.state,
-        }
-
-
-class PublicProfileSettingService:
-    def __init__(
-        self,
-        repository: PublicProfileSettingRepository,
-        audit_log_repository: AuditLogRepository,
-    ) -> None:
-        self._repository = repository
-        self._audit_log_repository = audit_log_repository
-
-    def get_mine(self, actor: UserContext) -> dict:
-        value = self._repository.get_by_user(actor.user_id)
-        if value is None:
-            value = PublicProfileSetting(
-                user_id=actor.user_id,
-                visibility="limited",
-                show_goal=True,
-                show_skill_evidence=True,
-                show_portfolio=True,
-                allow_recruiter_contact=True,
-            )
-            value = self._repository.upsert(value)
-        return self._to_response(value)
-
-    def update_mine(
-        self,
-        actor: UserContext,
-        visibility: str,
-        show_goal: bool,
-        show_skill_evidence: bool,
-        show_portfolio: bool,
-        allow_recruiter_contact: bool,
-    ) -> dict:
-        updated = PublicProfileSetting(
-            user_id=actor.user_id,
-            visibility=visibility,  # type: ignore[arg-type]
-            show_goal=show_goal,
-            show_skill_evidence=show_skill_evidence,
-            show_portfolio=show_portfolio,
-            allow_recruiter_contact=allow_recruiter_contact,
-        )
-        saved = self._repository.upsert(updated)
-        self._audit_log_repository.append(
-            AuditLogEvent(
-                event_type="public_profile_setting.updated",
-                resource_type="public_profile_setting",
-                resource_id=actor.user_id,
-                action="update",
-                actor_user_id=actor.user_id,
-                actor_role=actor.role,
-                summary="公開プロフィール設定を更新",
-                metadata={"visibility": saved.visibility},
-            )
-        )
-        return self._to_response(saved)
-
-    def _to_response(self, value: PublicProfileSetting) -> dict:
-        return {
-            "userId": value.user_id,
-            "visibility": value.visibility,
-            "showGoal": value.show_goal,
-            "showSkillEvidence": value.show_skill_evidence,
-            "showPortfolio": value.show_portfolio,
-            "allowRecruiterContact": value.allow_recruiter_contact,
-            "updatedAt": value.updated_at,
         }
 
 
@@ -1348,203 +907,3 @@ class AuditLogService:
                 for value in values
             ]
         }
-
-
-class MessageTemplateService:
-    def __init__(
-        self,
-        repository: MessageTemplateRepository,
-        audit_log_repository: MessageTemplateAuditLogRepository,
-        global_audit_log_repository: AuditLogRepository | None = None,
-    ) -> None:
-        self._repository = repository
-        self._audit_log_repository = audit_log_repository
-        self._global_audit_log_repository = global_audit_log_repository
-        self._allowed_roles = {"learner", "recruiter", "admin", "content_editor"}
-        self._allowed_channels = {"dm", "applications", "teams"}
-
-    def list_templates(
-        self,
-        actor: UserContext,
-        role: str | None = None,
-        channel: str | None = None,
-    ) -> dict:
-        requested_role = role or actor.role
-        if role is not None and actor.role not in {"admin", "content_editor"}:
-            raise PermissionError("Only admin can query templates for another role")
-
-        templates = self._repository.list_templates()
-        filtered: list[MessageTemplate] = [
-            template
-            for template in templates
-            if requested_role in template.target_roles
-            and (channel is None or channel in template.channels)
-        ]
-        return {
-            "role": requested_role,
-            "items": [
-                {
-                    "id": template.id,
-                    "key": template.key,
-                    "label": template.label,
-                    "body": template.body,
-                    "targetRoles": template.target_roles,
-                    "channels": template.channels,
-                }
-                for template in filtered
-            ],
-        }
-
-    def create_template(
-        self,
-        actor: UserContext,
-        key: str,
-        label: str,
-        body: str,
-        target_roles: list[str],
-        channels: list[str],
-    ) -> dict:
-        if actor.role != "admin":
-            raise PermissionError("Only admin can manage message templates")
-        if not set(target_roles).issubset(self._allowed_roles):
-            raise ValueError("Invalid target roles")
-        if not set(channels).issubset(self._allowed_channels):
-            raise ValueError("Invalid channels")
-        existing_keys = {template.key for template in self._repository.list_templates()}
-        if key in existing_keys:
-            raise ValueError("Template key already exists")
-        template = MessageTemplate(
-            key=key,
-            label=label,
-            body=body,
-            target_roles=target_roles,  # type: ignore[arg-type]
-            channels=channels,  # type: ignore[arg-type]
-        )
-        saved = self._repository.save_template(template)
-        self._record_audit(saved, actor, "create")
-        return {
-            "id": saved.id,
-            "key": saved.key,
-            "label": saved.label,
-            "body": saved.body,
-            "targetRoles": saved.target_roles,
-            "channels": saved.channels,
-        }
-
-    def update_template(
-        self,
-        actor: UserContext,
-        template_id: str,
-        key: str | None = None,
-        label: str | None = None,
-        body: str | None = None,
-        target_roles: list[str] | None = None,
-        channels: list[str] | None = None,
-    ) -> dict:
-        if actor.role != "admin":
-            raise PermissionError("Only admin can manage message templates")
-        current = self._repository.get_template(template_id)
-        if current is None:
-            raise ValueError("Template not found")
-        if (
-            key is None
-            and label is None
-            and body is None
-            and target_roles is None
-            and channels is None
-        ):
-            raise ValueError("At least one field is required for update")
-        if key is not None and key != current.key:
-            existing_keys = {template.key for template in self._repository.list_templates() if template.id != template_id}
-            if key in existing_keys:
-                raise ValueError("Template key already exists")
-        if target_roles is not None and not set(target_roles).issubset(self._allowed_roles):
-            raise ValueError("Invalid target roles")
-        if channels is not None and not set(channels).issubset(self._allowed_channels):
-            raise ValueError("Invalid channels")
-
-        updated = MessageTemplate(
-            id=current.id,
-            key=key or current.key,
-            label=label or current.label,
-            body=body or current.body,
-            target_roles=target_roles or current.target_roles,  # type: ignore[arg-type]
-            channels=channels or current.channels,  # type: ignore[arg-type]
-        )
-        saved = self._repository.update_template(updated)
-        if saved is None:
-            raise ValueError("Template not found")
-        self._record_audit(saved, actor, "update")
-        return {
-            "id": saved.id,
-            "key": saved.key,
-            "label": saved.label,
-            "body": saved.body,
-            "targetRoles": saved.target_roles,
-            "channels": saved.channels,
-        }
-
-    def delete_template(self, actor: UserContext, template_id: str) -> dict:
-        if actor.role != "admin":
-            raise PermissionError("Only admin can manage message templates")
-        current = self._repository.get_template(template_id)
-        if current is None:
-            raise ValueError("Template not found")
-        deleted = self._repository.delete_template(template_id)
-        if not deleted:
-            raise ValueError("Template not found")
-        self._record_audit(current, actor, "delete")
-        return {"deleted": True, "templateId": template_id}
-
-    def list_audit_logs(self, actor: UserContext, limit: int = 100) -> dict:
-        if actor.role not in {"admin", "content_editor"}:
-            raise PermissionError("Only admin can view template audit logs")
-        values = self._audit_log_repository.list_logs(limit=limit)
-        return {
-            "items": [
-                {
-                    "id": value.id,
-                    "templateId": value.template_id,
-                    "action": value.action,
-                    "actorUserId": value.actor_user_id,
-                    "actorRole": value.actor_role,
-                    "templateKey": value.template_key,
-                    "templateLabel": value.template_label,
-                    "occurredAt": value.occurred_at,
-                }
-                for value in values
-            ]
-        }
-
-    def _record_audit(
-        self,
-        template: MessageTemplate,
-        actor: UserContext,
-        action: str,
-    ) -> None:
-        self._audit_log_repository.append_log(
-            MessageTemplateAuditLog(
-                template_id=template.id,
-                action=action,  # type: ignore[arg-type]
-                actor_user_id=actor.user_id,
-                actor_role=actor.role,
-                template_key=template.key,
-                template_label=template.label,
-            )
-        )
-        if self._global_audit_log_repository is not None:
-            self._global_audit_log_repository.append(
-                AuditLogEvent(
-                    event_type=f"admin.message_template.{action}",
-                    resource_type="message_template",
-                    resource_id=template.id,
-                    action=action,
-                    actor_user_id=actor.user_id,
-                    actor_role=actor.role,
-                    summary=f"テンプレートを{action}しました",
-                    metadata={
-                        "templateKey": template.key,
-                        "templateLabel": template.label,
-                    },
-                )
-            )

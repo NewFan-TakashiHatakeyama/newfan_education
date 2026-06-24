@@ -34,8 +34,8 @@ type ReviewFilter = "all" | EvidenceReviewType | "none";
 
 const STRENGTH_FILTERS: Array<FilterOption<StrengthFilter>> = [
   { value: "all", label: "すべて" },
-  { value: "strong", label: "案件面談向け" },
-  { value: "approved", label: "営業証跡向け" },
+  { value: "strong", label: "PoC判断向け" },
+  { value: "approved", label: "レビュー合格" },
   { value: "improved", label: "改善履歴あり" },
   { value: "weak", label: "要改善" }
 ];
@@ -91,7 +91,7 @@ export default function CompanyEvidencePage() {
         setError(null);
       } else {
         setItems([]);
-        setError(e.reason instanceof Error ? e.reason.message : "実務証跡の取得に失敗しました。");
+        setError(e.reason instanceof Error ? e.reason.message : "成果物の取得に失敗しました。");
       }
       if (l.status === "fulfilled") setLearners(l.value.items);
       else setLearners([]);
@@ -170,28 +170,28 @@ export default function CompanyEvidencePage() {
       ) : (
         <PageHero
           theme="company"
-          ariaLabel="企業証跡一覧"
-          eyebrow="証跡一覧"
-          title="待機人材の実務証跡を営業・配属判断に活用"
+          ariaLabel="企業成果物一覧"
+          eyebrow="成果物一覧"
+          title="受講者の成果物をAIプロジェクト判断に活用"
           lead={
             <>
-              待機人材の育成演習提出物と評価履歴を一画面で横断確認。待機人材・チーム・証跡強度・レビュー種別で絞り込み、
-              案件面談・営業提案・配属判断に使える実務証跡を素早く特定します。
+              受講者の演習提出物とレビュー履歴を一画面で横断確認。受講者・チーム・成果物強度・レビュー種別で絞り込み、
+              PoC判断・部門提案・育成計画に使える成果物を素早く特定します。
             </>
           }
           metrics={[
-            { label: "実務証跡（累計）", value: stats.total, suffix: "件" },
-            { label: "案件面談向け", value: stats.strong, suffix: "件", hint: "営業・配属に使える証跡" },
+            { label: "成果物（累計）", value: stats.total, suffix: "件" },
+            { label: "PoC判断向け", value: stats.strong, suffix: "件", hint: "プロジェクト判断に使える成果物" },
             { label: "レビュー合格", value: stats.approved, suffix: "件" },
-            { label: "対象待機人材", value: stats.learners, suffix: "名" }
+            { label: "対象受講者", value: stats.learners, suffix: "名" }
           ]}
           actions={
             <>
               <Link href="/company/reports" className={styles.actionPrimary}>
-                <IconText icon="barChart3">営業サマリーを生成</IconText>
+                <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
               </Link>
               <Link href="/company/learners" className={styles.actionGhost}>
-                <IconText icon="users">待機人材一覧へ</IconText>
+                <IconText icon="users">受講者一覧へ</IconText>
               </Link>
             </>
           }
@@ -206,17 +206,17 @@ export default function CompanyEvidencePage() {
         </div>
       ) : null}
 
-      <Section title="実務証跡を絞り込む" meta="待機人材 / チーム / 証跡強度 / レビュー種別の組み合わせで、営業・配属判断に使える証跡だけを抽出できます。" theme="company" icon="funnel">
+      <Section title="成果物を絞り込む" meta="受講者 / チーム / 成果物強度 / レビュー種別の組み合わせで、プロジェクト判断に使える成果物だけを抽出できます。" theme="company" icon="funnel">
         <div style={{ display: "grid", gap: "0.7rem" }}>
           <FilterChips
-            label="待機人材"
+            label="受講者"
             options={learnerOptions}
             selected={learnerFilter}
             onChange={setLearnerFilter}
           />
           <FilterChips label="チーム" options={teamOptions} selected={teamFilter} onChange={setTeamFilter} />
           <FilterChips
-            label="証跡強度"
+            label="成果物強度"
             options={STRENGTH_FILTERS}
             selected={strengthFilter}
             onChange={setStrengthFilter}
@@ -231,8 +231,8 @@ export default function CompanyEvidencePage() {
       </Section>
 
       <Section
-        title={`実務証跡一覧 (${filtered.length} 件)`}
-        meta="待機人材名・所属・配属準備度バッジ付き。案件面談・営業説明にそのまま使えるかを確認できます。"
+        title={`成果物一覧 (${filtered.length} 件)`}
+        meta="受講者名・所属・実務準備度バッジ付き。PoC判断・部門提案にそのまま使えるかを確認できます。"
         theme="company"
         icon="fileCheck2"
       >
@@ -246,14 +246,14 @@ export default function CompanyEvidencePage() {
           (items?.length ?? 0) === 0 ? (
             <EmptyState
               icon={<AppIcon name="circleDashed" size={24} />}
-              title="まだ実務証跡がありません"
-              message="育成演習の提出とAIレビューが進むと、営業提案・配属判断に使える実務証跡が蓄積されます。"
+              title="まだ成果物がありません"
+              message="演習の提出とAIレビューが進むと、AIプロジェクト判断に使える成果物が蓄積されます。"
             />
           ) : (
             <EmptyState
               icon={<AppIcon name="funnel" size={24} />}
-              title="絞り込み条件に一致する実務証跡はありません"
-              message="フィルタを緩めるか、別の待機人材・チームを選んで案件面談向けの証跡を探してください。"
+              title="絞り込み条件に一致する成果物はありません"
+              message="フィルタを緩めるか、別の受講者・チームを選んでPoC判断向けの成果物を探してください。"
               action={
                 <button
                   type="button"
@@ -278,8 +278,8 @@ export default function CompanyEvidencePage() {
                 <EvidenceCard
                   key={item.id}
                   evidence={item}
-                  useCaseLabel="営業・配属での活用シーン:"
-                  rubricLabel="案件面談・配属で確認する観点"
+                  useCaseLabel="プロジェクト判断での活用シーン:"
+                  rubricLabel="PoC判断・部門提案で確認する観点"
                   ownerSlot={
                     <div
                       style={{

@@ -129,7 +129,7 @@ export default function LearnerSubmissionPage() {
         lead={
           <>
             AI レビュー → メンター承認の二段階で品質を担保します。失敗は減点ではなく改善履歴として
-            証跡化されるため、再提出で大きく前進できます。
+            成果物化されるため、再提出で大きく前進できます。
           </>
         }
         metrics={[
@@ -162,7 +162,7 @@ export default function LearnerSubmissionPage() {
               {reviewing ? "AIレビュー実行中…" : "AIレビューを実行"}
             </button>
             <Link href="/learner/evidence" className={styles.actionGhost}>
-              自分の証跡を見る
+              自分の成果物を見る
             </Link>
           </>
         }
@@ -228,7 +228,7 @@ export default function LearnerSubmissionPage() {
           )}
         </LearnerSection>
 
-        <LearnerSection title="メンター評価フック" meta="AI評価の上位レビューとして、メンター承認が証跡化のキーになります。">
+        <LearnerSection title="メンター評価フック" meta="AI評価の上位レビューとして、メンター承認が成果物化のキーになります。">
           <div style={{ display: "grid", gap: "0.7rem" }}>
             <div>
               <p className={styles.evidenceMetaLabel} style={{ margin: "0 0 0.35rem" }}>
@@ -251,8 +251,8 @@ export default function LearnerSubmissionPage() {
               </ul>
             </div>
             <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-              メンター承認は <strong>/mentor/reviews</strong> から行われ、承認後に営業利用可能な
-              証跡として記録されます。
+              メンター承認は <strong>/mentor/reviews</strong> から行われ、承認後に経営・部門提案に使える
+              成果物として記録されます。
             </p>
           </div>
         </LearnerSection>

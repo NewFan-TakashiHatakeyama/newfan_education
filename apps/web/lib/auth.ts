@@ -14,7 +14,32 @@ const FALLBACK_SESSION: AuthSession = {
 };
 
 export function getAuthHeaders(): Record<string, string> {
-  return {};
+  const session = getDemoAuthSession();
+  if (!isDemoAuthenticated(session)) {
+    return {};
+  }
+  return {
+    Authorization: `${session.tokenType} ${session.accessToken}`
+  };
+}
+
+let unauthorizedHandling = false;
+
+/** Clears local session after API 401. Safe to call multiple times. */
+export function handleUnauthorizedSession() {
+  if (!canUseStorage() || unauthorizedHandling) {
+    return;
+  }
+  const session = getDemoAuthSession();
+  if (!isDemoAuthenticated(session)) {
+    return;
+  }
+  unauthorizedHandling = true;
+  try {
+    clearDemoAuthSession();
+  } finally {
+    unauthorizedHandling = false;
+  }
 }
 
 export function getDemoCompanyId(): string {

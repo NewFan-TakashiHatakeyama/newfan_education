@@ -5,17 +5,16 @@
  * - Dispatches a `CustomEvent("lp-analytics", { detail })` on `window`
  *   so future analytics adapters (GA4 / Plausible / 内製計測) can hook in
  *   without bundling an SDK.
- *
- * 設計意図: SaaS LP の改善サイクルにおいて、主要 CTA / セクション露出 /
- * タブ切替を再現性高く追跡できることを最低限の責務とする。
  */
 
 export type LpAnalyticsEventName =
-  | "hero_demo_cta_clicked"
-  | "sample_report_cta_clicked"
-  | "diagnosis_cta_clicked"
-  | "product_demo_tab_changed"
-  | "evidence_report_viewed"
+  | "hero_primary_cta_clicked"
+  | "curriculum_download_clicked"
+  | "sample_deliverable_clicked"
+  | "program_demo_tab_changed"
+  | "role_track_opened"
+  | "curriculum_week_opened"
+  | "stakeholder_tab_changed"
   | "pricing_plan_clicked"
   | "faq_opened"
   | "final_cta_clicked"

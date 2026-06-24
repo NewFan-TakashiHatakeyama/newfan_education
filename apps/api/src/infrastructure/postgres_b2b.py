@@ -222,21 +222,21 @@ class PostgresB2BRepository:
                 id="req-demo-001",
                 tenant_id=tenant_id,
                 title="FAQ RAG検証支援",
-                description="受注案件のPoC事前検証",
-                required_skills=["Python", "RAG", "評価"],
+                description="社内FAQ RAGのPoC事前検証",
+                required_skills=["RAG", "評価", "データ棚卸し"],
             )
         )
         self._db.add(
             CurriculumVersionModel(
-                id="cv-python-fastapi-1",
+                id="cv-afr-enterprise-week01",
                 tenant_id=tenant_id,
-                curriculum_slug="python-fastapi",
+                curriculum_slug="afr-enterprise-ai-dx-foundation",
                 version="1.0.0",
-                title="FastAPI 入門",
-                mdx_path="content/curriculum/python-fastapi/intro-v1.mdx",
-                skill_tags=["python.api.fastapi"],
-                difficulty=2,
-                estimated_minutes=35,
+                title="AI/DX全体像と業務活用パターン",
+                mdx_path="content/curriculum/ai-field-ready-enterprise/week01-ai-dx-foundation.mdx",
+                skill_tags=["ai.foundation", "ai.dx.overview"],
+                difficulty=1,
+                estimated_minutes=60,
                 published=True,
             )
         )

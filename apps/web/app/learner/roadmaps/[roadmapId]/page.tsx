@@ -28,42 +28,42 @@ const FALLBACK_TIMELINE: TimelineEntry[] = [
   {
     id: "stage-foundation",
     phase: "Phase 1 · 基礎",
-    title: "Python基礎と業務適用パターン",
+    title: "AI/DX全体像と業務活用パターン",
     summary:
-      "業務で再利用する書き方 (型ヒント、入力検証、エラー処理) を習得。教材完了で 弱い証跡 を確保。",
+      "生成AI、RAG、AI-OCR、エージェント等の全体像を理解。教材完了で要改善レベルの成果物を確保。",
     estimatedMinutes: 180,
     status: "done",
-    skillTags: ["Python", "型ヒント", "エラー処理"]
+    skillTags: ["AI基礎", "業務課題", "ガバナンス"]
   },
   {
-    id: "stage-api",
-    phase: "Phase 2 · API設計",
-    title: "FastAPI で業務TODO APIを実装",
+    id: "stage-issue",
+    phase: "Phase 2 · 業務課題",
+    title: "業務課題定義とAIテーマ化",
     summary:
-      "ドメイン分割と入出力契約を意識して実装。AI レビュー合格で 強い証跡 が生成されます。",
+      "As-Is/To-Be、KPI、制約を整理。AI レビュー合格で PoC判断向け成果物が生成されます。",
     estimatedMinutes: 240,
     status: "current",
-    skillTags: ["API設計", "FastAPI", "テスト"]
+    skillTags: ["業務課題定義", "AIテーマ", "KPI"]
   },
   {
     id: "stage-rag",
-    phase: "Phase 3 · 検索評価",
-    title: "RAG検索評価ミニタスク",
+    phase: "Phase 3 · RAG検証",
+    title: "RAG/ナレッジ活用の検証設計",
     summary:
-      "Hit@K / MRR を用いて検索精度を評価。改善履歴付き証跡として営業利用可になります。",
+      "Hit@K / MRR を用いて検索精度を評価。改善履歴付き成果物としてレビュー合格になります。",
     estimatedMinutes: 200,
     status: "pending",
-    skillTags: ["RAG", "検索評価", "ドキュメント分析"]
+    skillTags: ["RAG", "検索評価", "ナレッジ"]
   },
   {
-    id: "stage-prompt",
-    phase: "Phase 4 · 生成AI業務適用",
-    title: "プロンプト評価レポート",
+    id: "stage-poc",
+    phase: "Phase 4 · PoC計画",
+    title: "PoC計画と評価レポート",
     summary:
-      "業務プロンプトを比較し、ハルシネーション率と要約品質を整理。メンター承認で 案件適合証跡 に。",
+      "検証仮説・成功条件・リスクを整理。メンター承認で AIプロジェクト適合成果物に。",
     estimatedMinutes: 180,
     status: "pending",
-    skillTags: ["プロンプト評価", "生成AI", "業務適用"]
+    skillTags: ["PoC計画", "評価設計", "ガバナンス"]
   }
 ];
 
@@ -135,11 +135,11 @@ export default function LearnerRoadmapPage() {
     <main className={styles.page}>
       <LearnerHero
         eyebrow="ロードマップ"
-        title="目標ロールへの実務ロードマップ"
+        title="目標ロールへのAIプロジェクト育成ロードマップ"
         lead={
           <>
-            「学習」ではなく「現場タスクに近づく」順序でフェーズを並べています。各フェーズで証跡を
-            積み上げると、配属準備度のバッジが Ready に近づきます。
+            「学習」ではなく「業務課題→AIプロジェクト化」に近づく順序でフェーズを並べています。各フェーズで成果物を
+            積み上げると、AIプロジェクト推進準備度のバッジが Ready に近づきます。
           </>
         }
         metrics={[
@@ -168,7 +168,7 @@ export default function LearnerRoadmapPage() {
               受講者ホームへ
             </Link>
             <Link href="/learner/evidence" className={styles.actionGhost}>
-              証跡を見る
+              成果物を見る
             </Link>
           </>
         }

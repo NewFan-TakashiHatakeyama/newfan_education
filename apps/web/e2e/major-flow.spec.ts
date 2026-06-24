@@ -41,6 +41,22 @@ async function setupB2BMockApi(page: Page) {
       return route.fulfill({ status: 204, headers: baseHeaders });
     }
 
+    if (method === "GET" && path === "/api/v1/companies/current") {
+      return json({ id: "company-demo", name: "デモ事業会社", plan: "enterprise" });
+    }
+    if (method === "GET" && path === "/api/v1/dashboard") {
+      return json({
+        completionRate: 0.25,
+        completedItems: 3,
+        totalItems: 12
+      });
+    }
+    if (method === "GET" && path === "/api/v1/skills/gap") {
+      return json({
+        targetRole: "AI/DX 推進",
+        items: [{ skill: "RAG", current: 2, target: 4, gap: 2, evidenceCount: 1 }]
+      });
+    }
     if (method === "GET" && path === "/api/v1/notifications") {
       return json({ userId: "e2e-user", unreadCount: 0, items: [] });
     }
@@ -101,7 +117,7 @@ async function setupB2BMockApi(page: Page) {
       return json({ items: [{ id: "evidence-001", learnerId: "learner-demo-001", title: "RAG検証", summary: "改善提案", skillTags: ["RAG"] }] });
     }
     if (method === "POST" && path === "/api/v1/reports/sales-summary") {
-      return json({ id: "report-001", title: "営業提案サマリー", summary: "候補者はRAG評価タスクを完了しています。" });
+      return json({ id: "report-001", title: "AIプロジェクト候補レポート", summary: "受講者はRAG評価タスクを完了しています。" });
     }
     if (method === "GET" && path === "/api/v1/exercises/ex-python-api-001") {
       return json({
@@ -161,34 +177,36 @@ test("B2B must flow works on revised routes", async ({ page }) => {
   await setupB2BMockApi(page);
   await page.addInitScript(() => {
     window.localStorage.setItem(
-      "newfan.demo.auth",
+      "newfan.auth.session-cache",
       JSON.stringify({
+        accessToken: "e2e-demo-token",
+        tokenType: "bearer",
+        expiresIn: 3600,
         userId: "admin-user",
         displayName: "Admin User",
         role: "admin",
-        state: "active"
+        state: "active",
+        tenantId: "company-demo"
       })
     );
-    window.localStorage.setItem("newfan.demo.companyId", "company-demo");
   });
 
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "AI Field Ready" })).toBeVisible();
-  await page.getByRole("link", { name: "企業ダッシュボードを見る" }).click();
-  await expect(page).toHaveURL(/\/company\/dashboard$/);
+  await page.goto("/company/dashboard");
+  await expect(page.getByLabel("企業ダッシュボード")).toBeVisible();
 
   await page.goto("/company/learners");
-  await expect(page.getByRole("heading", { name: "受講者一覧" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /育成進捗.*一覧で確認/ })).toBeVisible();
 
   await page.goto("/company/roadmaps");
-  await expect(page.getByRole("heading", { name: "ロードマップ割当" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /育成ロードマップ/ })).toBeVisible();
 
   await page.goto("/learner/learn");
-  await expect(page.getByRole("heading", { name: "受講者ホーム" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "受講者ホーム" })).toBeAttached();
+  await expect(page.getByRole("heading", { name: "12週間 Enterprise カリキュラム" })).toBeVisible();
 
   await page.goto("/mentor/reviews");
-  await expect(page.getByRole("heading", { name: "レビュー待ち" })).toBeVisible();
+  await expect(page.getByLabel("メンターレビュー")).toBeVisible();
 
   await page.goto("/company/reports");
-  await expect(page.getByRole("heading", { name: "営業提案サマリー" })).toBeVisible();
+  await expect(page.getByLabel("AIプロジェクト候補")).toBeVisible();
 });

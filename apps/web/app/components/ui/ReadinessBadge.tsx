@@ -10,10 +10,10 @@ const READINESS_CLASS: Record<ReadinessLevel, string> = {
 };
 
 const READINESS_LABEL: Record<ReadinessLevel, string> = {
-  Ready: "配属準備度: Ready",
-  Almost: "配属準備度: Almost",
-  "Need Training": "配属準備度: Need Training",
-  "Not Started": "配属準備度: Not Started"
+  Ready: "実務準備度: Ready",
+  Almost: "実務準備度: Almost",
+  "Need Training": "実務準備度: Need Training",
+  "Not Started": "実務準備度: Not Started"
 };
 
 export function ReadinessBadge({ level }: { level: ReadinessLevel }) {

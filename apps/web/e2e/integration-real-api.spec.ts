@@ -44,6 +44,6 @@ test.describe("real integration api flow", () => {
     expect(submitBody.id).toBeTruthy();
 
     await page.goto(baseURL ?? "http://127.0.0.1:3000");
-    await expect(page.getByRole("heading", { name: "AI Field Ready", exact: true })).toBeVisible();
+    await expect(page.getByText("AI Field Ready Enterprise")).toBeVisible();
   });
 });
