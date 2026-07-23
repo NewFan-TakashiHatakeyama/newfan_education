@@ -5,14 +5,16 @@ export default function DemoPage() {
     <main>
       <header className="page-header">
         <h1>サービスデモ</h1>
-        <p className="muted">学習進捗・ポートフォリオ・応募管理がつながる操作フローを体験できます。</p>
+        <p className="muted">
+          業務課題の登録からAIテーマ化、成果物レビュー、PoC候補選定までの操作フローを体験できます。
+        </p>
       </header>
       <section>
         <h2>デモで確認できる内容</h2>
         <ul>
-          <li>学習計画から成果物作成までの学習導線</li>
-          <li>成果物と評価履歴を用いた受講者確認</li>
-          <li>応募/提案の進行ステージ管理</li>
+          <li>12週間カリキュラムと育成演習の学習導線</li>
+          <li>問い合わせ回答支援AIなど、業務課題を題材にした成果物の作成・レビュー</li>
+          <li>AIテーマ適合度の評価と、部門向けのPoC候補整理</li>
         </ul>
         <div className="inline-actions">
           <Link href="/auth/sign-in">体験アカウントでサインイン</Link>

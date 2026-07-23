@@ -98,6 +98,15 @@ const SECTION_LABEL: Record<NavSection, string> = {
   common: "共通機能"
 };
 
+/** Role → visible top-level nav sections (admin does not see learner/mentor menus). */
+const ROLE_NAV_SECTIONS: Record<Role, NavSection[]> = {
+  learner: ["learner", "common"],
+  recruiter: ["company", "common"],
+  mentor: ["mentor", "common"],
+  admin: ["company", "common"],
+  content_editor: ["common"]
+};
+
 const ROLE_HOME_PATH: Record<Role, string> = {
   learner: "/learner/learn",
   recruiter: "/company/dashboard",
@@ -105,6 +114,25 @@ const ROLE_HOME_PATH: Record<Role, string> = {
   content_editor: "/admin/curriculum",
   mentor: "/mentor/reviews"
 };
+
+function isAdminLike(role: Role): boolean {
+  return role === "admin" || role === "content_editor";
+}
+
+function filterNavEntries(section: NavSection, role: Role, entries: NavEntry[]): NavEntry[] {
+  if (section !== "common") {
+    return entries;
+  }
+  return entries.filter((entry) => {
+    if (entry.kind !== "leaf") {
+      return true;
+    }
+    if (entry.href.startsWith("/admin")) {
+      return isAdminLike(role);
+    }
+    return true;
+  });
+}
 
 function getDefaultHomePath(session: AuthSession): string {
   return ROLE_HOME_PATH[session.role] ?? "/learner/learn";
@@ -243,7 +271,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     ? importantNotificationHref
     : "/notifications?unread=true";
 
-  if (!isAuthResolved || shouldRedirectToSignIn || shouldRedirectToHome) {
+  // ルートページと公開認証ページでは認証解決待ちのローディングを出さず、
+  // リダイレクト確定時のみ一時表示する（LPの情報過多感・ちらつきを避ける）。
+  if (shouldRedirectToSignIn || shouldRedirectToHome) {
+    return (
+      <div className="content-area" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <p className="muted">読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthResolved && !isRootRoute && !isPublicAuthRoute) {
     return (
       <div className="content-area" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
         <p className="muted">読み込み中...</p>
@@ -314,7 +352,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </div>
           <nav id="primary-side-nav" aria-label="メインナビゲーション" className="side-nav-nav">
-            {NAV_SECTIONS.map(({ section, entries }) => (
+            {NAV_SECTIONS.filter(({ section }) =>
+              ROLE_NAV_SECTIONS[authSession.role]?.includes(section)
+            ).map(({ section, entries: rawEntries }) => {
+              const entries = filterNavEntries(section, authSession.role, rawEntries);
+              if (entries.length === 0) {
+                return null;
+              }
+              return (
               <div key={section} className="nav-section">
                 <p className="nav-section-label">{SECTION_LABEL[section]}</p>
                 <ul>
@@ -403,7 +448,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                   })}
                 </ul>
               </div>
-            ))}
+            );
+            })}
           </nav>
         </aside>
         <div className="content-area">{children}</div>

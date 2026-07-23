@@ -25,8 +25,8 @@ const CONSENT_OPTIONS: ConsentOption[] = [
   },
   {
     id: "talent_search",
-    title: "キャリア機会の推薦に学習データを利用",
-    purpose: "育成成果物に基づき適切な社内・外部キャリア機会を提案するため",
+    title: "社内AIプロジェクト候補の推薦に学習データを利用",
+    purpose: "育成成果物とスキル進捗に基づき、適切な社内PoC／プロジェクト候補を提案するため",
     scope: "レコメンドエンジン、許可済み担当者",
     dataTarget: "学習履歴、進捗、目標情報"
   }
@@ -58,9 +58,9 @@ export default function ConsentSettingsPage() {
   return (
     <main>
       <div className="page-header">
-        <h1>キャリア公開同意画面</h1>
+        <h1>学習データ利用の同意設定</h1>
         <p className="muted">
-          公開範囲、利用目的、対象データを確認して明示同意を管理します。
+          公開範囲、利用目的、対象データを確認して明示同意を管理します。育成担当者への共有と社内プロジェクト推薦に利用されます。
         </p>
       </div>
       {error && <p className="error">{error}</p>}

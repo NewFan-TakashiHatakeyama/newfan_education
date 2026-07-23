@@ -41,6 +41,33 @@ class PostgresB2BRepository:
         self._db = db
         self._executor = ExerciseExecutionGateway(load_settings())
 
+    def sync_legacy_demo_copy(self, tenant_id: str = "company-demo") -> None:
+        """Safely rewrite the known demo requirement (req-demo-001) to current copy."""
+        requirement = self._db.get(RequirementModel, "req-demo-001")
+        if requirement is None or requirement.tenant_id != tenant_id:
+            return
+        target_title = "問い合わせ回答支援AI"
+        target_description = (
+            "カスタマーサポートの製品問い合わせ一次回答を、"
+            "FAQ・マニュアル根拠付きドラフトで短縮するPoC企画"
+        )
+        target_skills = ["RAG", "業務課題定義", "検索評価"]
+        legacy_titles = {"FAQ RAG検証支援", "社内FAQ RAG"}
+        title = requirement.title or ""
+        is_legacy = (
+            title in legacy_titles
+            or "FAQ RAG" in title
+            or title != target_title
+        )
+        if not is_legacy and list(requirement.required_skills or []) == target_skills and (
+            requirement.description == target_description
+        ):
+            return
+        requirement.title = target_title
+        requirement.description = target_description
+        requirement.required_skills = target_skills
+        self._db.commit()
+
     def seed_if_empty(self, tenant_id: str = "company-demo") -> None:
         if self._db.scalar(select(UserModel).limit(1)) is not None:
             return
@@ -301,9 +328,9 @@ class PostgresB2BRepository:
             RequirementModel(
                 id="req-demo-001",
                 tenant_id=tenant_id,
-                title="FAQ RAG検証支援",
-                description="社内FAQ RAGのPoC事前検証",
-                required_skills=["RAG", "評価", "データ棚卸し"],
+                title="問い合わせ回答支援AI",
+                description="カスタマーサポートの製品問い合わせ一次回答を、FAQ・マニュアル根拠付きドラフトで短縮するPoC企画",
+                required_skills=["RAG", "業務課題定義", "検索評価"],
             )
         )
         self._db.add(

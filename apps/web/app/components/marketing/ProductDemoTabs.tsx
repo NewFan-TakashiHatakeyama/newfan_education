@@ -70,30 +70,30 @@ function IssuePanel() {
         </label>
         <label className={styles.mockField}>
           <span>課題</span>
-          <div className={styles.mockInput}>問い合わせ一次回答に時間がかかる</div>
+          <div className={styles.mockInput}>製品問い合わせの一次回答に平均8時間かかる</div>
         </label>
         <div className={styles.mockFieldRow}>
           <label className={styles.mockField}>
             <span>現行KPI</span>
-            <div className={styles.mockInput}>平均初回回答時間 8時間</div>
+            <div className={styles.mockInput}>月1,200件 / 初回回答 8時間</div>
           </label>
           <label className={styles.mockField}>
             <span>改善目標</span>
-            <div className={styles.mockInput}>初回回答時間を30%削減</div>
+            <div className={styles.mockInput}>回答作成時間30%削減・根拠提示率90%</div>
           </label>
         </div>
         <div className={styles.mockField}>
           <span>利用可能データ</span>
           <div className={styles.mockChipsRow}>
-            <span className={styles.mockChip}>FAQ</span>
-            <span className={styles.mockChip}>製品マニュアル</span>
-            <span className={styles.mockChip}>問い合わせ履歴</span>
+            <span className={styles.mockChip}>FAQ 約280件</span>
+            <span className={styles.mockChip}>操作マニュアル 12冊</span>
+            <span className={styles.mockChip}>履歴（マスキング済）</span>
           </div>
         </div>
         <div className={styles.mockField}>
           <span>制約</span>
           <div className={`${styles.mockInput} ${styles.mockInputArea}`}>
-            個人情報を含む問い合わせ文の取り扱い。回答根拠の提示が必須。
+            個人情報・補償判断は対象外。回答根拠の提示と人が最終送信することを必須とする。
           </div>
         </div>
       </div>
@@ -196,7 +196,7 @@ function PocPanel() {
         <div className={styles.mockField}>
           <span>検証仮説</span>
           <div className={`${styles.mockInput} ${styles.mockInputArea}`}>
-            RAGによる回答ドラフト生成で、初回回答時間を30%削減できる
+            FAQ完結可能な製品問い合わせにRAGドラフトを適用すれば、回答作成時間を30%削減できる
           </div>
         </div>
         <div className={styles.mockFieldRow}>
@@ -206,21 +206,21 @@ function PocPanel() {
           </label>
           <label className={styles.mockField}>
             <span>評価指標</span>
-            <div className={styles.mockInput}>根拠提示率90%</div>
+            <div className={styles.mockInput}>根拠提示率90% / 修正率監視</div>
           </label>
         </div>
         <div className={styles.mockField}>
           <span>検証範囲</span>
           <div className={styles.mockChipsRow}>
-            <span className={styles.mockChip}>対象: 製品問い合わせ</span>
+            <span className={styles.mockChip}>対象: 返品・使い方FAQ</span>
             <span className={styles.mockChip}>期間: 2か月</span>
-            <span className={styles.mockChip}>体制: CS3名+DX1名</span>
+            <span className={styles.mockChip}>体制: CS5名+DX1名</span>
           </div>
         </div>
         <div className={styles.mockField}>
-          <span>リスク</span>
+          <span>リスク / 対象外</span>
           <div className={`${styles.mockInput} ${styles.mockInputArea}`}>
-            個人情報、誤回答、文書更新運用。人間による最終確認を必須とする。
+            個人情報・補償判断は対象外。誤回答防止のため、根拠提示と人間の最終確認を必須とする。
           </div>
         </div>
       </div>
@@ -297,12 +297,30 @@ function renderPanel(tab: DemoTabId) {
   }
 }
 
-export function ProductDemoTabs({ reducedMotion }: { reducedMotion: boolean }) {
-  const [active, setActive] = useState<DemoTabId>(TABS[0].id);
+export function ProductDemoTabs({
+  reducedMotion,
+  compact = false
+}: {
+  reducedMotion: boolean;
+  compact?: boolean;
+}) {
+  const visibleTabs = compact
+    ? TABS.filter((tab) => tab.id === "issue" || tab.id === "theme" || tab.id === "poc")
+    : TABS;
+  const [active, setActive] = useState<DemoTabId>(visibleTabs[0].id);
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
 
-  const activeTab = useMemo(() => TABS.find((tab) => tab.id === active) ?? TABS[0], [active]);
+  const activeTab = useMemo(
+    () => visibleTabs.find((tab) => tab.id === active) ?? visibleTabs[0],
+    [active, visibleTabs]
+  );
+
+  useEffect(() => {
+    if (!visibleTabs.some((tab) => tab.id === active)) {
+      setActive(visibleTabs[0].id);
+    }
+  }, [active, visibleTabs]);
 
   useEffect(() => {
     const root = tabListRef.current;
@@ -317,13 +335,13 @@ export function ProductDemoTabs({ reducedMotion }: { reducedMotion: boolean }) {
   const handleSelect = (id: DemoTabId) => {
     if (id === active) return;
     setActive(id);
-    trackLpEvent("program_demo_tab_changed", { tab: id });
+    trackLpEvent("program_demo_tab_changed", { tab: id, compact });
   };
 
   return (
-    <div className={styles.demoSection}>
+    <div className={`${styles.demoSection} ${compact ? styles.demoSectionCompact : ""}`}>
       <div ref={tabListRef} className={styles.tabList} role="tablist" aria-label="Program Demo">
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = active === tab.id;
           return (
             <button
@@ -358,12 +376,17 @@ export function ProductDemoTabs({ reducedMotion }: { reducedMotion: boolean }) {
         id={`panel-${activeTab.id}`}
         role="tabpanel"
         aria-labelledby={`tab-${activeTab.id}`}
-        className={`${styles.tabPanel} ${reducedMotion ? styles.tabPanelStatic : styles.tabPanelAnimated}`}
+        className={`${styles.tabPanel} ${compact ? styles.tabPanelCompact : ""} ${
+          reducedMotion ? styles.tabPanelStatic : styles.tabPanelAnimated
+        }`}
       >
         <div className={styles.tabPanelCopy}>
-          <p className={styles.tabEyebrow}>Program Demo</p>
+          <p className={styles.tabEyebrow}>{compact ? "CS操作デモ" : "Program Demo"}</p>
           <h3>{activeTab.title}</h3>
-          <p>{activeTab.description}</p>
+          {!compact ? <p>{activeTab.description}</p> : null}
+          {compact ? (
+            <p className={styles.tabCompactHint}>問い合わせ回答支援AIを題材にした画面イメージ</p>
+          ) : null}
         </div>
         <div className={styles.tabPanelVisual}>{renderPanel(activeTab.id)}</div>
       </article>

@@ -77,6 +77,7 @@ def build_container() -> ServiceContainer:
     db_session = SessionLocal()
     postgres_b2b_repository = PostgresB2BRepository(db_session)
     postgres_b2b_repository.seed_if_empty()
+    postgres_b2b_repository.sync_legacy_demo_copy()
 
     consent_repo = InMemoryConsentRepository()
     goal_repo = InMemoryGoalRepository()

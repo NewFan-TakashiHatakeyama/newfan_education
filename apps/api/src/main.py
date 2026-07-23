@@ -9,7 +9,7 @@ settings = load_settings()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.web_origin],
+    allow_origins=list(settings.web_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

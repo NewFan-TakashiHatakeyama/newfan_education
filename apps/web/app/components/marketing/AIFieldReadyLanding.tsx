@@ -10,30 +10,26 @@ import uiStyles from "@/app/components/ui/ui.module.css";
 import { trackLpEvent } from "@/lib/lp-analytics";
 
 import styles from "./aiFieldReadyLanding.module.css";
-import { ComparisonTable4 } from "./ComparisonTable4";
 import { CurriculumTimeline } from "./CurriculumTimeline";
 import { DeliverablesPreview } from "./DeliverablesPreview";
 import { FaqSection } from "./FaqSection";
 import { HeroMock } from "./HeroMock";
-import { ImplementationFlowSection } from "./ImplementationFlowSection";
 import {
   LP_BRAND,
   LP_CHALLENGE_SECTION,
   LP_CTA,
+  LP_CURRICULUM_TIMELINE,
+  LP_DELIVERABLES_SECTION,
   LP_FINAL_CTA,
   LP_HEADER_NAV,
   LP_HERO,
+  LP_PRICING,
   LP_PRODUCT_DEMO,
-  LP_SOLUTION_SECTION,
-  LP_USE_CASES
+  LP_SOLUTION_SECTION
 } from "./lpContent";
 import { PricingPackages } from "./PricingPackages";
 import { ProductDemoTabs } from "./ProductDemoTabs";
-import { ReviewSystemSection } from "./ReviewSystemSection";
-import { RoleTracksSection } from "./RoleTracksSection";
-import { StakeholderValueTabs } from "./StakeholderValueTabs";
 import { StickyCtaBar } from "./StickyCtaBar";
-import { UseCasesSection } from "./UseCasesSection";
 
 function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(false);
@@ -82,7 +78,9 @@ export function AIFieldReadyLanding() {
     <main className={`${uiStyles.marketingPage} ${styles.page}`}>
       <header className={`${uiStyles.lpHeader} ${styles.lpHeader}`}>
         <Link href="/" className={`${uiStyles.lpHeaderBrand} ${styles.headerBrand}`}>
-          <span className={uiStyles.lpHeaderBrandMark} aria-hidden>▲</span>
+          <span className={uiStyles.lpHeaderBrandMark} aria-hidden>
+            ▲
+          </span>
           <span className={styles.headerBrandText}>
             <strong>{LP_BRAND.name}</strong>
             <small>{LP_BRAND.tagline}</small>
@@ -99,26 +97,24 @@ export function AIFieldReadyLanding() {
 
         <div className={`${uiStyles.lpHeaderActions} ${styles.headerActions}`}>
           <Link
-            href="#curriculum-download"
-            className={uiStyles.actionGhost}
-            onClick={() => trackLpEvent("curriculum_download_clicked", { source: "header" })}
-          >
-            <IconText icon="notebookText">{LP_CTA.secondary}</IconText>
-          </Link>
-          <Link
             href="/business/sign-up"
             className={uiStyles.actionPrimary}
             onClick={() => trackLpEvent("hero_primary_cta_clicked", { source: "header" })}
           >
-            <IconText icon="rocket">{LP_CTA.primary}</IconText>
+            <IconText icon="rocket">診断を相談</IconText>
           </Link>
-          <Link href="/auth/sign-in" className={styles.loginLink}>ログイン</Link>
+          <Link href="/auth/sign-in" className={styles.loginLink}>
+            ログイン（学習者・企業）
+          </Link>
         </div>
       </header>
 
-      <section className={`${uiStyles.hero} ${uiStyles.heroMarketing} ${styles.hero} ${styles.heroSplit}`} data-reveal="section">
+      <section
+        className={`${uiStyles.hero} ${uiStyles.heroMarketing} ${styles.hero} ${styles.heroSplit}`}
+        data-reveal="section"
+      >
         <div className={styles.heroContent}>
-          <span className={`${uiStyles.heroEyebrow} ${uiStyles.heroEyebrowMarketing}`}>{LP_HERO.badge}</span>
+          <p className={styles.heroBrand}>{LP_BRAND.name}</p>
           <h1 className={`${uiStyles.heroTitle} ${styles.heroTitle}`}>
             {heroLines.map((line, i) => (
               <span key={line}>
@@ -128,18 +124,6 @@ export function AIFieldReadyLanding() {
             ))}
           </h1>
           <p className={styles.heroLead}>{LP_HERO.subcopy}</p>
-          <p className={styles.heroMessage}>{LP_HERO.trustMicrocopy}</p>
-
-          <div className={styles.heroBeforeAfter}>
-            <div>
-              <span>Before</span>
-              <p>{LP_HERO.beforeAfter.before}</p>
-            </div>
-            <div>
-              <span>After</span>
-              <p>{LP_HERO.beforeAfter.after}</p>
-            </div>
-          </div>
 
           <div className={styles.heroActions}>
             <Link
@@ -166,123 +150,86 @@ export function AIFieldReadyLanding() {
 
       <div id="challenges" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
         <Section title={LP_CHALLENGE_SECTION.title} meta={LP_CHALLENGE_SECTION.meta}>
-          <div className={styles.challengeGrid}>
+          <ol className={styles.challengeList}>
             {LP_CHALLENGE_SECTION.items.map((challenge, index) => (
-              <article key={challenge.title} className={styles.challengeCard}>
+              <li key={challenge.title} className={styles.challengeItem}>
                 <span className={styles.challengeIndex}>0{index + 1}</span>
-                <h3>{challenge.title}</h3>
-                <p>{challenge.body}</p>
-              </article>
+                <div>
+                  <h3>{challenge.title}</h3>
+                  <p>{challenge.body}</p>
+                </div>
+              </li>
             ))}
-          </div>
+          </ol>
+          <p className={styles.challengeBridge}>
+            <span className={styles.challengeBridgeLabel}>Before</span>
+            {LP_CHALLENGE_SECTION.beforeAfter.before}
+            <span className={styles.challengeBridgeArrow} aria-hidden>
+              →
+            </span>
+            <span className={styles.challengeBridgeLabel}>After</span>
+            {LP_CHALLENGE_SECTION.beforeAfter.after}
+          </p>
         </Section>
       </div>
 
       <div id="solution" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
         <Section title={LP_SOLUTION_SECTION.title} meta={LP_SOLUTION_SECTION.meta}>
-          <div className={styles.valueGrid}>
-            {LP_SOLUTION_SECTION.values.map((prop) => (
-              <article key={prop.id} className={styles.valueCard}>
+          <ol className={styles.valueList}>
+            {LP_SOLUTION_SECTION.values.map((prop, index) => (
+              <li key={prop.id} className={styles.valueListItem}>
+                <span className={styles.valueListIndex} aria-hidden>
+                  0{index + 1}
+                </span>
                 <span className={styles.valueIconBadge}>
                   <AppIcon name={prop.icon} size={16} />
                 </span>
-                <h3>{prop.title}</h3>
-                <p>{prop.body}</p>
-              </article>
+                <div>
+                  <h3>{prop.title}</h3>
+                  <p>{prop.body}</p>
+                </div>
+              </li>
             ))}
-          </div>
-          <p className={styles.valueFootnote}>{LP_SOLUTION_SECTION.footnote}</p>
+          </ol>
         </Section>
       </div>
 
-      <div id="stakeholders" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
-        <Section
-          title="経営・DX推進・人材開発・事業部門が、同じ成果物で意思決定できる"
-          meta="複数部門が関与するB2B購買で、各部門に刺さる導入価値を整理します。"
-        >
-          <StakeholderValueTabs reducedMotion={reducedMotion} />
-        </Section>
-      </div>
-
-      <div id="demo" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
+      <div id="product-demo" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
         <Section title={LP_PRODUCT_DEMO.title} meta={LP_PRODUCT_DEMO.meta}>
-          <ProductDemoTabs reducedMotion={reducedMotion} />
+          <ProductDemoTabs reducedMotion={reducedMotion} compact />
         </Section>
       </div>
 
       <div id="curriculum" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone4}`}>
-        <Section
-          title="12週間で、AI活用アイデアをPoC計画・実装ロードマップまで引き上げる"
-          meta="各Weekで成果物を残し、最終週に経営・部門向け提案へ接続します。"
-        >
+        <Section title={LP_CURRICULUM_TIMELINE.title} meta={LP_CURRICULUM_TIMELINE.meta}>
           <CurriculumTimeline reducedMotion={reducedMotion} />
-        </Section>
-      </div>
-
-      <div id="roles" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
-        <Section
-          title="部門や役割に合わせて、7つのAI人材トラックを設計"
-          meta="受講者の職種や部門に応じて、ロール別の学習モジュールと成果物を割り当てます。"
-        >
-          <RoleTracksSection />
+          <div className={styles.roleChipRow} aria-label="育成ロール">
+            <p className={styles.roleChipLabel}>育成ロール例</p>
+            <ul className={styles.roleChips}>
+              {LP_CURRICULUM_TIMELINE.roleLabels.map((role) => (
+                <li key={role}>{role}</li>
+              ))}
+            </ul>
+          </div>
         </Section>
       </div>
 
       <div id="deliverables" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
-        <Section
-          title="受講完了ではなく、AIプロジェクト化に必要な成果物を残す"
-          meta="研修のゴールは学習ログではなく、経営・部門が判断できる資料です。"
-        >
+        <Section title={LP_DELIVERABLES_SECTION.title} meta={LP_DELIVERABLES_SECTION.meta}>
           <div id="sample-deliverables">
             <DeliverablesPreview />
           </div>
-          <div className={styles.deliverablesCta}>
-            <Link
-              href="#sample-deliverables"
-              className={uiStyles.actionGhost}
-              onClick={() => trackLpEvent("sample_deliverable_clicked", { source: "deliverables_section" })}
-            >
-              <IconText icon="fileCheck2">{LP_CTA.tertiary}</IconText>
-            </Link>
-          </div>
         </Section>
       </div>
 
-      <div id="review" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
-        <Section
-          title="提出して終わりではなく、実務品質までレビューする"
-          meta="AIレビューとメンターレビューの二段構えで、経営判断に使える品質まで引き上げます。"
-        >
-          <ReviewSystemSection />
-        </Section>
-      </div>
-
-      <div id="use-cases" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone4}`}>
-        <Section title={LP_USE_CASES.title} meta={LP_USE_CASES.meta}>
-          <UseCasesSection />
-        </Section>
-      </div>
-
-      <div data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
-        <Section title="AIリテラシー研修ではなく、AIプロジェクトを生み出す実践プログラム" meta="一般的なAI研修との比較です。">
-          <ComparisonTable4 />
-        </Section>
-      </div>
-
-      <div id="pricing" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
-        <Section title="目的に合わせて、AI人材育成からPoC創出まで段階導入" meta="企業規模・目的別の導入プランです。">
+      <div id="pricing" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
+        <Section title={LP_PRICING.title} meta={LP_PRICING.meta}>
           <PricingPackages />
         </Section>
       </div>
 
-      <div id="implementation" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
-        <Section title="まずは1部門・1テーマから、無理なく開始できます" meta="導入から成果発表までの標準フローです。">
-          <ImplementationFlowSection />
-        </Section>
-      </div>
-
       <div id="faq" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
-        <Section title="FAQ" meta="導入検討時によくいただく質問です。">
+        <Section title="FAQ" meta="導入検討時のよくある質問です。">
           <FaqSection />
         </Section>
       </div>

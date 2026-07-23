@@ -27,13 +27,15 @@ import { AppIcon, IconText } from "@/app/components/ui/Icon";
 import styles from "@/app/components/ui/ui.module.css";
 
 const STARTER_TEMPLATE = {
-  title: "社内FAQ RAG検証",
-  description: "カスタマーサポート部門の問い合わせ対応を改善するため、社内FAQ文書を対象にRAG検証を行う業務課題。",
-  requiredSkills: "Python, RAG, 検索評価",
-  optionalSkills: "LangChain, Bedrock, OpenSearch",
-  expectedTasks: "文書棚卸し、検索評価、改善レポート作成",
+  title: "問い合わせ回答支援AI（カスタマーサポート）",
+  description:
+    "カスタマーサポートの製品問い合わせ一次回答を短縮するため、FAQ・操作マニュアル・過去履歴を根拠にした回答ドラフト生成（RAG）のPoCを企画する業務課題。個人情報・補償判断は対象外とし、担当者の最終確認を必須とする。",
+  requiredSkills: "RAG, 業務課題定義, 検索評価",
+  optionalSkills: "LangChain, Bedrock, OpenSearch, プロンプト設計",
+  expectedTasks: "一次回答フロー整理、FAQ棚卸し、PoC計画書、評価指標設計",
   engagementLevel: "担当",
-  salesNote: "Bedrock環境を利用予定。DX推進チームと情シスが連携し、PoC着手候補として整理中。"
+  salesNote:
+    "月間約1,200件のうちFAQ完結可能な問い合わせを対象。DX推進・情シスと連携し、2か月PoCの着手候補として整理中。"
 };
 
 export default function CompanyRequirementsPage() {
@@ -313,7 +315,7 @@ export default function CompanyRequirementsPage() {
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="業務課題がまだ登録されていません"
-            message="上のフォームから業務課題を登録すると、AIテーマ適合度評価とAIプロジェクト候補の準備ができます。"
+            message="上のフォームには「問い合わせ回答支援AI（カスタマーサポート）」のサンプルが入っています。登録するとAIテーマ適合度評価とPoC候補の準備ができます。"
           />
         ) : (
           <div

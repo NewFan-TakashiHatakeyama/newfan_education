@@ -47,7 +47,7 @@ export function CurriculumTimeline({ reducedMotion }: { reducedMotion: boolean }
 
   return (
     <div ref={ref} className={styles.curriculumTimeline}>
-      <div className={styles.curriculumTimelineScroll} role="list" aria-label="12週間カリキュラム">
+      <div className={styles.curriculumTimelineScroll} role="list" aria-label="カリキュラムフェーズ">
         {LP_CURRICULUM_TIMELINE.phases.map((phase, index) => {
           const reached = progress >= (index + 0.3) / LP_CURRICULUM_TIMELINE.phases.length;
           const isActive = activeIndex === index;

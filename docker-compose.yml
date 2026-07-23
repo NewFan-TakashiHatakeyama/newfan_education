@@ -25,6 +25,7 @@ services:
       DATABASE_URL: postgresql+psycopg://newfan:newfan@postgres:5432/newfan_education
       JWT_SECRET: change-this-in-production
       WEB_ORIGIN: http://localhost:3000
+      WEB_ORIGINS: http://localhost:3000,http://localhost:3001
       AUTH_COOKIE_NAME: newfan_access_token
       DOCKER_SANDBOX_ENABLED: "true"
       QUEUE_POLL_INTERVAL_SEC: "1.5"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import type {
@@ -18,6 +18,7 @@ import {
   getRequirements,
   getRoleTemplates
 } from "@/lib/api";
+import { getDemoAuthSession, isDemoAuthenticated } from "@/lib/auth";
 
 import { PageHero } from "@/app/components/ui/PageHero";
 import { Section } from "@/app/components/ui/Section";
@@ -42,41 +43,89 @@ export default function CompanyDashboardPage() {
   const [requirementCount, setRequirementCount] = useState<number | null>(null);
   const [templates, setTemplates] = useState<RoleTemplate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  useEffect(() => {
-    let active = true;
-    Promise.allSettled([
+  const loadDashboard = useCallback(async () => {
+    const session = getDemoAuthSession();
+    if (!isDemoAuthenticated(session)) {
+      setCompany(null);
+      setLearners([]);
+      setEvidence([]);
+      setRequirementCount(0);
+      setTemplates([]);
+      setError("サインインが必要です。企業担当または管理者アカウントでサインインしてください。");
+      return;
+    }
+
+    setError(null);
+    setLearners(null);
+    setEvidence(null);
+    setRequirementCount(null);
+    setTemplates(null);
+
+    const results = await Promise.allSettled([
       getCurrentCompany(),
       getLearners(),
       getEvidenceItems(),
       getRequirements(),
       getRoleTemplates()
-    ]).then((results) => {
-      if (!active) return;
-      const [c, l, e, r, t] = results;
-      if (c.status === "fulfilled") setCompany(c.value);
-      if (l.status === "fulfilled") setLearners(l.value.items);
-      else setLearners([]);
-      if (e.status === "fulfilled") setEvidence(e.value.items);
-      else setEvidence([]);
-      if (r.status === "fulfilled") setRequirementCount(r.value.items.length);
-      else setRequirementCount(0);
-      if (t.status === "fulfilled") setTemplates(t.value.items);
-      else setTemplates([]);
-      const rejected = results.filter((res) => res.status === "rejected");
-      if (rejected.length > 0 && learners === null) {
-        setError(
-          "一部のデータを取得できませんでした。必要な権限を持つアカウントでサインインして再読み込みしてください。"
-        );
-      }
-    });
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ]);
+    const [c, l, e, r, t] = results;
+    const rejectedLabels: string[] = [];
+
+    if (c.status === "fulfilled") {
+      setCompany(c.value);
+    } else {
+      setCompany(null);
+      rejectedLabels.push("企業情報");
+    }
+    if (l.status === "fulfilled") {
+      setLearners(l.value.items);
+    } else {
+      setLearners([]);
+      rejectedLabels.push("受講者");
+    }
+    if (e.status === "fulfilled") {
+      setEvidence(e.value.items);
+    } else {
+      setEvidence([]);
+      rejectedLabels.push("成果物");
+    }
+    if (r.status === "fulfilled") {
+      setRequirementCount(r.value.items.length);
+    } else {
+      setRequirementCount(0);
+      rejectedLabels.push("業務課題");
+    }
+    if (t.status === "fulfilled") {
+      setTemplates(t.value.items);
+    } else {
+      setTemplates([]);
+      rejectedLabels.push("ロール定義");
+    }
+
+    if (rejectedLabels.length > 0) {
+      setError(
+        `${rejectedLabels.join("・")}の取得に失敗しました。権限のあるアカウントでサインインし、再読み込みしてください。`
+      );
+    }
   }, []);
 
-  const isLoading = learners === null || evidence === null;
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard, reloadToken]);
+
+  useEffect(() => {
+    const onAuthChanged = () => {
+      setReloadToken((current) => current + 1);
+    };
+    window.addEventListener("newfan-auth-changed", onAuthChanged);
+    return () => {
+      window.removeEventListener("newfan-auth-changed", onAuthChanged);
+    };
+  }, []);
+
+  const isLoading = learners === null || evidence === null || requirementCount === null;
 
   const stats = useMemo(() => {
     const safeLearners = learners ?? [];
@@ -218,6 +267,14 @@ export default function CompanyDashboardPage() {
         <div className={styles.section} role="alert">
           <p className="muted" style={{ margin: 0 }}>
             {error}{" "}
+            <button
+              type="button"
+              className={styles.actionGhost}
+              style={{ marginLeft: 8 }}
+              onClick={() => setReloadToken((current) => current + 1)}
+            >
+              再読み込み
+            </button>{" "}
             <Link href="/auth/sign-in" style={{ marginLeft: 4 }}>
               サインインを開く
             </Link>
@@ -231,39 +288,43 @@ export default function CompanyDashboardPage() {
         theme="company"
         icon="chart"
       >
-        <div className={styles.kpiGrid}>
-          <KpiCard label="受講者" value={stats.totalLearners} suffix="名" hint="育成対象として登録済み" />
-          <KpiCard
-            label="ロードマップ平均進捗"
-            value={stats.avgCompletion}
-            suffix="%"
-            hint="個人別の進捗は受講者一覧へ"
-          />
-          <KpiCard
-            label="レビュー待ち"
-            value={stats.pendingReview}
-            suffix="件"
-            hint="メンター承認待ちの育成演習提出"
-          />
-          <KpiCard
-            label="PoC推進候補"
-            value={stats.proposable}
-            suffix="名"
-            hint={`PoC着手可 ${stats.readyCount} / メンター伴走 ${stats.almostCount}`}
-          />
-          <KpiCard
-            label="成果物（蓄積）"
-            value={evidence?.length ?? 0}
-            suffix="件"
-            hint={`レビュー合格の強い成果物 ${stats.strongEvidenceCount} 件`}
-          />
-          <KpiCard
-            label="業務課題"
-            value={requirementCount ?? 0}
-            suffix="件"
-            hint="登録するとAIテーマ適合度の評価が可能"
-          />
-        </div>
+        {isLoading ? (
+          <SkeletonRow widths={["30%", "30%", "30%"]} />
+        ) : (
+          <div className={styles.kpiGrid}>
+            <KpiCard label="受講者" value={stats.totalLearners} suffix="名" hint="育成対象として登録済み" />
+            <KpiCard
+              label="ロードマップ平均進捗"
+              value={stats.avgCompletion}
+              suffix="%"
+              hint="個人別の進捗は受講者一覧へ"
+            />
+            <KpiCard
+              label="レビュー待ち"
+              value={stats.pendingReview}
+              suffix="件"
+              hint="メンター承認待ちの育成演習提出"
+            />
+            <KpiCard
+              label="PoC推進候補"
+              value={stats.proposable}
+              suffix="名"
+              hint={`PoC着手可 ${stats.readyCount} / メンター伴走 ${stats.almostCount}`}
+            />
+            <KpiCard
+              label="成果物（蓄積）"
+              value={evidence?.length ?? 0}
+              suffix="件"
+              hint={`レビュー合格の強い成果物 ${stats.strongEvidenceCount} 件`}
+            />
+            <KpiCard
+              label="業務課題"
+              value={requirementCount ?? 0}
+              suffix="件"
+              hint="登録するとAIテーマ適合度の評価が可能"
+            />
+          </div>
+        )}
       </Section>
 
       <Section
@@ -272,7 +333,9 @@ export default function CompanyDashboardPage() {
         theme="company"
         icon="target"
       >
-        {roleAttainment.length === 0 ? (
+        {isLoading ? (
+          <SkeletonRow widths={["70%", "50%"]} />
+        ) : roleAttainment.length === 0 ? (
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="ロール別の育成到達度はまだ表示できません"

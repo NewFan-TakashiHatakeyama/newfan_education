@@ -5,8 +5,8 @@ async function setupB2BMockApi(page: Page) {
   const requirements = [
     {
       id: "req-demo-001",
-      title: "FAQ RAG検証支援",
-      description: "顧客提案向けPoC要件",
+      title: "問い合わせ回答支援AI",
+      description: "カスタマーサポートの製品問い合わせ一次回答を短縮するPoC企画",
       requiredSkills: ["Python", "RAG", "評価"]
     }
   ];
