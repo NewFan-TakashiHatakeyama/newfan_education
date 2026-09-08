@@ -26,3 +26,6 @@ docs/*.zip
 
 # Local runtime databases (recreate via alembic upgrade head)
 *.db
+
+# Stray agent worktrees left under .claude/
+.claude/worktrees/
