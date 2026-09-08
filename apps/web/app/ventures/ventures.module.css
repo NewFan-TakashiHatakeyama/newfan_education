@@ -359,6 +359,20 @@
   margin-bottom: 12px;
 }
 
+.dangerZone {
+  border: 1px solid #97302f;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.dangerZone input {
+  min-width: 220px;
+}
+
 .gapBadge {
   font-variant-numeric: tabular-nums;
   font-weight: 700;

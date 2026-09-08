@@ -2,11 +2,13 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import type { VentureApplicability, VentureMaster, VentureSummary } from "@newfan/contracts";
 
 import {
   addVentureMember,
+  deleteVenture,
   fetchVentureMaster,
   fetchVentureSummary,
   getLearners,
@@ -32,6 +34,7 @@ export default function VentureOverviewPage({
   params: Promise<{ ventureId: string }>;
 }) {
   const { ventureId } = use(params);
+  const router = useRouter();
   const [summary, setSummary] = useState<VentureSummary | null>(null);
   const [master, setMaster] = useState<VentureMaster | null>(null);
   const [learners, setLearners] = useState<{ id: string; name: string }[]>([]);
@@ -42,6 +45,7 @@ export default function VentureOverviewPage({
   const [memberUserId, setMemberUserId] = useState("");
   const [memberRoleId, setMemberRoleId] = useState("");
   const [memberNote, setMemberNote] = useState("");
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
 
   const refresh = useCallback(() => {
     fetchVentureSummary(ventureId)
@@ -467,6 +471,43 @@ export default function VentureOverviewPage({
                 ))}
               </tbody>
             </table>
+          </div>
+        </Section>
+      ) : null}
+
+      {canManage ? (
+        <Section
+          title="危険操作"
+          meta="案件と、その工程タスク・ゲート判断・要員・台帳の記録を全て削除します。取り消せません。"
+          theme="company"
+        >
+          <div className={styles.dangerZone}>
+            <label className={styles.field} style={{ flex: "1 1 240px" }}>
+              事業・サービス名を入力して確認
+              <input
+                value={deleteConfirmName}
+                onChange={(event) => setDeleteConfirmName(event.target.value)}
+                placeholder={venture.name}
+              />
+            </label>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={saving || deleteConfirmName !== venture.name}
+              onClick={async () => {
+                setSaving(true);
+                setError(null);
+                try {
+                  await deleteVenture(ventureId);
+                  router.push("/ventures");
+                } catch (err: unknown) {
+                  setError(err instanceof Error ? err.message : "案件を削除できませんでした。");
+                  setSaving(false);
+                }
+              }}
+            >
+              この案件を完全に削除する
+            </button>
           </div>
         </Section>
       ) : null}

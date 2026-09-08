@@ -665,6 +665,13 @@ export function updateVenture(ventureId: string, payload: VentureUpdatePayload) 
   });
 }
 
+/** 案件と、その工程タスク・ゲート・要員・台帳の行を全て削除する。取り消せない。 */
+export function deleteVenture(ventureId: string) {
+  return request<{ removed: boolean }>(`/api/v1/ventures/${encodeURIComponent(ventureId)}`, {
+    method: "DELETE"
+  });
+}
+
 export function fetchVentureSummary(ventureId: string) {
   return request<VentureSummary>(`/api/v1/ventures/${encodeURIComponent(ventureId)}/summary`);
 }
