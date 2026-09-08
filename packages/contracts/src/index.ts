@@ -513,3 +513,528 @@ export interface SalesSummaryReport {
   title: string;
   summary: string;
 }
+
+/* ─────────────────────────────────────────────────────────────
+ * 事業PJ台帳（Venture Ledger）
+ *
+ * 工程マスタは「AIシステム自社事業PJ工程管理」が原本。
+ * 7工程（B0〜B6）・6ゲート（G0〜G5）・132タスク・106スキル・13台帳を持つ。
+ * ───────────────────────────────────────────────────────────── */
+
+/** 案件がタスクを実施するかどうかの判定。最終判断は人が行う。 */
+export type VentureApplicability = "未判定" | "適用" | "対象外";
+
+/** 工程タスクの進捗状態。 */
+export type VentureTaskStatus = "未着手" | "進行中" | "完了" | "保留";
+
+/** 案件そのものの状態。 */
+export type VentureStatus = "計画中" | "進行中" | "停止" | "終了";
+
+/** 規模区分。テーラリングの基準。 */
+export type VentureScale = "S" | "M" | "L";
+
+export interface VenturePhase {
+  phaseId: string;
+  name: string;
+  purpose: string;
+  precondition: string;
+  gateId: string;
+  approverRoleId: string;
+  requiredEvidence: string;
+  decision: string;
+  taskCount: number;
+}
+
+export interface VentureGateDefinition {
+  gateId: string;
+  subject: string;
+  standardTaskId: string;
+  approverRoleId: string;
+  requiredEvidence: string;
+  allowedDecisions: string[];
+}
+
+export interface VentureRiskTier {
+  tierId: string;
+  name: string;
+  impact: string;
+  rigor: string;
+  caution: string;
+}
+
+export interface VentureRole {
+  roleId: string;
+  name: string;
+  responsibility: string;
+  involvement: string;
+  independenceNote: string;
+}
+
+/** 原本の入力規則。統制語彙・日付・数値の制約を画面とAPIで守る。 */
+export interface VentureColumnRule {
+  type: "select" | "date" | "number";
+  options: string[];
+  min?: number | null;
+  source?: string;
+}
+
+export interface VentureLedgerDefinition {
+  key: string;
+  name: string;
+  summary: string;
+  sourceSheet: string;
+  idColumn: string;
+  /** マスタ由来の点検行を持つ台帳かどうか。false なら案件側で行を起票する。 */
+  seeded: boolean;
+  masterColumns: string[];
+  inputColumns: string[];
+  notes: string[];
+  /** 入力列 -> 原本の入力規則。規則の無い列は自由記述。 */
+  columnRules: Record<string, VentureColumnRule>;
+  /** 原本が数式で埋める列。入力できないが点検結果として表示する。 */
+  derivedColumns: string[];
+  checkColumns: string[];
+  /** 原本33 K03 の予約行数。 */
+  rowLimit: number | null;
+  stateColumn: string;
+  lockedStates: string[];
+  masterRowCount: number;
+}
+
+export interface VentureMaster {
+  version: string;
+  phases: VenturePhase[];
+  gates: VentureGateDefinition[];
+  riskTiers: VentureRiskTier[];
+  roles: VentureRole[];
+  conditionKeys: string[];
+  ledgers: VentureLedgerDefinition[];
+  taskCount: number;
+  skillCount: number;
+}
+
+export interface VentureMasterTask {
+  taskId: string;
+  phaseId: string;
+  phaseName: string;
+  workType: string;
+  name: string;
+  description: string;
+  deliverables: string;
+  completionCriteria: string;
+  applicability: string;
+  gateId: string;
+  execRoleIds: string[];
+  approverRoleId: string;
+  dependsOn: string[];
+  skillIds: string[];
+  aiBoundary: string;
+  /** 原本の「根拠ID」。24_調査ソースを引く。 */
+  sourceIds: string[];
+  referenceUrls: string[];
+}
+
+export interface VentureMasterTasksSummary {
+  items: VentureMasterTask[];
+}
+
+export interface VentureMasterSkill {
+  skillId: string;
+  axis: string;
+  category: string;
+  name: string;
+  definition: string;
+  level1: string;
+  level2: string;
+  level3: string;
+  evidence: string;
+  sourceIds: string[];
+  note: string;
+}
+
+export interface VentureMasterSkillsSummary {
+  items: VentureMasterSkill[];
+}
+
+/** 工程の標準。案件を作らずに読める参照情報（原本 03/04/14/24/32）。 */
+export interface VentureTailoringItem {
+  aspect: string;
+  approach: string;
+  operation: string;
+  caution: string;
+}
+
+export interface VentureEffortReference {
+  phase: string;
+  sMin: string;
+  sMax: string;
+  mMin: string;
+  mMax: string;
+  lMin: string;
+  lMax: string;
+  unit: string;
+}
+
+export interface VentureEvalType {
+  evalTypeId: string;
+  axis: string;
+  metrics: string;
+  designNote: string;
+  applicability: string;
+}
+
+export interface VentureHarnessControl {
+  controlId: string;
+  target: string;
+  standard: string;
+  detail: string;
+  ownerRoleId: string;
+  evidence: string;
+  relatedTaskIds: string[];
+}
+
+export interface VentureHarnessTest {
+  testId: string;
+  appliesWhen: string;
+  theme: string;
+  specification: string;
+  ownerRoleId: string;
+  evidence: string;
+  relatedTaskIds: string[];
+  note: string;
+}
+
+export interface VentureDevLoopStep {
+  step: string;
+  name: string;
+  input: string;
+  aiRole: string;
+  humanRole: string;
+  stopCondition: string;
+}
+
+export interface VentureRuntimeSetting {
+  name: string;
+  check: string;
+}
+
+export interface VentureSource {
+  sourceId: string;
+  published: string;
+  organization: string;
+  title: string;
+  evidenceType: string;
+  adopted: string;
+  limitation: string;
+  appliedTo: string;
+  url: string;
+  checkedOn: string;
+}
+
+export interface VentureInvestmentDecision {
+  decision: string;
+  condition: string;
+  caution: string;
+}
+
+export interface VentureStandards {
+  version: string;
+  tailoring: VentureTailoringItem[];
+  scales: Record<string, VentureTailoringItem[]>;
+  effortReference: VentureEffortReference[];
+  evalTypes: VentureEvalType[];
+  harness: VentureHarnessControl[];
+  harnessTests: VentureHarnessTest[];
+  devLoop: VentureDevLoopStep[];
+  runtimeSettings: VentureRuntimeSetting[];
+  investmentDecisions: VentureInvestmentDecision[];
+  sources: VentureSource[];
+}
+
+export interface Venture {
+  id: string;
+  name: string;
+  summary: string;
+  offeringType: string;
+  industry: string;
+  serviceCountries: string;
+  processingCountries: string;
+  scale: VentureScale;
+  riskTier: string;
+  riskTierRationale: string;
+  status: VentureStatus;
+  currentPhaseId: string;
+  businessOwnerUserId?: string | null;
+  conditions: Record<string, VentureApplicability>;
+  createdBy: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  taskTotal: number;
+  taskApplied: number;
+  taskUndecided: number;
+  taskCompleted: number;
+}
+
+export interface VenturesSummary {
+  items: Venture[];
+}
+
+export interface VentureCreatePayload {
+  name: string;
+  summary?: string;
+  offeringType?: string;
+  industry?: string;
+  serviceCountries?: string;
+  processingCountries?: string;
+  scale?: VentureScale;
+  riskTier?: string;
+  riskTierRationale?: string;
+  currentPhaseId?: string;
+  businessOwnerUserId?: string | null;
+  conditions?: Record<string, VentureApplicability>;
+}
+
+export type VentureUpdatePayload = Partial<VentureCreatePayload> & {
+  status?: VentureStatus;
+};
+
+export interface VentureTask {
+  id: string;
+  ventureId: string;
+  taskId: string;
+  phaseId: string;
+  phaseName: string;
+  workType: string;
+  name: string;
+  description: string;
+  deliverables: string;
+  completionCriteria: string;
+  aiBoundary: string;
+  /** マスタ側の適用条件。「全」または「条件:RAG」などが入る。 */
+  applicabilityCondition: string;
+  execRoleIds: string[];
+  approverRoleId: string;
+  dependsOn: string[];
+  skillIds: string[];
+  gateId: string;
+  evidenceId: string;
+  recommendedSource: string;
+  minimumEvidence: string;
+  sourceIds: string[];
+  referenceUrls: string[];
+  legacyTaskIds: string[];
+  /** 案件の実効依存。標準依存から変えたら理由と承認が要る（原本17）。 */
+  standardDependsOn: string[];
+  dependencyChangeReason: string;
+  dependencyChangeApprovedBy: string | null;
+  dependencyChangeApprovedAt: string | null;
+  dependencyCheck: string;
+  applicability: VentureApplicability;
+  applicabilityReason: string;
+  applicabilityDecidedBy?: string | null;
+  applicabilityDecidedByName: string;
+  applicabilityDecidedAt?: string | null;
+  status: VentureTaskStatus;
+  assigneeUserId?: string | null;
+  assigneeName: string;
+  roleId: string;
+  plannedStart: string;
+  plannedEnd: string;
+  actualStart: string;
+  actualEnd: string;
+  plannedHours?: number | null;
+  actualHours?: number | null;
+  evidenceUri: string;
+  completionApprovedBy?: string | null;
+  completionApprovedByName: string;
+  completionApprovedAt?: string | null;
+  blocker: string;
+  note: string;
+  updatedAt?: string | null;
+}
+
+export interface VentureTasksSummary {
+  items: VentureTask[];
+}
+
+export interface VentureTaskUpdatePayload {
+  applicability?: VentureApplicability;
+  applicabilityReason?: string;
+  status?: VentureTaskStatus;
+  assigneeUserId?: string | null;
+  roleId?: string;
+  plannedStart?: string;
+  plannedEnd?: string;
+  actualStart?: string;
+  actualEnd?: string;
+  plannedHours?: number | null;
+  actualHours?: number | null;
+  evidenceUri?: string;
+  blocker?: string;
+  note?: string;
+  approveCompletion?: boolean;
+}
+
+export interface VentureGate {
+  id: string;
+  gateId: string;
+  subject: string;
+  standardTaskId: string;
+  approverRoleId: string;
+  requiredEvidence: string;
+  allowedDecisions: string[];
+  decision: string;
+  scope: string;
+  evidencePackageUri: string;
+  conditions: string;
+  conditionDue: string;
+  decidedBy?: string | null;
+  /** 原本29の「A実名」。入力された承認者の実名。 */
+  decidedByName: string;
+  /** 実際に画面で記録した利用者の表示名。承認者とは別。 */
+  recordedByName: string;
+  decidedAt?: string | null;
+  nextAction: string;
+  reviewTrigger: string;
+  appliedTaskCount: number;
+  completedTaskCount: number;
+  unapprovedTaskCount: number;
+  updatedAt?: string | null;
+}
+
+export interface VentureGatesSummary {
+  items: VentureGate[];
+}
+
+export interface VentureGateUpdatePayload {
+  decision?: string;
+  scope?: string;
+  evidencePackageUri?: string;
+  conditions?: string;
+  conditionDue?: string;
+  decidedByName?: string;
+  nextAction?: string;
+  reviewTrigger?: string;
+}
+
+export interface VentureMember {
+  id: string;
+  userId: string;
+  userName: string;
+  roleId: string;
+  roleName: string;
+  allocationNote: string;
+  createdAt?: string | null;
+}
+
+export interface VentureMembersSummary {
+  items: VentureMember[];
+}
+
+export interface VentureLedgerEntry {
+  id: string;
+  rowKey: string;
+  /** マスタ由来の点検行。削除できず、状態と入力で管理する。 */
+  isMasterRow: boolean;
+  status: string;
+  master: Record<string, string>;
+  values: Record<string, string>;
+  /** 原本の点検列の判定結果（記録点検・日時点検など）。 */
+  derived: Record<string, string>;
+  updatedBy?: string | null;
+  updatedByName: string;
+  updatedAt?: string | null;
+}
+
+export interface VentureLedgerSummary {
+  ledger?: VentureLedgerDefinition | null;
+  items: VentureLedgerEntry[];
+}
+
+export interface VentureLedgerEntryPayload {
+  id?: string;
+  rowKey?: string;
+  status?: string;
+  values?: Record<string, string>;
+}
+
+export interface VentureSkillAssessment {
+  id: string;
+  userId: string;
+  userName: string;
+  assessedLevel: number;
+  evidenceUri: string;
+  developmentPlan: string;
+  dueDate: string;
+  assessedAt?: string | null;
+}
+
+/** そのスキルを埋められる学習コース。対応が無いスキルは空配列。 */
+export interface VentureSkillCourse {
+  courseSlug: string;
+  title: string;
+  coversLevel: number;
+  note: string;
+}
+
+export interface VentureSkillGapItem {
+  skillId: string;
+  name: string;
+  axis: string;
+  category: string;
+  definition: string;
+  /** 適用タスクが要求する必要Lvの最大値。 */
+  requiredLevel: number;
+  taskIds: string[];
+  /** 案件メンバーの到達Lvの最大値。 */
+  coveredLevel: number;
+  gap: number;
+  courses: VentureSkillCourse[];
+  assessments: VentureSkillAssessment[];
+}
+
+export interface VentureSkillGapSummary {
+  items: VentureSkillGapItem[];
+  appliedTaskCount: number;
+  gapCount: number;
+}
+
+export interface VentureSkillAssessmentPayload {
+  skillId: string;
+  userId: string;
+  assessedLevel: number;
+  evidenceUri?: string;
+  developmentPlan?: string;
+  dueDate?: string;
+}
+
+export interface VenturePhaseProgress {
+  phaseId: string;
+  name: string;
+  purpose: string;
+  gateId: string;
+  total: number;
+  applied: number;
+  undecided: number;
+  excluded: number;
+  completed: number;
+  inProgress: number;
+  blocked: number;
+}
+
+export interface VentureLedgerProgress {
+  key: string;
+  name: string;
+  total: number;
+  filled: number;
+}
+
+export interface VentureSummary {
+  venture: Venture;
+  phases: VenturePhaseProgress[];
+  gates: VentureGate[];
+  skillGapCount: number;
+  topSkillGaps: VentureSkillGapItem[];
+  ledgers: VentureLedgerProgress[];
+  members: VentureMember[];
+}
