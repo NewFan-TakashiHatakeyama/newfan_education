@@ -23,3 +23,6 @@ __pycache__/
 Thumbs.db
 docs/*.md
 docs/*.zip
+
+# Local runtime databases (recreate via alembic upgrade head)
+*.db
