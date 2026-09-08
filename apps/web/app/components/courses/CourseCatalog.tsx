@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import type {
   CourseCategory,
@@ -23,8 +24,10 @@ const SORT_OPTIONS: { value: CourseSort; label: string }[] = [
 ];
 
 export function CourseCatalog() {
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // 事業PJ台帳のスキル不足から `?q=<スキル名>` で飛んでくる導線がある。
+  const initialQuery = useSearchParams().get("q") ?? "";
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [category, setCategory] = useState<string | null>(null);
   const [sort, setSort] = useState<CourseSort>("popular");
 
