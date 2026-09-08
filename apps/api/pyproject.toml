@@ -21,7 +21,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3.0,<9.0.0",
-  "httpx>=0.27.0,<1.0.0"
+  "httpx>=0.27.0,<1.0.0",
+  # 工程マスタの抽出（tools/extract_venture_master.py）と、
+  # 原本33シートの受入試験の突合に使う。
+  "openpyxl>=3.1.0,<4.0.0"
 ]
 
 [tool.setuptools]

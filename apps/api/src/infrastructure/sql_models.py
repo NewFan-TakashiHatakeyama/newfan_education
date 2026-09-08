@@ -273,6 +273,185 @@ class NotificationDeliverySettingModel(Base):
     )
 
 
+class VentureModel(Base):
+    """自社事業のAIプロジェクト。工程マスタを参照して台帳を持つ。"""
+
+    __tablename__ = "ventures"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    summary: Mapped[str] = mapped_column(Text(), default="")
+    offering_type: Mapped[str] = mapped_column(String(32), default="社内事業")
+    industry: Mapped[str] = mapped_column(String(120), default="")
+    service_countries: Mapped[str] = mapped_column(String(255), default="")
+    processing_countries: Mapped[str] = mapped_column(String(255), default="")
+    scale: Mapped[str] = mapped_column(String(8), default="S")
+    risk_tier: Mapped[str] = mapped_column(String(8), default="T1")
+    risk_tier_rationale: Mapped[str] = mapped_column(Text(), default="")
+    status: Mapped[str] = mapped_column(String(16), default="計画中", index=True)
+    current_phase_id: Mapped[str] = mapped_column(String(8), default="B0")
+    business_owner_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    conditions: Mapped[dict] = mapped_column(JSON, default=dict)
+    # 原本 00 の「管理基準日」。期限・未来日の点検はすべてこの日付を基準にする。
+    # 未設定ならサーバの当日を使う（原本のテンプレート値へはフォールバックしない）。
+    as_of_date: Mapped[str] = mapped_column(String(10), default="")
+    created_by: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[str] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (Index("ix_ventures_tenant_status", "tenant_id", "status"),)
+
+
+class VentureTaskModel(Base):
+    """工程タスクの案件別実行台帳（原本 17_ロードマップ・案件実行管理）。"""
+
+    __tablename__ = "venture_tasks"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    venture_id: Mapped[str] = mapped_column(ForeignKey("ventures.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    task_id: Mapped[str] = mapped_column(String(16), index=True)
+    phase_id: Mapped[str] = mapped_column(String(8), index=True)
+    gate_id: Mapped[str] = mapped_column(String(8), index=True)
+    applicability: Mapped[str] = mapped_column(String(16), default="未判定", index=True)
+    applicability_reason: Mapped[str] = mapped_column(Text(), default="")
+    applicability_decided_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    applicability_decided_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="未着手", index=True)
+    assignee_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    role_id: Mapped[str] = mapped_column(String(8), default="")
+    planned_start: Mapped[str] = mapped_column(String(10), default="")
+    planned_end: Mapped[str] = mapped_column(String(10), default="")
+    actual_start: Mapped[str] = mapped_column(String(10), default="")
+    actual_end: Mapped[str] = mapped_column(String(10), default="")
+    planned_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    actual_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    evidence_uri: Mapped[str] = mapped_column(Text(), default="")
+    completion_approved_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    completion_approved_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    blocker: Mapped[str] = mapped_column(Text(), default="")
+    note: Mapped[str] = mapped_column(Text(), default="")
+    # 原本17の直接依存ID。標準依存（02の基本依存ID）から変えるときは
+    # 理由・承認者・承認日を残す（原本17!W「依存変更承認不足」）。
+    depends_on_override: Mapped[str] = mapped_column(Text(), default="")
+    dependency_change_reason: Mapped[str] = mapped_column(Text(), default="")
+    dependency_change_approved_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dependency_change_approved_at: Mapped[str | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[str] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ux_venture_tasks_venture_task", "venture_id", "task_id", unique=True),
+        Index("ix_venture_tasks_venture_phase", "venture_id", "phase_id"),
+    )
+
+
+class VentureGateModel(Base):
+    """ゲート承認記録（原本 29_ゲート承認記録）。"""
+
+    __tablename__ = "venture_gates"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    venture_id: Mapped[str] = mapped_column(ForeignKey("ventures.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    gate_id: Mapped[str] = mapped_column(String(8), index=True)
+    decision: Mapped[str] = mapped_column(String(32), default="未審査", index=True)
+    scope: Mapped[str] = mapped_column(Text(), default="")
+    evidence_package_uri: Mapped[str] = mapped_column(Text(), default="")
+    conditions: Mapped[str] = mapped_column(Text(), default="")
+    condition_due: Mapped[str] = mapped_column(String(10), default="")
+    decided_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    decided_by_name: Mapped[str] = mapped_column(String(120), default="")
+    decided_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_action: Mapped[str] = mapped_column(Text(), default="")
+    review_trigger: Mapped[str] = mapped_column(Text(), default="")
+    updated_at: Mapped[str] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (Index("ux_venture_gates_venture_gate", "venture_id", "gate_id", unique=True),)
+
+
+class VentureMemberModel(Base):
+    """案件の要員割当（原本 06_ロール・要員計画 / 35_実名・能力割当）。"""
+
+    __tablename__ = "venture_members"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    venture_id: Mapped[str] = mapped_column(ForeignKey("ventures.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    role_id: Mapped[str] = mapped_column(String(8), index=True)
+    allocation_note: Mapped[str] = mapped_column(Text(), default="")
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ux_venture_members_venture_user_role", "venture_id", "user_id", "role_id", unique=True),
+    )
+
+
+class VentureLedgerEntryModel(Base):
+    """汎用台帳の1行（データ・依存・ADR・リスク・SLO・KPI など）。
+
+    台帳ごとに列が違うため、値は `values_json` に列名 -> 値 で保持する。
+    列の定義はマスタ（venture_process_master.json）が持つ。
+    """
+
+    __tablename__ = "venture_ledger_entries"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    venture_id: Mapped[str] = mapped_column(ForeignKey("ventures.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    ledger_key: Mapped[str] = mapped_column(String(32), index=True)
+    row_key: Mapped[str] = mapped_column(String(64), index=True)
+    is_master_row: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(32), default="未着手", index=True)
+    values_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[str] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ux_venture_ledger_row", "venture_id", "ledger_key", "row_key", unique=True),
+    )
+
+
+class VentureSkillAssessmentModel(Base):
+    """案件で必要なスキルに対する担当者の到達度（原本 28_スキル評価・育成）。
+
+    必要Lv はタスクマスタから算出するため保持しない。ここは評価と育成計画を持つ。
+    """
+
+    __tablename__ = "venture_skill_assessments"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    venture_id: Mapped[str] = mapped_column(ForeignKey("ventures.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    skill_id: Mapped[str] = mapped_column(String(16), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    assessed_level: Mapped[int] = mapped_column(Integer, default=0)
+    evidence_uri: Mapped[str] = mapped_column(Text(), default="")
+    development_plan: Mapped[str] = mapped_column(Text(), default="")
+    due_date: Mapped[str] = mapped_column(String(10), default="")
+    assessed_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    assessed_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[str] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ux_venture_skill_user", "venture_id", "skill_id", "user_id", unique=True),
+    )
+
+
 class NotificationDeliveryJobModel(Base):
     __tablename__ = "notification_delivery_jobs"
 
