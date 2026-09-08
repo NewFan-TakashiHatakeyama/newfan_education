@@ -8,6 +8,7 @@ import type { AuthSession, Role } from "@newfan/contracts";
 import { AppIcon, type AppIconName } from "@/app/components/ui";
 import { UserMenu } from "@/app/components/UserMenu";
 import { getDemoAuthSession, isDemoAuthenticated, isPublicAuthPath } from "@/lib/auth";
+import { isVentureLedgerEnabled } from "@/lib/features";
 import { getNotifications } from "@/lib/api";
 import { buildNotificationCenterLink } from "@/lib/notificationLinks";
 
@@ -33,7 +34,8 @@ const NAV_SECTIONS: { section: NavSection; entries: NavEntry[] }[] = [
     entries: [
       { kind: "leaf", href: "/learner/learn", label: "学習ホーム", icon: "bookOpen" },
       { kind: "leaf", href: "/courses", label: "コースを探す", icon: "search" },
-      { kind: "leaf", href: "/learner/evidence", label: "自分の成果物", icon: "fileSearch" }
+      { kind: "leaf", href: "/learner/evidence", label: "自分の成果物", icon: "fileSearch" },
+      { kind: "leaf", href: "/ventures", label: "事業PJ台帳", icon: "clipboardCheck" }
     ]
   },
   {
@@ -60,7 +62,8 @@ const NAV_SECTIONS: { section: NavSection; entries: NavEntry[] }[] = [
         children: [
           { href: "/company/requirements", label: "業務課題", icon: "clipboardList" },
           { href: "/company/fit-assessments", label: "AIテーマ診断", icon: "chart" },
-          { href: "/company/reports", label: "AIプロジェクト候補", icon: "barChart3" }
+          { href: "/company/reports", label: "AIプロジェクト候補", icon: "barChart3" },
+          { href: "/ventures", label: "事業PJ台帳", icon: "clipboardCheck" }
         ]
       },
       {
@@ -119,19 +122,43 @@ function isAdminLike(role: Role): boolean {
   return role === "admin" || role === "content_editor";
 }
 
-function filterNavEntries(section: NavSection, role: Role, entries: NavEntry[]): NavEntry[] {
-  if (section !== "common") {
-    return entries;
-  }
-  return entries.filter((entry) => {
-    if (entry.kind !== "leaf") {
+function filterNavEntries(
+  section: NavSection,
+  role: Role,
+  tenantId: string,
+  entries: NavEntry[]
+): NavEntry[] {
+  return entries
+    .map((entry) => {
+      // グループ配下の葉もテナントの機能フラグで絞る。
+      if (entry.kind === "group") {
+        return {
+          ...entry,
+          children: entry.children.filter((child) => isNavEntryEnabled(child.href, tenantId))
+        };
+      }
+      return entry;
+    })
+    .filter((entry) => {
+      if (entry.kind === "group") {
+        return entry.children.length > 0;
+      }
+      if (!isNavEntryEnabled(entry.href, tenantId)) {
+        return false;
+      }
+      if (section === "common" && entry.href.startsWith("/admin")) {
+        return isAdminLike(role);
+      }
       return true;
-    }
-    if (entry.href.startsWith("/admin")) {
-      return isAdminLike(role);
-    }
-    return true;
-  });
+    });
+}
+
+/** テナントで無効な機能はメニューに出さない。 */
+function isNavEntryEnabled(href: string, tenantId: string): boolean {
+  if (href.startsWith("/ventures")) {
+    return isVentureLedgerEnabled(tenantId);
+  }
+  return true;
 }
 
 function getDefaultHomePath(session: AuthSession): string {
@@ -355,7 +382,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             {NAV_SECTIONS.filter(({ section }) =>
               ROLE_NAV_SECTIONS[authSession.role]?.includes(section)
             ).map(({ section, entries: rawEntries }) => {
-              const entries = filterNavEntries(section, authSession.role, rawEntries);
+              const entries = filterNavEntries(
+                section,
+                authSession.role,
+                authSession.tenantId,
+                rawEntries
+              );
               if (entries.length === 0) {
                 return null;
               }

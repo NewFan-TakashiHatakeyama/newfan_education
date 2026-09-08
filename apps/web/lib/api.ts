@@ -51,6 +51,31 @@ import type {
   ReportExportJob,
   SkillsGapSummary
 } from "@newfan/contracts";
+import type {
+  Venture,
+  VentureCreatePayload,
+  VentureGate,
+  VentureGateUpdatePayload,
+  VentureGatesSummary,
+  VentureLedgerEntry,
+  VentureLedgerEntryPayload,
+  VentureLedgerSummary,
+  VentureMaster,
+  VentureMasterSkillsSummary,
+  VentureStandards,
+  VentureMasterTasksSummary,
+  VentureMember,
+  VentureMembersSummary,
+  VentureSkillAssessment,
+  VentureSkillAssessmentPayload,
+  VentureSkillGapSummary,
+  VentureSummary,
+  VentureTask,
+  VentureTaskUpdatePayload,
+  VentureTasksSummary,
+  VentureUpdatePayload,
+  VenturesSummary
+} from "@newfan/contracts";
 import { getAuthHeaders, handleUnauthorizedSession, isDemoAuthenticated, getDemoAuthSession } from "@/lib/auth";
 
 const API_BASE_URL =
@@ -81,6 +106,37 @@ const PUBLIC_API_PATH_PREFIXES = ["/api/v1/auth/sign-in", "/api/v1/auth/sign-up"
 
 function isPublicApiPath(path: string): boolean {
   return PUBLIC_API_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+// サーバの detail をそのまま画面に出してよいAPI。
+// 事業PJ台帳は工程マスタの定義を引用した日本語の説明を返す（例:
+// 「G0 で選べる判断は ... です」「この行IDは既に使われています: D-001」）ので、
+// 汎用文言に潰すと利用者が何を直せばよいか分からない。
+// 既存のAPIは "Course not found" のような内部向けの英語を返すため対象外にする。
+const SERVER_MESSAGE_PATH_PREFIXES = ["/api/v1/ventures"] as const;
+
+function usesServerMessage(path: string): boolean {
+  return SERVER_MESSAGE_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+async function readServerMessage(res: Response, path: string): Promise<string | null> {
+  // 5xx と 401 は内部情報や認証の状態を出さず、既定の文言に倒す。
+  if (res.status >= 500 || res.status === 401 || !usesServerMessage(path)) {
+    return null;
+  }
+  try {
+    const body = (await res.json()) as { detail?: unknown };
+    // 422 の detail は pydantic の配列なので採用しない。
+    if (typeof body?.detail === "string") {
+      const detail = body.detail.trim();
+      if (detail && detail.length <= 300) {
+        return detail;
+      }
+    }
+  } catch {
+    // 本文が無い、またはJSONでない
+  }
+  return null;
 }
 
 async function request<T>(
@@ -116,7 +172,8 @@ async function request<T>(
     if (res.status === 401 && authHeaders.Authorization && !isPublicApiPath(path)) {
       handleUnauthorizedSession();
     }
-    throw new Error(mapApiErrorMessage(res.status));
+    const serverMessage = await readServerMessage(res, path);
+    throw new Error(serverMessage ?? mapApiErrorMessage(res.status));
   }
   return (await res.json()) as T;
 }
@@ -559,4 +616,178 @@ export function patchAdminModerationBulkClose(payload: ModerationBulkClosePayloa
     method: "PATCH",
     body: JSON.stringify(payload)
   });
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * 事業PJ台帳（Venture Ledger）
+ * ───────────────────────────────────────────────────────────── */
+
+/** 工程マスタ（7工程・6ゲート・Tier・ロール・台帳定義）を取得する。 */
+export function fetchVentureMaster() {
+  return request<VentureMaster>("/api/v1/ventures/master");
+}
+
+/** 工程タスクの標準定義。phaseId で工程を絞り込める。 */
+export function fetchVentureMasterTasks(phaseId?: string) {
+  const query = phaseId ? `?phaseId=${encodeURIComponent(phaseId)}` : "";
+  return request<VentureMasterTasksSummary>(`/api/v1/ventures/master/tasks${query}`);
+}
+
+/** スキル辞書（106件）。Lv1〜Lv3 の行動基準を含む。 */
+export function fetchVentureMasterSkills() {
+  return request<VentureMasterSkillsSummary>("/api/v1/ventures/master/skills");
+}
+
+export function fetchVentureStandards() {
+  return request<VentureStandards>("/api/v1/ventures/master/standards");
+}
+
+export function fetchVentures() {
+  return request<VenturesSummary>("/api/v1/ventures");
+}
+
+export function fetchVenture(ventureId: string) {
+  return request<Venture>(`/api/v1/ventures/${encodeURIComponent(ventureId)}`);
+}
+
+/** 案件を作る。作成時にマスタから132タスク・6ゲート・台帳の点検行を展開する。 */
+export function createVenture(payload: VentureCreatePayload) {
+  return request<Venture>("/api/v1/ventures", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateVenture(ventureId: string, payload: VentureUpdatePayload) {
+  return request<Venture>(`/api/v1/ventures/${encodeURIComponent(ventureId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function fetchVentureSummary(ventureId: string) {
+  return request<VentureSummary>(`/api/v1/ventures/${encodeURIComponent(ventureId)}/summary`);
+}
+
+export function fetchVentureTasks(
+  ventureId: string,
+  filters: {
+    phaseId?: string;
+    applicability?: string;
+    status?: string;
+    assigneeUserId?: string;
+  } = {}
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) {
+      params.set(key, value);
+    }
+  }
+  const query = params.toString();
+  return request<VentureTasksSummary>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/tasks${query ? `?${query}` : ""}`
+  );
+}
+
+export function updateVentureTask(
+  ventureId: string,
+  taskRowId: string,
+  payload: VentureTaskUpdatePayload
+) {
+  return request<VentureTask>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/tasks/${encodeURIComponent(taskRowId)}`,
+    { method: "PATCH", body: JSON.stringify(payload) }
+  );
+}
+
+/** 適用判定をまとめて決める。判定者と日時が記録される。 */
+export function decideVentureApplicability(
+  ventureId: string,
+  payload: { taskRowIds: string[]; applicability: string; reason?: string }
+) {
+  return request<{ updated: number }>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/tasks/applicability`,
+    { method: "POST", body: JSON.stringify(payload) }
+  );
+}
+
+export function fetchVentureGates(ventureId: string) {
+  return request<VentureGatesSummary>(`/api/v1/ventures/${encodeURIComponent(ventureId)}/gates`);
+}
+
+export function updateVentureGate(
+  ventureId: string,
+  gateRowId: string,
+  payload: VentureGateUpdatePayload
+) {
+  return request<VentureGate>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/gates/${encodeURIComponent(gateRowId)}`,
+    { method: "PATCH", body: JSON.stringify(payload) }
+  );
+}
+
+export function fetchVentureMembers(ventureId: string) {
+  return request<VentureMembersSummary>(`/api/v1/ventures/${encodeURIComponent(ventureId)}/members`);
+}
+
+export function addVentureMember(
+  ventureId: string,
+  payload: { userId: string; roleId: string; allocationNote?: string }
+) {
+  return request<VentureMember>(`/api/v1/ventures/${encodeURIComponent(ventureId)}/members`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function removeVentureMember(ventureId: string, memberId: string) {
+  return request<{ removed: boolean }>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/members/${encodeURIComponent(memberId)}`,
+    { method: "DELETE" }
+  );
+}
+
+/** 台帳の1つ（データ・リスク・ADR など）を列定義付きで取得する。 */
+export function fetchVentureLedger(ventureId: string, ledgerKey: string) {
+  return request<VentureLedgerSummary>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/ledgers/${encodeURIComponent(ledgerKey)}`
+  );
+}
+
+export function saveVentureLedgerEntry(
+  ventureId: string,
+  ledgerKey: string,
+  payload: VentureLedgerEntryPayload
+) {
+  return request<VentureLedgerEntry>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/ledgers/${encodeURIComponent(ledgerKey)}/entries`,
+    { method: "POST", body: JSON.stringify(payload) }
+  );
+}
+
+export function deleteVentureLedgerEntry(ventureId: string, ledgerKey: string, entryId: string) {
+  return request<{ removed: boolean }>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/ledgers/${encodeURIComponent(
+      ledgerKey
+    )}/entries/${encodeURIComponent(entryId)}`,
+    { method: "DELETE" }
+  );
+}
+
+/** 適用タスクが要求するスキルと、メンバーの到達度の差分。 */
+export function fetchVentureSkillGap(ventureId: string) {
+  return request<VentureSkillGapSummary>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/skill-gap`
+  );
+}
+
+export function saveVentureSkillAssessment(
+  ventureId: string,
+  payload: VentureSkillAssessmentPayload
+) {
+  return request<VentureSkillAssessment & { skillId: string }>(
+    `/api/v1/ventures/${encodeURIComponent(ventureId)}/skill-assessments`,
+    { method: "POST", body: JSON.stringify(payload) }
+  );
 }

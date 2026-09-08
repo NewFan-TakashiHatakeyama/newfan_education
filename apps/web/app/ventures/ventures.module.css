@@ -1,0 +1,399 @@
+/* 事業PJ台帳の画面スタイル。
+   工程・ゲート・台帳は「一覧して差分を見つける」使い方が中心なので、
+   密度の高い表と、状態が一目で分かるピルを基本にする。 */
+
+.nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border, #d8dee6);
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.navLink {
+  padding: 9px 14px;
+  font-size: 0.9rem;
+  color: var(--muted, #5a6675);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.navLink:hover {
+  color: var(--text, #182029);
+}
+
+.navLinkActive {
+  color: var(--accent, #1f4b5e);
+  border-bottom-color: var(--accent, #1f4b5e);
+  font-weight: 700;
+}
+
+/* ── 一覧カード ─────────────────────────── */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border, #d8dee6);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  text-decoration: none;
+  color: inherit;
+}
+
+.card:hover {
+  border-color: var(--accent, #1f4b5e);
+}
+
+.cardTitle {
+  font-size: 1.02rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.cardSummary {
+  font-size: 0.86rem;
+  color: var(--muted, #5a6675);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.76rem;
+}
+
+.cardStats {
+  display: flex;
+  gap: 14px;
+  font-size: 0.8rem;
+  color: var(--muted, #5a6675);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── ピル ───────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.pillNeutral {
+  background: #eef2f5;
+  color: #4a5563;
+}
+.pillApplied {
+  background: #e3eef2;
+  color: #1f4b5e;
+}
+.pillExcluded {
+  background: #f0f1f3;
+  color: #78828e;
+}
+.pillUndecided {
+  background: #f7ecd6;
+  color: #8a5a11;
+}
+.pillDone {
+  background: #e1f1ea;
+  color: #216c4d;
+}
+.pillProgress {
+  background: #e3eef2;
+  color: #1f4b5e;
+}
+.pillBlocked {
+  background: #f6e4e4;
+  color: #97302f;
+}
+.pillTier {
+  background: #ece6f5;
+  color: #4b3b7a;
+}
+
+/* ── 表 ─────────────────────────────────── */
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border, #d8dee6);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line-soft, #eceff3);
+  vertical-align: top;
+}
+
+.table th {
+  background: #f5f7f9;
+  font-size: 0.76rem;
+  color: var(--muted, #5a6675);
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+  white-space: nowrap;
+}
+
+.table tbody tr:hover {
+  background: #f9fbfc;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rowButton {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent, #1f4b5e);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.taskId {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--muted, #5a6675);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--muted, #5a6675);
+  font-size: 0.82rem;
+}
+
+.wrapText {
+  min-width: 220px;
+  white-space: pre-wrap;
+}
+
+/* ── フィルタ・フォーム ──────────────────── */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--muted, #5a6675);
+}
+
+.field select,
+.field input,
+.field textarea {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 7px 9px;
+  border: 1px solid var(--border, #d8dee6);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: inherit;
+  min-width: 160px;
+}
+
+.field textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.conditionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.count {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--muted, #5a6675);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 進捗バー ───────────────────────────── */
+.phaseGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.phaseCard {
+  border: 1px solid var(--border, #d8dee6);
+  border-radius: 10px;
+  padding: 13px 14px;
+  background: var(--surface, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.phaseHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.phaseId {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--accent, #1f4b5e);
+  font-weight: 700;
+}
+
+.phaseName {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.bar {
+  height: 7px;
+  border-radius: 999px;
+  background: #eceff3;
+  overflow: hidden;
+  display: flex;
+}
+
+.barDone {
+  background: #2e7d5b;
+}
+.barProgress {
+  background: #1f4b5e;
+}
+.barUndecided {
+  background: #d9a650;
+}
+
+.phaseStats {
+  display: flex;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--muted, #5a6675);
+  font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
+}
+
+/* ── 詳細ドロワー内 ─────────────────────── */
+.detailList {
+  display: grid;
+  grid-template-columns: 7.5em 1fr;
+  gap: 7px 12px;
+  font-size: 0.87rem;
+  margin: 0 0 16px;
+}
+
+.detailList dt {
+  color: var(--muted, #5a6675);
+}
+
+.detailList dd {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.actionRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.note {
+  font-size: 0.82rem;
+  color: var(--muted, #5a6675);
+  background: #f5f7f9;
+  border-left: 3px solid var(--border, #d8dee6);
+  padding: 8px 12px;
+  margin: 0 0 14px;
+  white-space: pre-wrap;
+}
+
+.error {
+  font-size: 0.86rem;
+  color: #97302f;
+  background: #f6e4e4;
+  border-radius: 6px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+}
+
+.gapBadge {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.gapHigh {
+  color: #97302f;
+}
+.gapNone {
+  color: #216c4d;
+}
+
+.ledgerLinks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.ledgerLink {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #d8dee6);
+  border-radius: 9px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--surface, #fff);
+}
+
+.ledgerLink:hover {
+  border-color: var(--accent, #1f4b5e);
+}
+
+.ledgerName {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
