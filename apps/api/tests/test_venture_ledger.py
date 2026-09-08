@@ -1096,3 +1096,198 @@ def test_incident_ledger_is_available() -> None:
     )
     assert created.status_code == 200
     assert created.json()["values"]["概要・利用者影響"] == "検索結果に他社データが混入"
+
+
+# ── 権限境界とライフサイクルの回帰テスト ────────────────────
+
+
+def test_manager_only_mutations_reject_non_managers() -> None:
+    """案件の前提更新・ゲート判断・要員追加は admin/recruiter 以外は403（許可される側しか無かった穴）。"""
+    client = TestClient(app)
+    admin = sign_in(client, "admin@example.com", "Admin123!")
+    venture_id = create_venture(client, admin)["id"]
+    gate_id = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"][0]["id"]
+
+    for email, password in (("learner@example.com", "Learner123!"), ("mentor@example.com", "Mentor123!")):
+        headers = sign_in(client, email, password)
+        assert (
+            client.patch(
+                f"/api/v1/ventures/{venture_id}", json={"summary": "書き換え"}, headers=headers
+            ).status_code
+            == 403
+        )
+        assert (
+            client.patch(
+                f"/api/v1/ventures/{venture_id}/gates/{gate_id}",
+                json={"conditionDue": "2026-12-01"},
+                headers=headers,
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                f"/api/v1/ventures/{venture_id}/members",
+                json={"userId": "demo-user", "roleId": "R02"},
+                headers=headers,
+            ).status_code
+            == 403
+        )
+
+
+def test_editor_only_mutations_reject_non_editors() -> None:
+    """適用判定の一括決定・台帳の起票と削除は admin/recruiter/content_editor 以外は403。
+
+    mentor は評価者（ASSESSOR_ROLES）だが編集担当（EDITOR_ROLES）ではないので、
+    ここで拒否されることが重要な境界。
+    """
+    client = TestClient(app)
+    admin = sign_in(client, "admin@example.com", "Admin123!")
+    venture_id = create_venture(client, admin)["id"]
+    task_row_id = client.get(f"/api/v1/ventures/{venture_id}/tasks", headers=admin).json()["items"][0]["id"]
+    risk_entry_id = client.get(f"/api/v1/ventures/{venture_id}/ledgers/risk", headers=admin).json()["items"][
+        0
+    ]["id"]
+
+    for email, password in (("learner@example.com", "Learner123!"), ("mentor@example.com", "Mentor123!")):
+        headers = sign_in(client, email, password)
+        assert (
+            client.post(
+                f"/api/v1/ventures/{venture_id}/tasks/applicability",
+                json={"taskRowIds": [task_row_id], "applicability": "対象外", "reason": "対象外"},
+                headers=headers,
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                f"/api/v1/ventures/{venture_id}/ledgers/data/entries",
+                json={"rowKey": "D-100", "values": {}},
+                headers=headers,
+            ).status_code
+            == 403
+        )
+        assert (
+            client.delete(
+                f"/api/v1/ventures/{venture_id}/ledgers/risk/entries/{risk_entry_id}", headers=headers
+            ).status_code
+            == 403
+        )
+
+
+def test_assessor_only_mutation_rejects_non_assessors() -> None:
+    """到達Lvの記録は admin/recruiter/mentor 以外（学習者）は403。"""
+    client = TestClient(app)
+    admin = sign_in(client, "admin@example.com", "Admin123!")
+    learner = sign_in(client, "learner@example.com", "Learner123!")
+    venture_id = create_venture(client, admin)["id"]
+    skill_id = client.get(f"/api/v1/ventures/{venture_id}/skill-gap", headers=admin).json()["items"][0][
+        "skillId"
+    ]
+
+    denied = client.post(
+        f"/api/v1/ventures/{venture_id}/skill-assessments",
+        json={"skillId": skill_id, "userId": "mentor-user", "assessedLevel": 2},
+        headers=learner,
+    )
+    assert denied.status_code == 403
+
+
+def test_remove_member_endpoint() -> None:
+    """要員の解除。許可される側しかテストが無かった DELETE /members/{id}。"""
+    client = TestClient(app)
+    admin = sign_in(client, "admin@example.com", "Admin123!")
+    learner = sign_in(client, "learner@example.com", "Learner123!")
+    venture_id = create_venture(client, admin)["id"]
+    member = client.post(
+        f"/api/v1/ventures/{venture_id}/members",
+        json={"userId": "demo-user", "roleId": "R02"},
+        headers=admin,
+    ).json()
+
+    assert (
+        client.delete(f"/api/v1/ventures/{venture_id}/members/{member['id']}", headers=learner).status_code
+        == 403
+    )
+    assert (
+        client.delete(f"/api/v1/ventures/{venture_id}/members/does-not-exist", headers=admin).status_code
+        == 404
+    )
+
+    removed = client.delete(f"/api/v1/ventures/{venture_id}/members/{member['id']}", headers=admin)
+    assert removed.status_code == 200
+    assert removed.json()["removed"] is True
+    remaining = [
+        item["id"] for item in client.get(f"/api/v1/ventures/{venture_id}/members", headers=admin).json()["items"]
+    ]
+    assert member["id"] not in remaining
+
+
+def test_planned_end_before_planned_start_is_rejected() -> None:
+    """原本17!W の予定日逆転チェック（「予定日不正」分岐）。"""
+    client = TestClient(app)
+    admin = sign_in(client, "admin@example.com", "Admin123!")
+    venture_id = create_venture(client, admin)["id"]
+    task = client.get(f"/api/v1/ventures/{venture_id}/tasks", headers=admin).json()["items"][0]
+
+    rejected = client.patch(
+        f"/api/v1/ventures/{venture_id}/tasks/{task['id']}",
+        json={"plannedStart": "2026-10-10", "plannedEnd": "2026-10-01"},
+        headers=admin,
+    )
+    assert rejected.status_code == 400
+    assert "予定日不正" in rejected.json()["detail"]
+
+
+def test_delete_venture_removes_it_and_its_children() -> None:
+    """案件を削除すると、要員・台帳の行も消え、監査ログにだけ痕跡が残る。"""
+    client = TestClient(app)
+    admin = sign_in(client, "admin@example.com", "Admin123!")
+    venture_id = create_venture(client, admin)["id"]
+    client.post(
+        f"/api/v1/ventures/{venture_id}/members",
+        json={"userId": "demo-user", "roleId": "R02"},
+        headers=admin,
+    )
+    client.post(
+        f"/api/v1/ventures/{venture_id}/ledgers/data/entries",
+        json={"rowKey": "D-900", "values": {"名称・種類": "削除テスト"}},
+        headers=admin,
+    )
+
+    removed = client.delete(f"/api/v1/ventures/{venture_id}", headers=admin)
+    assert removed.status_code == 200
+    assert removed.json()["removed"] is True
+
+    assert client.get(f"/api/v1/ventures/{venture_id}", headers=admin).status_code == 404
+    listed = [item["id"] for item in client.get("/api/v1/ventures", headers=admin).json()["items"]]
+    assert venture_id not in listed
+
+    ScopedSession.remove()
+    logs = (
+        ScopedSession.execute(
+            select(AuditLogModel).where(
+                AuditLogModel.resource_id == venture_id, AuditLogModel.event_type == "venture.delete"
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(logs) == 1
+    assert logs[0].action == "delete"
+
+
+def test_delete_venture_requires_manager_role() -> None:
+    client = TestClient(app)
+    admin = sign_in(client, "admin@example.com", "Admin123!")
+    learner = sign_in(client, "learner@example.com", "Learner123!")
+    venture_id = create_venture(client, admin)["id"]
+
+    denied = client.delete(f"/api/v1/ventures/{venture_id}", headers=learner)
+    assert denied.status_code == 403
+    assert client.get(f"/api/v1/ventures/{venture_id}", headers=admin).status_code == 200
+
+
+def test_delete_venture_unknown_id_is_not_found() -> None:
+    client = TestClient(app)
+    admin = sign_in(client, "admin@example.com", "Admin123!")
+    assert client.delete("/api/v1/ventures/does-not-exist", headers=admin).status_code == 404
