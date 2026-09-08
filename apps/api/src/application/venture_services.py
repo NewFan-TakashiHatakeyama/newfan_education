@@ -166,6 +166,13 @@ class VentureService:
             raise VentureNotFoundError("案件が見つかりません")
         return venture
 
+    def delete_venture(self, actor: UserContext, venture_id: str) -> dict:
+        self._assert(actor, MANAGER_ROLES)
+        self._get_venture(actor, venture_id)
+        if not self.repository.delete_venture(actor.tenant_id, venture_id, actor.user_id, actor.role):
+            raise VentureNotFoundError("案件が見つかりません")
+        return {"removed": True}
+
     def _validate_venture_payload(self, payload: dict) -> None:
         master = load_master()
         if payload.get("scale") and payload["scale"] not in SCALE_VALUES:

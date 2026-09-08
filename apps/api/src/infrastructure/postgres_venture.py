@@ -540,6 +540,44 @@ class PostgresVentureRepository:
         self._commit()
         return self.get_venture(tenant_id, venture_id)
 
+    def delete_venture(self, tenant_id: str, venture_id: str, actor_user_id: str, actor_role: str) -> bool:
+        """案件と子テーブルの行を消す。
+
+        DBのFKに ON DELETE CASCADE を頼らず、子を明示的に消してから親を消す
+        （SQLiteはデフォルトでFK制約を強制しないため、Postgres・SQLite両方で
+        同じ挙動にする）。監査ログだけは resource_id が文字列参照のFKなしなので
+        そのまま残り、削除された案件がかつて存在した痕跡になる。
+        """
+        model = self._db.get(VentureModel, venture_id)
+        if model is None or model.tenant_id != tenant_id:
+            return False
+        name = model.name
+        for child_model in (
+            VentureTaskModel,
+            VentureGateModel,
+            VentureMemberModel,
+            VentureLedgerEntryModel,
+            VentureSkillAssessmentModel,
+        ):
+            rows = self._db.execute(
+                select(child_model).where(child_model.venture_id == venture_id)
+            ).scalars().all()
+            for row in rows:
+                self._db.delete(row)
+        self._db.delete(model)
+        self._write_audit(
+            tenant_id=tenant_id,
+            event_type="venture.delete",
+            resource_type="venture",
+            resource_id=venture_id,
+            action="delete",
+            actor_user_id=actor_user_id,
+            actor_role=actor_role,
+            summary=f"案件「{name}」を削除",
+        )
+        self._commit()
+        return True
+
     # ─────────────────────────────────────────────
     # 工程タスク台帳
     # ─────────────────────────────────────────────

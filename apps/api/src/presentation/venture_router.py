@@ -137,6 +137,14 @@ def update_venture(
         raise _http_error(exc) from exc
 
 
+@router.delete("/ventures/{venture_id}", response_model=VentureRemovedResponse)
+def delete_venture(venture_id: str, actor: UserContext = Depends(get_current_user)):
+    try:
+        return CONTAINER.venture_service.delete_venture(actor, venture_id)
+    except VENTURE_ERRORS as exc:
+        raise _http_error(exc) from exc
+
+
 @router.get("/ventures/{venture_id}/summary", response_model=VentureSummaryResponse)
 def get_venture_summary(venture_id: str, actor: UserContext = Depends(get_current_user)):
     try:
