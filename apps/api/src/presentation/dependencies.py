@@ -22,6 +22,7 @@ from application.services import (
     UserManagementService,
 )
 from application.b2b_services import B2BService
+from application.venture_services import VentureService
 from domain.models import (
     Company,
     CurriculumVersion,
@@ -32,7 +33,7 @@ from domain.models import (
     UserContext,
 )
 from infrastructure.auth import decode_access_token
-from infrastructure.db import Base, SessionLocal, engine
+from infrastructure.db import Base, ScopedSession, engine
 from infrastructure.course_seed import default_courses
 from infrastructure.in_memory_repositories import (
     InMemoryAuditLogRepository,
@@ -49,6 +50,7 @@ from infrastructure.in_memory_repositories import (
     InMemoryUserRepository,
 )
 from infrastructure.postgres_b2b import PostgresB2BRepository
+from infrastructure.postgres_venture import PostgresVentureRepository
 from infrastructure.settings import load_settings
 
 
@@ -69,13 +71,16 @@ class ServiceContainer:
     user_management_service: UserManagementService
     audit_log_service: AuditLogService
     b2b_service: B2BService
+    venture_service: VentureService
 
 
 def build_container() -> ServiceContainer:
     settings = load_settings()
     Base.metadata.create_all(bind=engine)
-    db_session = SessionLocal()
+    # リクエスト単位のSessionを返すプロキシ。リポジトリはこれを Session として扱う。
+    db_session = ScopedSession
     postgres_b2b_repository = PostgresB2BRepository(db_session)
+    postgres_venture_repository = PostgresVentureRepository(db_session)
     postgres_b2b_repository.seed_if_empty()
     postgres_b2b_repository.sync_legacy_demo_copy()
 
@@ -350,6 +355,7 @@ def build_container() -> ServiceContainer:
         user_management_service=UserManagementService(user_repo, audit_log_repo),
         audit_log_service=audit_log_service,
         b2b_service=B2BService(repository=postgres_b2b_repository),
+        venture_service=VentureService(repository=postgres_venture_repository),
     )
 
 

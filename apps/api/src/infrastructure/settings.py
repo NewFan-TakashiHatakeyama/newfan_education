@@ -19,6 +19,7 @@ class Settings:
     docker_sandbox_enabled: bool
     docker_sandbox_image: str
     docker_sandbox_timeout_sec: int
+    venture_ledger_tenants: tuple[str, ...]
 
 
 def _parse_web_origins() -> tuple[str, ...]:
@@ -29,6 +30,16 @@ def _parse_web_origins() -> tuple[str, ...]:
     )
     origins = tuple(origin.strip() for origin in raw.split(",") if origin.strip())
     return origins or ("http://localhost:3000",)
+
+
+def _parse_venture_ledger_tenants() -> tuple[str, ...]:
+    """事業PJ台帳を有効にするテナント。
+
+    工程マスタは自社の工程・ロール・スキル定義そのもので、テナント側から
+    追加・除外する手段が無い。当面は自社テナントに限定して提供する。
+    """
+    raw = os.getenv("VENTURE_LEDGER_TENANTS", "company-demo")
+    return tuple(tenant.strip() for tenant in raw.split(",") if tenant.strip())
 
 
 def load_settings() -> Settings:
@@ -51,4 +62,5 @@ def load_settings() -> Settings:
         docker_sandbox_enabled=docker_sandbox_enabled_raw in {"1", "true", "yes", "on"},
         docker_sandbox_image=os.getenv("DOCKER_SANDBOX_IMAGE", "python:3.12-alpine"),
         docker_sandbox_timeout_sec=int(os.getenv("DOCKER_SANDBOX_TIMEOUT_SEC", "8")),
+        venture_ledger_tenants=_parse_venture_ledger_tenants(),
     )
