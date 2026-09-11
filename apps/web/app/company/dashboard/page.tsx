@@ -112,6 +112,8 @@ export default function CompanyDashboardPage() {
   }, []);
 
   useEffect(() => {
+    // This starts external data fetching and clears stale account data while it loads.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadDashboard();
   }, [loadDashboard, reloadToken]);
 

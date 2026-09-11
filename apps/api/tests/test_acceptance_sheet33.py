@@ -531,9 +531,9 @@ def test_it02_declared_input_columns_are_accepted() -> None:
 def test_it05_the_process_master_has_no_write_endpoint() -> None:
     """IT05 未許可の定義シート更新拒否: 工程マスタを書き換えるAPIが無い。"""
     master_routes = [
-        (route.path, sorted(route.methods))
-        for route in app.routes
-        if getattr(route, "path", "").startswith("/api/v1/ventures/master")
+        (path, sorted(method.upper() for method in operations if method in {"get", "post", "put", "patch", "delete", "head", "options", "trace"}))
+        for path, operations in app.openapi()["paths"].items()
+        if path.startswith("/api/v1/ventures/master")
     ]
     assert master_routes, "マスタ参照のエンドポイントは存在するはず"
     for path, methods in master_routes:

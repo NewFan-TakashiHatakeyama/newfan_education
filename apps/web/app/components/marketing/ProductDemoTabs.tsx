@@ -307,7 +307,8 @@ export function ProductDemoTabs({
   const visibleTabs = compact
     ? TABS.filter((tab) => tab.id === "issue" || tab.id === "theme" || tab.id === "poc")
     : TABS;
-  const [active, setActive] = useState<DemoTabId>(visibleTabs[0].id);
+  const [selected, setActive] = useState<DemoTabId>(visibleTabs[0].id);
+  const active = visibleTabs.some((tab) => tab.id === selected) ? selected : visibleTabs[0].id;
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
 
@@ -315,12 +316,6 @@ export function ProductDemoTabs({
     () => visibleTabs.find((tab) => tab.id === active) ?? visibleTabs[0],
     [active, visibleTabs]
   );
-
-  useEffect(() => {
-    if (!visibleTabs.some((tab) => tab.id === active)) {
-      setActive(visibleTabs[0].id);
-    }
-  }, [active, visibleTabs]);
 
   useEffect(() => {
     const root = tabListRef.current;
