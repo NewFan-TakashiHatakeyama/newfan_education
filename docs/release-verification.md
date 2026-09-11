@@ -8,7 +8,9 @@
 - pg_dump / pg_restore：0004バックアップを別DBへ復元し、再移行に成功。
 - Web：Lint、型チェック、単体8件、本番ビルド成功。
 - ブラウザーE2E：7件成功（招待、独立確認者、評価履歴、PDF/CSV、操作性、通信失敗、保管・再開）。
-- GitHub ActionsにPostgreSQL 16の移行・復元・API・業務E2Eジョブを追加。リモート結果は実行後に記録する。
+- PostgreSQL＋本番WebビルドのローカルE2E：7件成功。
+- GitHub Actions（コミット `ed304eb`）：web / api / postgres-e2e の全3ジョブ成功。PostgreSQL 16で移行・復元・API・業務E2Eを検証。
+- 実行記録：https://github.com/NewFan-TakashiHatakeyama/newfan_education/actions/runs/34585755851
 
 ## 反映手順
 
@@ -22,4 +24,8 @@
 
 0005は評価履歴を保持するためダウングレードしない。移行失敗・主要APIの継続的500・認証不能があれば公開を止め、旧コードと移行前バックアップを別DBへ復元して接続先を切り替える。移行後に追加された記録は保全し、差分を確認してから復旧する。
 
-ステージングと本番の反映はまだ完了していない。ローカル成功を環境反映済みとは扱わない。
+## 環境反映の状況
+
+Renderの本番APIは `4e38749` が稼働中であることを確認。修正ブランチは `codex/review-remediation-release`。
+
+NeonコンソールはVercel連携から開いてもメール認証（Email Verification）が必要で、ステージングDB作成・本番バックアップ設定に進めない。ユーザーへ認証完了を依頼済み。ステージング確認と本番反映は未完了であり、mainは更新していない。
