@@ -456,6 +456,10 @@ class PostgresVentureRepository:
         )
         self._db.add(model)
 
+        # There are no ORM relationships ordering these inserts. Persist the parent
+        # inside this transaction before adding rows with a venture_id foreign key.
+        self._db.flush([model])
+
         # 工程タスク 132 件を展開する
         self._db.add(VentureMemberModel(id=f"vm-{uuid4().hex[:12]}", venture_id=venture_id,
             tenant_id=tenant_id, user_id=created_by, role_id="R02", allocation_note="案件作成時の管理担当"))
