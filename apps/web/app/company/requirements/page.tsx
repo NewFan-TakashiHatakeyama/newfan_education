@@ -19,6 +19,7 @@ import {
 import { PageHero } from "@/app/components/ui/PageHero";
 import { Section } from "@/app/components/ui/Section";
 import { EmptyState } from "@/app/components/ui/EmptyState";
+import { Feedback } from "@/app/components/ui/Feedback";
 import { Drawer } from "@/app/components/ui/Drawer";
 import { SkillChip, SkillChipList } from "@/app/components/ui/SkillChip";
 import { SkeletonRow } from "@/app/components/ui/Skeleton";
@@ -42,15 +43,12 @@ export default function CompanyRequirementsPage() {
   const [items, setItems] = useState<Requirement[] | null>(null);
   const [learners, setLearners] = useState<LearnerSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [title, setTitle] = useState(STARTER_TEMPLATE.title);
-  const [description, setDescription] = useState(STARTER_TEMPLATE.description);
-  const [requiredSkills, setRequiredSkills] = useState(STARTER_TEMPLATE.requiredSkills);
-  const [optionalSkills, setOptionalSkills] = useState(STARTER_TEMPLATE.optionalSkills);
-  const [expectedTasks, setExpectedTasks] = useState(STARTER_TEMPLATE.expectedTasks);
-  const [engagementLevel, setEngagementLevel] = useState(STARTER_TEMPLATE.engagementLevel);
-  const [salesNote, setSalesNote] = useState(STARTER_TEMPLATE.salesNote);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [requiredSkills, setRequiredSkills] = useState("");
 
   const [drawerRequirement, setDrawerRequirement] = useState<Requirement | null>(null);
   const [assessment, setAssessment] = useState<FitAssessment | null>(null);
@@ -89,7 +87,7 @@ export default function CompanyRequirementsPage() {
           .map((s) => s.trim())
           .filter(Boolean)
       });
-      refresh();
+      refresh(); setShowCreate(false); setTitle(""); setDescription(""); setRequiredSkills("");
     } catch (err) {
       setError(
         err instanceof Error
@@ -114,7 +112,7 @@ export default function CompanyRequirementsPage() {
       const result = await assessRequirement(drawerRequirement.id);
       setAssessment(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "AIテーマ適合度の評価に失敗しました。");
+      setError(err instanceof Error ? err.message : "スキル適合度の評価に失敗しました。");
     } finally {
       setAssessing(false);
     }
@@ -134,13 +132,8 @@ export default function CompanyRequirementsPage() {
         theme="company"
         ariaLabel="業務課題管理"
         eyebrow="業務課題"
-        title="社内の業務課題を登録し、AIテーマ化と育成計画に活かす"
-        lead={
-          <>
-            部門ごとの業務課題・必須/歓迎スキル・業務内容を登録し、受講者とのAIテーマ適合度を即時評価します。
-            一致スキル・不足スキル・推奨受講者を把握し、育成計画の逆算とAIプロジェクト候補の選定につなげます。
-          </>
-        }
+        title="業務課題"
+        lead="業務課題と必要なスキルを登録します。"
         metrics={[
           {
             label: "登録済み業務課題",
@@ -152,7 +145,7 @@ export default function CompanyRequirementsPage() {
             label: "受講者",
             value: learners.length,
             suffix: "名",
-            hint: "AIテーマ適合度の評価対象"
+            hint: "スキル適合度の評価対象"
           },
           {
             label: "PoC推進候補",
@@ -163,8 +156,9 @@ export default function CompanyRequirementsPage() {
         ]}
         actions={
           <>
+            <button className="primary-button" onClick={() => { setError(null); setShowCreate(true); }}>業務課題を登録</button>
             <Link href="/company/reports" className={styles.actionPrimary}>
-              <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
+              <IconText icon="barChart3">プロジェクト提案を生成</IconText>
             </Link>
             <Link href="/company/fit-assessments" className={styles.actionGhost}>
               <IconText icon="scanSearch">診断履歴を表示</IconText>
@@ -184,12 +178,8 @@ export default function CompanyRequirementsPage() {
         </div>
       ) : null}
 
-      <Section
-        title="業務課題を登録"
-        meta="必須/歓迎スキル・業務内容・担当レベルを入力。部門メモはチーム内の整理用として利用できます。"
-        theme="company"
-        icon="clipboardList"
-      >
+      <Drawer open={showCreate} title="業務課題を登録" onClose={() => { setShowCreate(false); setTitle(""); setDescription(""); setRequiredSkills(""); }} busy={submitting} dirty={!!title || !!description || !!requiredSkills}>
+        <Feedback message={error} error />
         <form onSubmit={handleSubmit} className={styles.formGrid}>
           <div className={styles.formGridTwo}>
             <div className={styles.field}>
@@ -204,21 +194,7 @@ export default function CompanyRequirementsPage() {
                 required
               />
             </div>
-            <div className={styles.field}>
-              <label htmlFor="req-level" className={styles.fieldLabel}>
-                担当レベル（補助 / 担当 / リード）
-              </label>
-              <select
-                id="req-level"
-                className={styles.fieldSelect}
-                value={engagementLevel}
-                onChange={(e) => setEngagementLevel(e.target.value)}
-              >
-                <option value="補助">補助</option>
-                <option value="担当">担当</option>
-                <option value="リード">リード</option>
-              </select>
-            </div>
+
           </div>
           <div className={styles.field}>
             <label htmlFor="req-desc" className={styles.fieldLabel}>
@@ -244,43 +220,10 @@ export default function CompanyRequirementsPage() {
                 onChange={(e) => setRequiredSkills(e.target.value)}
               />
             </div>
-            <div className={styles.field}>
-              <label htmlFor="req-optional" className={styles.fieldLabel}>
-                歓迎スキル (カンマ区切り)
-              </label>
-              <input
-                id="req-optional"
-                className={styles.fieldInput}
-                value={optionalSkills}
-                onChange={(e) => setOptionalSkills(e.target.value)}
-              />
-            </div>
+
           </div>
-          <div className={styles.formGridTwo}>
-            <div className={styles.field}>
-              <label htmlFor="req-tasks" className={styles.fieldLabel}>
-                想定タスク / 担当事項
-              </label>
-              <input
-                id="req-tasks"
-                className={styles.fieldInput}
-                value={expectedTasks}
-                onChange={(e) => setExpectedTasks(e.target.value)}
-              />
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="req-sales" className={styles.fieldLabel}>
-                部門メモ（背景・優先度・連携先）
-              </label>
-              <input
-                id="req-sales"
-                className={styles.fieldInput}
-                value={salesNote}
-                onChange={(e) => setSalesNote(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className={styles.actionRow}>
+
+          <div className="dialog-actions">
             <button type="submit" className={styles.actionPrimary} disabled={submitting}>
               {submitting ? "登録中…" : <IconText icon="send">業務課題を登録する</IconText>}
             </button>
@@ -291,21 +234,17 @@ export default function CompanyRequirementsPage() {
                 setTitle(STARTER_TEMPLATE.title);
                 setDescription(STARTER_TEMPLATE.description);
                 setRequiredSkills(STARTER_TEMPLATE.requiredSkills);
-                setOptionalSkills(STARTER_TEMPLATE.optionalSkills);
-                setExpectedTasks(STARTER_TEMPLATE.expectedTasks);
-                setEngagementLevel(STARTER_TEMPLATE.engagementLevel);
-                setSalesNote(STARTER_TEMPLATE.salesNote);
               }}
             >
-              サンプル入力に戻す
+              入力例を使う
             </button>
           </div>
         </form>
-      </Section>
+      </Drawer>
 
       <Section
         title={`登録済み業務課題 (${items?.length ?? 0} 件)`}
-        meta="『AIテーマ適合度を評価』から、受講者とのマッチング結果を確認できます。"
+        meta="『スキルの一致を確認』から、受講者とのマッチング結果を確認できます。"
         theme="company"
         icon="notebookText"
       >
@@ -315,7 +254,7 @@ export default function CompanyRequirementsPage() {
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="業務課題がまだ登録されていません"
-            message="上のフォームには「問い合わせ回答支援AI（カスタマーサポート）」のサンプルが入っています。登録するとAIテーマ適合度評価とPoC候補の準備ができます。"
+            message="「業務課題を登録」から始めてください。"
           />
         ) : (
           <div
@@ -351,7 +290,7 @@ export default function CompanyRequirementsPage() {
                     onClick={() => openDrawer(req)}
                     style={{ fontSize: 12 }}
                   >
-                    <IconText icon="scanSearch">AIテーマ適合度を評価</IconText>
+                    <IconText icon="scanSearch">スキルの一致を確認</IconText>
                   </button>
                 </div>
               </article>
@@ -362,11 +301,13 @@ export default function CompanyRequirementsPage() {
 
       <Drawer
         open={drawerRequirement !== null}
-        title={drawerRequirement ? `AIテーマ適合度: ${drawerRequirement.title}` : ""}
+        title={drawerRequirement ? `スキル適合度: ${drawerRequirement.title}` : ""}
         onClose={() => setDrawerRequirement(null)}
+        busy={assessing}
       >
         {drawerRequirement ? (
           <>
+            <Feedback message={error} error />
             <div className={styles.field}>
               <p className={styles.fieldLabel}>業務内容</p>
               <p style={{ margin: 0, fontSize: 13, color: "#334466", lineHeight: 1.6 }}>
@@ -416,7 +357,7 @@ export default function CompanyRequirementsPage() {
                     className={styles.actionPrimary}
                     style={{ fontSize: 12 }}
                   >
-                    <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
+                    <IconText icon="barChart3">プロジェクト提案を生成</IconText>
                   </Link>
                   <button
                     type="button"
@@ -436,7 +377,7 @@ export default function CompanyRequirementsPage() {
                   onClick={handleAssess}
                   disabled={assessing}
                 >
-                  {assessing ? "評価中…" : <IconText icon="scanSearch">AIテーマ適合度を評価する</IconText>}
+                  {assessing ? "評価中…" : <IconText icon="scanSearch">スキルの一致を確認する</IconText>}
                 </button>
               </div>
             )}

@@ -35,7 +35,7 @@ const NAV_SECTIONS: { section: NavSection; entries: NavEntry[] }[] = [
       { kind: "leaf", href: "/learner/learn", label: "学習ホーム", icon: "bookOpen" },
       { kind: "leaf", href: "/courses", label: "コースを探す", icon: "search" },
       { kind: "leaf", href: "/learner/evidence", label: "自分の成果物", icon: "fileSearch" },
-      { kind: "leaf", href: "/ventures", label: "事業PJ台帳", icon: "clipboardCheck" }
+      { kind: "leaf", href: "/ventures", label: "案件管理", icon: "clipboardCheck" }
     ]
   },
   {
@@ -49,8 +49,8 @@ const NAV_SECTIONS: { section: NavSection; entries: NavEntry[] }[] = [
         label: "育成管理",
         icon: "graduationCap",
         children: [
-          { href: "/company/learners", label: "受講者進捗", icon: "users" },
-          { href: "/company/roadmaps", label: "育成ロードマップ", icon: "map" },
+          { href: "/company/learners", label: "受講者", icon: "users" },
+          { href: "/company/roadmaps", label: "学習プラン", icon: "map" },
           { href: "/company/evidence", label: "成果物一覧", icon: "fileCheck2" }
         ]
       },
@@ -61,9 +61,9 @@ const NAV_SECTIONS: { section: NavSection; entries: NavEntry[] }[] = [
         icon: "rocket",
         children: [
           { href: "/company/requirements", label: "業務課題", icon: "clipboardList" },
-          { href: "/company/fit-assessments", label: "AIテーマ診断", icon: "chart" },
-          { href: "/company/reports", label: "AIプロジェクト候補", icon: "barChart3" },
-          { href: "/ventures", label: "事業PJ台帳", icon: "clipboardCheck" }
+          { href: "/company/fit-assessments", label: "スキル適合", icon: "chart" },
+          { href: "/company/reports", label: "プロジェクト提案", icon: "barChart3" },
+          { href: "/ventures", label: "案件管理", icon: "clipboardCheck" }
         ]
       },
       {
@@ -72,7 +72,7 @@ const NAV_SECTIONS: { section: NavSection; entries: NavEntry[] }[] = [
         label: "組織・設定",
         icon: "building2",
         children: [
-          { href: "/company/teams", label: "部門管理", icon: "userRound" },
+          { href: "/company/teams", label: "チーム管理", icon: "userRound" },
           { href: "/company/settings", label: "企業設定", icon: "building2" }
         ]
       }
@@ -81,7 +81,7 @@ const NAV_SECTIONS: { section: NavSection; entries: NavEntry[] }[] = [
   {
     section: "mentor",
     entries: [
-      { kind: "leaf", href: "/mentor/reviews", label: "レビュー承認 (メンター)", icon: "shieldCheck" }
+      { kind: "leaf", href: "/mentor/reviews", label: "提出レビュー", icon: "shieldCheck" }
     ]
   },
   {

@@ -753,7 +753,7 @@ export interface VentureStandards {
 
 export interface Venture {
   governance?: { riskState?: string; riskConfirmed?: boolean; riskFingerprint?: string };
-  capabilities?: { canManage: boolean; canEdit: boolean; canAssess: boolean; canVerify: boolean; roleIds: string[] };
+  capabilities?: { archived?: boolean; canReopen?: boolean; canViewAssessments?: boolean; canManage: boolean; canEdit: boolean; canAssess: boolean; canVerify: boolean; roleIds: string[] };
   id: string;
   name: string;
   summary: string;
@@ -797,6 +797,7 @@ export interface VentureCreatePayload {
 }
 
 export type VentureUpdatePayload = Partial<VentureCreatePayload> & {
+  reopenReason?: string;
   confirmRisk?: boolean;
   riskEvidenceUri?: string;
   status?: VentureStatus;
@@ -942,6 +943,7 @@ export interface VentureMembersSummary {
 }
 
 export interface VentureLedgerEntry {
+  revision?: string;
   checks?: Record<string, { code: string; severity: string; label: string }>;
   id: string;
   rowKey: string;
@@ -963,6 +965,7 @@ export interface VentureLedgerSummary {
 }
 
 export interface VentureLedgerEntryPayload {
+  expectedRevision?: string;
   verifyRecord?: boolean;
   id?: string;
   rowKey?: string;
@@ -1013,6 +1016,7 @@ export interface VentureSkillGapSummary {
 }
 
 export interface VentureSkillAssessmentPayload {
+  revoked?: boolean;
   skillId: string;
   userId: string;
   assessedLevel: number;

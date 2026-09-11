@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from uuid import uuid4
+from datetime import datetime, timezone
+from fastapi import HTTPException
+from infrastructure.sql_models import ApplicationRecordModel
+from sqlalchemy import select
 
 from domain.models import UserContext
 from infrastructure.postgres_b2b import PostgresB2BRepository
@@ -54,7 +58,7 @@ class B2BService:
         return self.repository.create_team(actor.tenant_id, name, description)
 
     def invite_user(self, actor: UserContext, email: str, role: str, team_id: str | None) -> dict:
-        self._assert_roles(actor, {"admin", "recruiter"})
+        self._assert_roles(actor, {"admin"})
         return self.repository.invite_user(
             tenant_id=actor.tenant_id,
             email=email,
@@ -64,7 +68,7 @@ class B2BService:
         )
 
     def bulk_invite_from_csv(self, actor: UserContext, csv_content: str, default_role: str) -> dict:
-        self._assert_roles(actor, {"admin", "recruiter"})
+        self._assert_roles(actor, {"admin"})
         created: list[dict] = []
         skipped: list[str] = []
         for raw in csv_content.splitlines():
@@ -99,7 +103,7 @@ class B2BService:
             user_id=actor.user_id,
             category="learning",
             title="演習を提出しました",
-            body=f"{exercise_id} を提出しました。AIレビューに進めます。",
+            body=f"{exercise_id} を提出しました。提出内容を確認できます。AI採点は未提供です。",
             target_url=f"/learner/submissions/{submission['id']}",
             channels=["in_app"],
             is_important=submission.get("executionStatus") != "passed",
@@ -116,38 +120,18 @@ class B2BService:
         value = next((item for item in values if item["id"] == submission_id), None)
         if value is None:
             raise ValueError("Submission not found")
+        if actor.role == "learner" and value["learnerId"] != actor.user_id:
+            raise PermissionError("Only the owner or an authorized reviewer can read a submission")
         return value
 
     def run_ai_review(self, actor: UserContext, company_id: str, submission_id: str) -> dict:
         self._assert_roles(actor, {"learner", "mentor", "admin", "content_editor"})
-        submission = self.get_submission(actor, company_id, submission_id)
-        status = "pass_with_comment" if "return" in submission["code"] or "select" in submission["code"].lower() else "needs_resubmit"
-        score = 82 if status == "pass_with_comment" else 55
-        review = self.repository.create_review(
-            tenant_id=actor.tenant_id,
-            submission_id=submission_id,
-            reviewer_type="ai",
-            status=status,
-            score=score,
-            comments="AIレビューを完了しました。境界ケースと説明を補強してください。",
-        )
-        self.repository.append_evidence(
-            tenant_id=actor.tenant_id,
-            learner_id=submission["learnerId"],
-            title="演習提出レビュー",
-            summary=review["comments"],
-            skill_tags=["Python", "SQL", "RAG"],
-            strength="strong" if status == "pass_with_comment" else "standard",
-            review_type="ai",
-            status="passed" if status == "pass_with_comment" else "submitted",
-            exercise_id=submission["exerciseId"],
-            submission_id=submission_id,
-            score=score,
-        )
-        return review
+        self.get_submission(actor, company_id, submission_id)
+        raise HTTPException(status_code=503, detail="検証済みの評価器が未接続のためAI採点は利用できません")
 
     def submit_mentor_review(self, actor: UserContext, company_id: str, submission_id: str, status: str, comments: str) -> dict:
         self._assert_roles(actor, {"mentor", "admin", "content_editor"})
+        self.get_submission(actor, company_id, submission_id)
         return self.repository.create_review(
             tenant_id=actor.tenant_id,
             submission_id=submission_id,
@@ -181,17 +165,18 @@ class B2BService:
         learners = self.repository.list_learners(actor.tenant_id)
         if not learners:
             raise ValueError("Learner not found")
-        top_learner = max(learners, key=lambda value: value["roadmapCompletionRate"])
-        matched = requirement["requiredSkills"][:2]
-        gap = requirement["requiredSkills"][2:]
-        return self.repository.create_fit_assessment(
-            tenant_id=actor.tenant_id,
-            requirement_id=requirement_id,
-            recommended_learner_id=top_learner["id"],
-            fit_score=76,
-            matched_skills=matched,
-            gap_skills=gap,
-        )
+        evidence = self.repository.list_evidence(actor.tenant_id)
+        required = list(dict.fromkeys(requirement["requiredSkills"]))
+        def matches(learner):
+            verified = {tag for e in evidence if e["learnerId"] == learner["id"]
+                and e["status"] == "passed" and e["reviewType"] == "mentor"
+                for tag in e["skillTags"]}
+            return [skill for skill in required if skill in verified]
+        top_learner = sorted(learners, key=lambda l: (-len(matches(l)), l["id"]))[0]
+        matched = matches(top_learner)
+        return self.repository.create_fit_assessment(tenant_id=actor.tenant_id, requirement_id=requirement_id,
+            recommended_learner_id=top_learner["id"], fit_score=round(100 * len(matched) / len(required)) if required else 0,
+            matched_skills=matched, gap_skills=[s for s in required if s not in matched])
 
     def list_fit_assessments(self, actor: UserContext) -> dict:
         self._assert_roles(actor, {"admin", "recruiter", "content_editor"})
@@ -207,45 +192,50 @@ class B2BService:
             raise ValueError("Requirement not found")
         if learner is None:
             raise ValueError("Learner not found")
-        report_id = f"report-{uuid4().hex[:8]}"
-        summary = (
-            f"{learner['name']} は {learner['targetRole']} として {learner['roadmapCompletionRate']}% を達成。"
-            f" 要件 {requirement['title']} に対し {', '.join(requirement['requiredSkills'][:2])} の証跡が確認できます。"
-        )
-        return {"id": report_id, "title": "AIプロジェクト提案書", "summary": summary}
+        evidence = [e for e in self.repository.list_evidence(actor.tenant_id)
+            if e["learnerId"] == learner_id and e["status"] == "passed" and e["reviewType"] == "mentor"]
+        tags = {tag for e in evidence for tag in e["skillTags"]}
+        matched = [s for s in requirement["requiredSkills"] if s in tags]
+        gaps = [s for s in requirement["requiredSkills"] if s not in tags]
+        result = {"id": f"report-{uuid4().hex}", "title": "AIプロジェクト提案書",
+            "summary": f"業務課題: {requirement['title']}\n候補者: {learner['name']}\n第三者確認済み技能: {', '.join(matched) or 'なし'}\n未確認技能: {', '.join(gaps) or 'なし'}\nこれは技能タグの一致による参考情報です。案件適合性の最終判断は責任者が行ってください。",
+            "requirementId": requirement_id, "learnerId": learner_id, "version": 1,
+            "createdBy": actor.user_id, "generatedAt": datetime.now(timezone.utc).isoformat(),
+            "sourceRequirement": requirement, "sourceEvidence": evidence}
+        self.repository._db.add(ApplicationRecordModel(namespace="report:" + actor.tenant_id, id=result["id"], payload=result))
+        self.repository._db.commit()
+        return result
 
-    def create_report_export_job(self, actor: UserContext, report_id: str, report_format: str) -> dict:
+    def list_reports(self, actor):
         self._assert_roles(actor, {"admin", "recruiter", "content_editor"})
-        job = self.repository.create_report_job(
-            tenant_id=actor.tenant_id,
-            report_id=report_id,
-            report_format=report_format,
-            payload={"requestedBy": actor.user_id},
-        )
-        completed = self.repository.complete_report_job(
-            actor.tenant_id,
-            job["jobId"],
-            result_url=f"/exports/{job['jobId']}.{report_format}",
-        )
-        self.repository.enqueue_notification_job(
-            tenant_id=actor.tenant_id,
-            user_id=actor.user_id,
-            category="admin",
-            title="レポート出力が完了しました",
-            body=f"{report_id} を {report_format.upper()} 形式で出力しました。",
-            target_url=f"/company/reports",
-            channels=["in_app", "email"],
-            is_important=False,
-        )
-        return completed
+        return {"items": [r.payload for r in self.repository._db.scalars(select(ApplicationRecordModel).where(
+            ApplicationRecordModel.namespace == "report:" + actor.tenant_id).order_by(ApplicationRecordModel.created_at.desc())).all()]}
 
     def get_report(self, actor: UserContext, company_id: str, report_id: str) -> dict:
         self._assert_roles(actor, {"admin", "recruiter", "content_editor"})
-        return {
-            "id": report_id,
-            "title": "AIプロジェクト提案書",
-            "summary": "レポートは非同期エクスポート対象です。",
-        }
+        record = self.repository._db.get(ApplicationRecordModel, ("report:" + actor.tenant_id, report_id))
+        if record is None:
+            raise ValueError("Report not found")
+        return record.payload
+
+    def create_report_export_job(self, actor: UserContext, report_id: str, report_format: str) -> dict:
+        import base64
+        from infrastructure.report_export import render_report
+        report = self.get_report(actor, actor.tenant_id, report_id)
+        content, media_type = render_report(report, report_format)
+        job_id = "export-" + uuid4().hex
+        result = {"jobId": job_id, "reportId": report_id, "status": "completed",
+            "resultUrl": f"/api/v1/report-exports/{job_id}", "format": report_format,
+            "mediaType": media_type, "content": base64.b64encode(content).decode("ascii")}
+        self.repository._db.add(ApplicationRecordModel(namespace="export:" + actor.tenant_id, id=job_id, payload=result))
+        self.repository._db.commit()
+        return result
+
+    def get_report_export(self, actor, job_id):
+        self._assert_roles(actor, {"admin", "recruiter", "content_editor"})
+        record = self.repository._db.get(ApplicationRecordModel, ("export:" + actor.tenant_id, job_id))
+        if not record: raise ValueError("Export not found")
+        return record.payload
 
     def list_curriculum_versions(self, actor: UserContext) -> list[dict]:
         self._assert_roles(actor, {"admin", "content_editor", "recruiter", "learner"})
@@ -296,6 +286,8 @@ class B2BService:
         push_enabled: bool,
     ) -> dict:
         self._assert_roles(actor, {"learner", "admin", "content_editor", "mentor", "recruiter"})
+        if email_enabled or push_enabled:
+            raise ValueError("メール・push配信は未提供です。アプリ内通知を利用してください")
         if category not in {"learning", "career", "dm", "admin"}:
             raise ValueError("Unsupported notification category")
         return self.repository.upsert_notification_delivery_setting(

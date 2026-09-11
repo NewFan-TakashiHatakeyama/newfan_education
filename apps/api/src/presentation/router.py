@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from sqlalchemy.exc import IntegrityError
 
 from domain.models import Course, UserContext
 from presentation.dependencies import CONTAINER, get_current_user
@@ -147,13 +148,14 @@ def _to_curriculum_response(value) -> CurriculumVersionResponse:
 def sign_in(payload: AuthSignInRequest, response: Response):
     settings = load_settings()
     user = CONTAINER.b2b_service.repository.get_user_by_email(payload.email)
-    if user is None or not verify_password(payload.password, user.password_hash):
+    if user is None or user.state != "active" or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     access_token = create_access_token(
         user_id=user.user_id,
         role=user.role,
         tenant_id=user.tenant_id,
         display_name=user.display_name,
+        session_version=user.session_version,
     )
     response.set_cookie(
         key=settings.auth_cookie_name,
@@ -184,19 +186,23 @@ def sign_up(payload: AuthSignUpRequest, response: Response):
     existing_email = CONTAINER.b2b_service.repository.get_user_by_email(payload.email)
     if existing_email is not None:
         raise HTTPException(status_code=409, detail="Email already exists")
-    created = CONTAINER.b2b_service.repository.create_user(
-        user_id=payload.userId,
-        email=payload.email,
-        display_name=payload.displayName,
-        role=payload.role,
-        tenant_id=payload.tenantId,
-        password_hash_value=hash_password(payload.password),
-    )
+    if payload.role is not None or payload.tenantId is not None:
+        raise HTTPException(status_code=403, detail="所属・権限は招待から確定します")
+    try:
+        created = CONTAINER.b2b_service.repository.accept_invite(
+            token=payload.invitationToken, user_id=payload.userId, email=payload.email,
+            display_name=payload.displayName, password_hash_value=hash_password(payload.password))
+    except IntegrityError as exc:
+        CONTAINER.b2b_service.repository._db.rollback()
+        raise HTTPException(status_code=409, detail="User or email already exists") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     access_token = create_access_token(
         user_id=created.user_id,
         role=created.role,
         tenant_id=created.tenant_id,
         display_name=created.display_name,
+        session_version=created.session_version,
     )
     response.set_cookie(
         key=settings.auth_cookie_name,
@@ -229,6 +235,7 @@ def auth_me(actor: UserContext = Depends(get_current_user)):
         role=user.role,
         tenant_id=user.tenant_id,
         display_name=user.display_name,
+        session_version=user.session_version,
     )
     return {
         "accessToken": access_token,
@@ -566,7 +573,7 @@ def list_admin_users(
     actor: UserContext = Depends(get_current_user),
 ):
     try:
-        return CONTAINER.user_management_service.list_users(
+        return CONTAINER.b2b_service.repository.list_managed_users(
             actor=actor,
             role=role,
             state=state,
@@ -583,7 +590,7 @@ def patch_admin_user(
     actor: UserContext = Depends(get_current_user),
 ):
     try:
-        return CONTAINER.user_management_service.update_user(
+        return CONTAINER.b2b_service.repository.update_managed_user(
             actor=actor,
             user_id=user_id,
             role=payload.role,
@@ -851,6 +858,8 @@ def invite_company_user(
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/company/invites/csv-import", response_model=InviteCsvResponse)
@@ -866,6 +875,8 @@ def invite_company_users_from_csv(
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/roadmaps/assign", response_model=AssignRoadmapResponse)
@@ -1130,3 +1141,26 @@ def export_report(
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/reports")
+def list_reports(actor: UserContext = Depends(get_current_user)):
+    try:
+        return CONTAINER.b2b_service.list_reports(actor)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get("/report-exports/{job_id}")
+def download_report_export(job_id: str, actor: UserContext = Depends(get_current_user)):
+    import base64
+    try:
+        result = CONTAINER.b2b_service.get_report_export(actor, job_id)
+        return Response(content=base64.b64decode(result["content"]), media_type=result["mediaType"],
+            headers={"Content-Disposition": f'attachment; filename="{job_id}.{result["format"]}"'})
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

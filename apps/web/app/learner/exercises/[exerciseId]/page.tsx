@@ -137,13 +137,7 @@ export default function LearnerExercisePage() {
       <LearnerHero
         eyebrow="演習"
         title={exercise.title}
-        lead={
-          <>
-            <strong>{exercise.prompt}</strong>
-            <br />
-            実行と提出を繰り返し、AI レビュー合格を目指します。失敗は減点ではなく改善履歴として成果物化されます。
-          </>
-        }
+        lead="課題に取り組み、回答を提出してください。"
         metrics={[
           {
             label: "演習ID",
@@ -186,8 +180,8 @@ export default function LearnerExercisePage() {
 
       <form onSubmit={handleSubmit} className={styles.workspaceShell}>
         <LearnerSection
-          title="課題プロンプト"
-          meta="評価ルーブリックに紐づく観点を意識して実装します。"
+          title="課題"
+          meta="提出前に評価基準を確認してください。"
         >
           <p
             style={{
@@ -286,7 +280,7 @@ export default function LearnerExercisePage() {
       </form>
 
       <LearnerSection
-        title="AIヒント"
+        title="取り組みのヒント"
         meta="現場での再利用を念頭に、最低限おさえたいポイント。"
       >
         <div className={styles.workspaceHintCard} style={{ boxShadow: "none", border: "none", padding: 0 }}>

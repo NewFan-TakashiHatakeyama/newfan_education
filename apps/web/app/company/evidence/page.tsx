@@ -172,13 +172,8 @@ export default function CompanyEvidencePage() {
           theme="company"
           ariaLabel="企業成果物一覧"
           eyebrow="成果物一覧"
-          title="受講者の成果物をAIプロジェクト判断に活用"
-          lead={
-            <>
-              受講者の演習提出物とレビュー履歴を一画面で横断確認。受講者・チーム・成果物強度・レビュー種別で絞り込み、
-              PoC判断・部門提案・育成計画に使える成果物を素早く特定します。
-            </>
-          }
+          title="成果物"
+          lead="受講者の成果物と評価を確認します。"
           metrics={[
             { label: "成果物（累計）", value: stats.total, suffix: "件" },
             { label: "PoC判断向け", value: stats.strong, suffix: "件", hint: "プロジェクト判断に使える成果物" },
@@ -188,7 +183,7 @@ export default function CompanyEvidencePage() {
           actions={
             <>
               <Link href="/company/reports" className={styles.actionPrimary}>
-                <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
+                <IconText icon="barChart3">プロジェクト提案を生成</IconText>
               </Link>
               <Link href="/company/learners" className={styles.actionGhost}>
                 <IconText icon="users">受講者一覧へ</IconText>
@@ -206,7 +201,7 @@ export default function CompanyEvidencePage() {
         </div>
       ) : null}
 
-      <Section title="成果物を絞り込む" meta="受講者 / チーム / 成果物強度 / レビュー種別の組み合わせで、プロジェクト判断に使える成果物だけを抽出できます。" theme="company" icon="funnel">
+      <Section title="成果物を絞り込む" meta="受講者や評価で絞り込めます。" theme="company" icon="funnel">
         <div style={{ display: "grid", gap: "0.7rem" }}>
           <FilterChips
             label="受講者"
@@ -232,7 +227,7 @@ export default function CompanyEvidencePage() {
 
       <Section
         title={`成果物一覧 (${filtered.length} 件)`}
-        meta="受講者名・所属・実務準備度バッジ付き。PoC判断・部門提案にそのまま使えるかを確認できます。"
+        meta="成果物を選ぶと詳細を確認できます。"
         theme="company"
         icon="fileCheck2"
       >

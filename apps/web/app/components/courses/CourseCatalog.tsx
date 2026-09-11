@@ -24,7 +24,7 @@ const SORT_OPTIONS: { value: CourseSort; label: string }[] = [
 ];
 
 export function CourseCatalog() {
-  // 事業PJ台帳のスキル不足から `?q=<スキル名>` で飛んでくる導線がある。
+  // 案件管理のスキル不足から `?q=<スキル名>` で飛んでくる導線がある。
   const initialQuery = useSearchParams().get("q") ?? "";
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);

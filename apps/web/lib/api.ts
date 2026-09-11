@@ -113,7 +113,7 @@ function isPublicApiPath(path: string): boolean {
 // 「G0 で選べる判断は ... です」「この行IDは既に使われています: D-001」）ので、
 // 汎用文言に潰すと利用者が何を直せばよいか分からない。
 // 既存のAPIは "Course not found" のような内部向けの英語を返すため対象外にする。
-const SERVER_MESSAGE_PATH_PREFIXES = ["/api/v1/ventures"] as const;
+const SERVER_MESSAGE_PATH_PREFIXES = ["/api/v1/ventures", "/api/v1/auth/sign-up", "/api/v1/company/invites"] as const;
 
 function usesServerMessage(path: string): boolean {
   return SERVER_MESSAGE_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
@@ -440,9 +440,8 @@ export function signUpDemoUser(payload: {
   userId: string;
   email: string;
   displayName: string;
-  role: Role;
+  invitationToken: string;
   password: string;
-  tenantId?: string;
 }) {
   return request<AuthSession>("/api/v1/auth/sign-up", {
     method: "POST",
@@ -797,4 +796,26 @@ export function saveVentureSkillAssessment(
     `/api/v1/ventures/${encodeURIComponent(ventureId)}/skill-assessments`,
     { method: "POST", body: JSON.stringify(payload) }
   );
+}
+
+export type AssessmentHistoryRow = Omit<VentureSkillAssessment, "userName"> & {
+  skillId: string; supersedesId: string | null; revoked: boolean; assessedBy: string | null;
+};
+export function fetchVentureAssessmentHistory(ventureId: string) {
+  return request<{ items: AssessmentHistoryRow[] }>(`/api/v1/ventures/${encodeURIComponent(ventureId)}/skill-assessments/history`);
+}
+
+export function getVentureMemberCandidates(ventureId: string) {
+  return request<{ items: { id: string; name: string; role: string }[] }>(`/api/v1/ventures/${ventureId}/member-candidates`);
+}
+export function getReports() {
+  return request<{ items: (SalesSummaryReport & {requirementId: string; learnerId: string; generatedAt: string})[] }>("/api/v1/reports");
+}
+export async function downloadReportExport(path: string, filename: string) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {headers: getAuthHeaders(), credentials: "include"});
+  if (!response.ok) throw new Error(mapApiErrorMessage(response.status));
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url; link.download = filename; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

@@ -25,7 +25,7 @@ const CONSENT_OPTIONS: ConsentOption[] = [
   },
   {
     id: "talent_search",
-    title: "社内AIプロジェクト候補の推薦に学習データを利用",
+    title: "社内プロジェクト提案の推薦に学習データを利用",
     purpose: "育成成果物とスキル進捗に基づき、適切な社内PoC／プロジェクト候補を提案するため",
     scope: "レコメンドエンジン、許可済み担当者",
     dataTarget: "学習履歴、進捗、目標情報"
@@ -104,7 +104,7 @@ export default function ConsentSettingsPage() {
         </ul>
         {records.length === 0 && (
           <EmptyState
-            title="同意履歴なし"
+            title="同意履歴はありません"
             message="まだ同意履歴がありません。必要な同意を有効化するとここに表示されます。"
           />
         )}

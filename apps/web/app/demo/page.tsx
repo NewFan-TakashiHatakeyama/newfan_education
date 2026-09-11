@@ -14,7 +14,7 @@ export default function DemoPage() {
         <ul>
           <li>12週間カリキュラムと育成演習の学習導線</li>
           <li>問い合わせ回答支援AIなど、業務課題を題材にした成果物の作成・レビュー</li>
-          <li>AIテーマ適合度の評価と、部門向けのPoC候補整理</li>
+          <li>スキル適合度の評価と、部門向けのPoC候補整理</li>
         </ul>
         <div className="inline-actions">
           <Link href="/auth/sign-in">体験アカウントでサインイン</Link>

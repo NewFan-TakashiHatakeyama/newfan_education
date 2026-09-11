@@ -272,8 +272,32 @@
 
 .phaseHead {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
+}
+
+.phaseOpenLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  border: 1px solid var(--border, #d8dee6);
+  border-radius: 8px;
+  color: var(--text-muted, #526174);
+  text-decoration: none;
+}
+
+.phaseOpenLink:hover {
+  background: var(--surface-muted, #f8fafc);
+  color: var(--primary-strong, #3730a3);
+}
+
+.phaseOpenLink:focus-visible {
+  outline: 2px solid var(--primary, #4f46e5);
+  outline-offset: 3px;
 }
 
 .phaseId {

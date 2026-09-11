@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useSyncExternalStore, useState } from "react";
 
 import { getRoleHomePath, setDemoAuthSession } from "@/lib/auth";
 import { signUpDemoUser } from "@/lib/api";
@@ -13,8 +13,13 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"learner" | "recruiter" | "admin" | "content_editor">("learner");
-  const [tenantId, setTenantId] = useState("company-demo");
+  const linkedInvitation = useSyncExternalStore(
+    (notify) => { window.addEventListener("hashchange", notify); return () => window.removeEventListener("hashchange", notify); },
+    () => new URLSearchParams(window.location.hash.slice(1)).get("invitation") ?? "",
+    () => ""
+  );
+  const [manualInvitation, setInvitationToken] = useState<string | null>(null);
+  const invitationToken = manualInvitation ?? linkedInvitation;
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -26,9 +31,8 @@ export default function SignUpPage() {
         userId: userId.trim(),
         email: email.trim(),
         displayName: displayName.trim(),
-        role,
+        invitationToken,
         password,
-        tenantId
       });
       setDemoAuthSession(session);
       router.replace(getRoleHomePath(session.role));
@@ -43,7 +47,7 @@ export default function SignUpPage() {
     <main>
       <header className="page-header">
         <h1>サインアップ</h1>
-        <p className="muted">必要事項を入力してアカウントを作成します。</p>
+        <p className="muted">管理者から届いた参加リンクで登録します。招待の有効期間は7日間です。</p>
       </header>
       {error ? <p className="error">{error}</p> : null}
       <section>
@@ -68,23 +72,8 @@ export default function SignUpPage() {
           onChange={(event) => setDisplayName(event.target.value)}
           placeholder="New User"
         />
-        <label htmlFor="sign-up-role">ロール</label>
-        <select
-          id="sign-up-role"
-          value={role}
-          onChange={(event) => setRole(event.target.value as "learner" | "recruiter" | "admin" | "content_editor")}
-        >
-          <option value="learner">learner</option>
-          <option value="recruiter">recruiter</option>
-          <option value="admin">admin</option>
-          <option value="content_editor">content_editor</option>
-        </select>
-        <label htmlFor="sign-up-tenant-id">Tenant ID</label>
-        <input
-          id="sign-up-tenant-id"
-          value={tenantId}
-          onChange={(event) => setTenantId(event.target.value)}
-        />
+        <label htmlFor="sign-up-invitation">招待トークン</label>
+        <input id="sign-up-invitation" value={invitationToken} onChange={event => setInvitationToken(event.target.value)} />
         <label htmlFor="sign-up-password">パスワード</label>
         <input
           id="sign-up-password"
@@ -96,7 +85,7 @@ export default function SignUpPage() {
           <button
             type="button"
             onClick={onSubmit}
-            disabled={submitting || !userId.trim() || !email.trim() || !displayName.trim() || !password}
+            disabled={submitting || !invitationToken || !userId.trim() || !email.trim() || !displayName.trim() || !password}
           >
             登録して開始
           </button>

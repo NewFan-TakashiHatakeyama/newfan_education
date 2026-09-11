@@ -202,12 +202,7 @@ export default function LearnerEvidencePage() {
         <LearnerHero
           eyebrow="成果物"
           title={`${learnerName} さんの成果物`}
-          lead={
-            <>
-              部門・経営の判断に使える提出物と評価履歴を一覧しています。AIレビュー／メンター承認／AIプロジェクト適合の状況を
-              確認し、足りないスキルや改善の経緯も見える化します。
-            </>
-          }
+          lead="提出した成果物と評価を確認できます。"
           readiness={readiness}
           metrics={[
             {
@@ -260,7 +255,7 @@ export default function LearnerEvidencePage() {
 
       <LearnerSection
         title="成果物を絞り込む"
-        meta="スキル／成果物強度／状態の組み合わせで、PoC判断・部門提案に使える成果物だけを抽出できます。"
+        meta="スキルや評価で絞り込めます。"
         icon="funnel"
       >
         <div style={{ display: "grid", gap: "0.7rem" }}>
@@ -287,7 +282,7 @@ export default function LearnerEvidencePage() {
 
       <LearnerSection
         title={`成果物一覧 (${filtered.length} 件)`}
-        meta="育成責任者・部門リーダーにそのまま共有できる形式か、PoC判断で説明できる内容かを確認できます。"
+        meta="成果物の内容と評価を確認してください。"
         icon="fileCheck2"
       >
         {isLoading ? (
@@ -301,7 +296,7 @@ export default function LearnerEvidencePage() {
             <LearnerEmptyState
               icon={<AppIcon name="circleDashed" size={24} />}
               title="まだ成果物がありません"
-              message="育成演習を提出するとAIレビューと成果物レポートが自動生成されます。まず本日の演習から着手してください。"
+              message="育成演習の提出内容を保存できます。自動採点は現在未提供です。まず本日の演習から着手してください。"
               action={
                 <Link href="/learner/learn" className={pageStyles.actionPrimary}>
                   <IconText icon="layoutDashboard">受講者ホームへ</IconText>

@@ -37,7 +37,7 @@ export default function FitAssessmentsPage() {
         setError(
           assessments.reason instanceof Error
             ? assessments.reason.message
-            : "AIテーマ診断履歴の取得に失敗しました。"
+            : "スキル適合履歴の取得に失敗しました。"
         );
       }
       if (reqs.status === "fulfilled") setRequirements(reqs.value.items);
@@ -66,15 +66,10 @@ export default function FitAssessmentsPage() {
     <main className={styles.page}>
       <PageHero
         theme="company"
-        ariaLabel="AIテーマ診断履歴"
-        eyebrow="AIテーマ診断"
-        title="業務課題に対するAIテーマ適合度の評価履歴"
-        lead={
-          <>
-            登録済み業務課題と受講者のスキル・成果物をもとに、AI活用テーマへの適合度を記録します。
-            推奨受講者と不足スキルを確認し、育成計画とAIプロジェクト候補の選定に活用できます。
-          </>
-        }
+        ariaLabel="スキル適合履歴"
+        eyebrow="スキル適合"
+        title="スキルの適合履歴"
+        lead="確認済みのスキルと業務課題の一致を確認します。"
         metrics={[
           { label: "診断履歴", value: items?.length ?? 0, suffix: "件", hint: "本画面で表示される評価" },
           {
@@ -96,7 +91,7 @@ export default function FitAssessmentsPage() {
               <IconText icon="clipboardList">業務課題を登録</IconText>
             </Link>
             <Link href="/company/reports" className={styles.actionGhost}>
-              <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
+              <IconText icon="barChart3">プロジェクト提案を生成</IconText>
             </Link>
           </>
         }
@@ -110,7 +105,7 @@ export default function FitAssessmentsPage() {
 
       <Section
         title={`診断履歴 (${items?.length ?? 0} 件)`}
-        meta="業務課題ごとの適合スコア、一致スキル、不足スキル、推奨受講者を確認できます。"
+        meta="確認済み技能の一致率です。業務への適性を保証するものではありません。"
         theme="company"
         icon="scanSearch"
       >
@@ -120,7 +115,7 @@ export default function FitAssessmentsPage() {
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="診断履歴はまだありません"
-            message="業務課題画面から『AIテーマ適合度を評価』を実行すると、ここに履歴が表示されます。"
+            message="業務課題画面から『スキルの一致を確認』を実行すると、ここに履歴が表示されます。"
             action={
               <Link href="/company/requirements" className={styles.actionPrimary}>
                 <IconText icon="clipboardList">業務課題画面へ</IconText>

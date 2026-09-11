@@ -20,6 +20,7 @@ import {
 } from "@/lib/api";
 import { getDemoAuthSession, isDemoAuthenticated } from "@/lib/auth";
 
+import { LoadFailure } from "@/app/components/ui/LoadFailure";
 import { PageHero } from "@/app/components/ui/PageHero";
 import { Section } from "@/app/components/ui/Section";
 import { EmptyState } from "@/app/components/ui/EmptyState";
@@ -49,10 +50,10 @@ export default function CompanyDashboardPage() {
     const session = getDemoAuthSession();
     if (!isDemoAuthenticated(session)) {
       setCompany(null);
-      setLearners([]);
-      setEvidence([]);
-      setRequirementCount(0);
-      setTemplates([]);
+      setLearners(null);
+      setEvidence(null);
+      setRequirementCount(null);
+      setTemplates(null);
       setError("サインインが必要です。企業担当または管理者アカウントでサインインしてください。");
       return;
     }
@@ -82,25 +83,25 @@ export default function CompanyDashboardPage() {
     if (l.status === "fulfilled") {
       setLearners(l.value.items);
     } else {
-      setLearners([]);
+      setLearners(null);
       rejectedLabels.push("受講者");
     }
     if (e.status === "fulfilled") {
       setEvidence(e.value.items);
     } else {
-      setEvidence([]);
+      setEvidence(null);
       rejectedLabels.push("成果物");
     }
     if (r.status === "fulfilled") {
       setRequirementCount(r.value.items.length);
     } else {
-      setRequirementCount(0);
+      setRequirementCount(null);
       rejectedLabels.push("業務課題");
     }
     if (t.status === "fulfilled") {
       setTemplates(t.value.items);
     } else {
-      setTemplates([]);
+      setTemplates(null);
       rejectedLabels.push("ロール定義");
     }
 
@@ -210,6 +211,8 @@ export default function CompanyDashboardPage() {
     return map;
   }, [learners]);
 
+  if (error) return <main><h1>育成状況</h1><LoadFailure onRetry={() => void loadDashboard()} /></main>;
+
   return (
     <main className={styles.page}>
       {isLoading ? (
@@ -219,13 +222,8 @@ export default function CompanyDashboardPage() {
           theme="company"
           ariaLabel="企業ダッシュボード"
           eyebrow="企業ダッシュボード"
-          title={company ? `${company.name} のAI人材育成・成果物状況` : "企業ダッシュボード"}
-          lead={
-            <>
-              受講者のロードマップ進捗・成果物の蓄積・レビュー待ち・AIテーマ診断・PoC候補化を一画面で把握します。
-              部門別の業務課題登録や育成優先度の設定から始められます。
-            </>
-          }
+          title={company ? `${company.name} の育成状況` : "企業ダッシュボード"}
+          lead="学習の進捗と確認待ちの項目をまとめています。"
           metrics={[
             {
               label: "契約プラン",
@@ -258,7 +256,7 @@ export default function CompanyDashboardPage() {
                 <IconText icon="clipboardList">業務課題を登録</IconText>
               </Link>
               <Link href="/company/reports" className={styles.actionGhost}>
-                <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
+                <IconText icon="barChart3">プロジェクト提案を生成</IconText>
               </Link>
             </>
           }
@@ -285,8 +283,8 @@ export default function CompanyDashboardPage() {
       ) : null}
 
       <Section
-        title="育成・プロジェクト推進の主要指標"
-        meta="受講者の育成状況とAIプロジェクト判断の材料を数値で把握。PoC推進候補 = PoC着手可 + メンター伴走。"
+        title="育成状況"
+        meta="学習の進捗と支援が必要な受講者を確認します。"
         theme="company"
         icon="chart"
       >
@@ -323,14 +321,14 @@ export default function CompanyDashboardPage() {
               label="業務課題"
               value={requirementCount ?? 0}
               suffix="件"
-              hint="登録するとAIテーマ適合度の評価が可能"
+              hint="登録するとスキル適合度の評価が可能"
             />
           </div>
         )}
       </Section>
 
       <Section
-        title="AI/DXロール別 育成到達度"
+        title="ロール別の進捗"
         meta="目標ロールごとのロードマップ完了率。業務課題とのギャップ把握に使います。"
         theme="company"
         icon="target"
@@ -375,7 +373,7 @@ export default function CompanyDashboardPage() {
 
       <Section
         title="直近の成果物"
-        meta="AIプロジェクト判断に使える成果物を最新3件表示。一覧は『成果物一覧』ページから確認できます。"
+        meta="最新3件を表示しています。"
         theme="company"
         icon="fileCheck2"
         actions={
@@ -420,7 +418,7 @@ export default function CompanyDashboardPage() {
 
       <Section
         title="次のアクション"
-        meta="育成優先度の設定から、AIプロジェクト候補の選定まで。"
+        meta="育成優先度の設定から、プロジェクト提案の選定まで。"
         theme="company"
         icon="rocket"
       >
@@ -438,7 +436,7 @@ export default function CompanyDashboardPage() {
               <IconText icon="clipboardList">業務課題を登録</IconText>
             </Link>
             <Link href="/company/reports" className={styles.actionGhost}>
-              <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
+              <IconText icon="barChart3">プロジェクト提案を生成</IconText>
             </Link>
           </div>
         )}

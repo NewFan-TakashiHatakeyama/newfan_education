@@ -109,13 +109,8 @@ export default function MentorReviewsPage() {
         theme="mentor"
         ariaLabel="メンターレビュー"
         eyebrow="レビュー待ち"
-        title="受講者の育成演習を承認し、成果物を育てる"
-        lead={
-          <>
-            受講者の育成演習提出を確認し、AI 評価・ルーブリックスコアをもとに承認 / 差戻し / 要面談を判断します。
-            メンター承認後にPoC判断・部門提案に活用でき、成果物品質の向上と教育担当の負荷軽減につながります。
-          </>
-        }
+        title="提出レビュー"
+        lead="提出内容を確認し、承認・再提出・面談を判断します。"
         metrics={[
           { label: "育成演習提出", value: stats.total, suffix: "件", hint: "レビューキュー総数" },
           { label: "レビュー待ち", value: stats.pending, suffix: "件", hint: "メンター承認待ち" },
@@ -137,7 +132,7 @@ export default function MentorReviewsPage() {
         </div>
       ) : null}
 
-      <Section title="絞り込み" meta="ステータスでレビューキューを切り替え。" theme="mentor" icon="funnel">
+      <Section title="絞り込み" meta="状態で絞り込めます。" theme="mentor" icon="funnel">
         <FilterChips
           label="ステータス"
           options={STATUS_FILTERS}
@@ -148,7 +143,7 @@ export default function MentorReviewsPage() {
 
       <Section
         title={`レビューキュー (${filtered.length} 件)`}
-        meta="提出日 / 受講者 / 育成演習 / AI 評価サマリーを一覧表示。"
+        meta="提出を選んでレビューしてください。"
         theme="mentor"
         icon="clipboardCheck"
       >

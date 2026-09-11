@@ -47,15 +47,9 @@ export default function VentureStandardsPage() {
   return (
     <>
       <PageHero
-        eyebrow="事業PJ台帳"
+        eyebrow="案件管理"
         title="工程の標準"
-        lead={
-          <>
-            「AIシステム自社事業PJ工程管理{standards ? ` ${standards.version}` : ""}」の標準です。
-            案件を作らなくても、132の標準タスク、Risk Tier別の評価・承認強度、省略できない原則、
-            AI駆動開発のハーネス標準と負の試験、根拠にした一次資料を読めます。
-          </>
-        }
+        lead="工程・評価・承認の基準を確認できます。"
         theme="company"
         metrics={[
           { label: "標準タスク", value: master?.taskCount ?? "—", icon: "clipboardCheck" },
@@ -208,7 +202,7 @@ export default function VentureStandardsPage() {
 
       <Section
         title="標準タスク"
-        meta="原本02。案件を作ると、この定義から工程タスク台帳が展開されます。"
+        meta="原本02。案件を作ると、この定義から工程タスクが展開されます。"
         theme="company"
         actions={
           <select value={phaseId} onChange={(event) => setPhaseId(event.target.value)}>

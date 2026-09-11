@@ -249,6 +249,7 @@ class VentureCreateRequest(BaseModel):
 
 
 class VentureUpdateRequest(BaseModel):
+    reopenReason: str | None = Field(default=None, max_length=2000)
     confirmRisk: bool = False
     riskEvidenceUri: str = Field(default="", max_length=TEXT_MAX)
     name: str | None = Field(default=None, max_length=200)
@@ -437,6 +438,8 @@ class VentureGateUpdateRequest(BaseModel):
 
 # ── 要員 ────────────────────────────────────────────
 class VentureMemberResponse(BaseModel):
+    appointedBy: str | None = None
+    roleEffective: bool = True
     id: str
     userId: str
     userName: str
@@ -462,6 +465,7 @@ class VentureRemovedResponse(BaseModel):
 
 # ── 汎用台帳 ────────────────────────────────────────
 class VentureLedgerEntryResponse(BaseModel):
+    revision: str
     checks: dict[str, dict[str, str]] = {}
     createdAt: str | None = None
     id: str
@@ -483,6 +487,7 @@ class VentureLedgerResponse(BaseModel):
 
 
 class VentureLedgerEntryUpsertRequest(BaseModel):
+    expectedRevision: str | None = None
     verifyRecord: bool = False
     id: str | None = Field(default=None, max_length=80)
     rowKey: str | None = Field(default=None, max_length=64)
@@ -542,15 +547,18 @@ class VentureSkillGapResponse(BaseModel):
 
 
 class VentureSkillAssessmentUpsertRequest(BaseModel):
+    revoked: bool = False
     skillId: str = Field(max_length=16)
     userId: str = Field(max_length=64)
     assessedLevel: int = Field(ge=0, le=3)
     evidenceUri: str = Field(default="", max_length=TEXT_MAX)
     developmentPlan: str = Field(default="", max_length=TEXT_MAX)
-    dueDate: str = Field(default="", pattern=DATE_PATTERN)
+    dueDate: str | None = Field(default=None, pattern=DATE_PATTERN)
 
 
 class VentureSkillAssessmentUpsertResponse(BaseModel):
+    revoked: bool = False
+    supersedesId: str | None = None
     id: str
     skillId: str
     userId: str

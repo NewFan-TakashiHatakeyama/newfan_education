@@ -28,9 +28,19 @@ export function Tabs<T extends string>({
             key={option.value}
             role="tab"
             aria-selected={active}
+            tabIndex={active ? 0 : -1}
             type="button"
             className={`${styles.tab} ${active ? styles.tabActive : ""}`}
             onClick={() => onChange(option.value)}
+            onKeyDown={event => {
+              const index = options.findIndex(item => item.value === option.value);
+              const next = event.key === "ArrowRight" ? (index + 1) % options.length
+                : event.key === "ArrowLeft" ? (index - 1 + options.length) % options.length
+                  : event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : -1;
+              if (next < 0) return;
+              event.preventDefault(); onChange(options[next].value);
+              (event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next])?.focus();
+            }}
           >
             {option.label}
             {option.count !== undefined ? ` (${option.count})` : ""}

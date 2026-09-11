@@ -123,13 +123,8 @@ export default function CompanyLearnersPage() {
         theme="company"
         ariaLabel="受講者一覧"
         eyebrow="受講者一覧"
-        title="受講者の育成進捗と実務準備度を一覧で確認"
-        lead={
-          <>
-            受講者の氏名・所属・目標ロール・ロードマップ進捗・レビュー待ち提出・到達スキル・実務準備度を
-            横断的に比較します。PoC着手可・メンター伴走が必要なメンバーを素早く特定できます。
-          </>
-        }
+        title="受講者"
+        lead="受講者ごとの学習状況を確認します。"
         metrics={[
           { label: "受講者", value: summary.total, suffix: "名", hint: "育成対象として登録済み" },
           { label: "Ready", value: summary.ready, suffix: "名", hint: "PoC着手可" },
@@ -147,7 +142,7 @@ export default function CompanyLearnersPage() {
               <IconText icon="map">ロードマップを割り当て</IconText>
             </Link>
             <Link href="/company/reports" className={styles.actionGhost}>
-              <IconText icon="barChart3">AIプロジェクト候補を生成</IconText>
+              <IconText icon="barChart3">プロジェクト提案を生成</IconText>
             </Link>
           </>
         }
@@ -164,7 +159,7 @@ export default function CompanyLearnersPage() {
 
       <Section
         title="絞り込み"
-        meta="氏名・所属・目標ロール・実務準備度で絞り込みできます。"
+        meta="氏名やチームで検索できます。"
         theme="company"
         icon="funnel"
       >
@@ -205,7 +200,7 @@ export default function CompanyLearnersPage() {
 
       <Section
         title={`受講者一覧 (${filtered.length} 名)`}
-        meta="詳細画面からロードマップ・成果物・AIテーマ適合・プロジェクト候補を確認できます。"
+        meta="受講者を選ぶと詳細を確認できます。"
         theme="company"
         icon="users"
       >

@@ -23,7 +23,7 @@ def setup():
 
 def prepare_task(client, admin, vid, task_id="B0-01", person="demo-user"):
     task = next(r for r in client.get(f"/api/v1/ventures/{vid}/tasks", headers=admin).json()["items"] if r["taskId"] == task_id)
-    for user, role in ((person, task["roleId"]), ("admin-user", task["approverRoleId"])):
+    for user, role in ((person, task["roleId"]), ("mentor-user" if task["approverRoleId"] == "R19" else "admin-user", task["approverRoleId"])):
         added = client.post(f"/api/v1/ventures/{vid}/members", headers=admin, json={"userId": user, "roleId": role})
         assert added.status_code == 200, added.text
     now = datetime.now(timezone.utc).date().isoformat()
@@ -123,8 +123,10 @@ def test_rag_requires_completed_task_even_when_all_classifications_exist():
     client, admin, vid = setup()
     seed_required_eval(client, admin, vid)
     changed = client.patch(f"/api/v1/ventures/{vid}", headers=admin, json={
-        "conditions": {"RAG": "適用"}, "confirmRisk": True, "riskEvidenceUri": "https://example.test/risk/rag"})
+        "conditions": {"RAG": "適用"}})
     assert changed.status_code == 200, changed.text
+    reviewer = sign_in(client, "mentor@example.com", "Mentor123!")
+    assert client.patch(f"/api/v1/ventures/{vid}", headers=reviewer, json={"confirmRisk": True, "riskEvidenceUri": "https://example.test/risk/rag"}).status_code == 200
     gate = put(client, admin, vid, "gate_run", GATE_RUN_BASE, row_key="GR", verify=True)
     assert gate.json()["derived"]["必須評価・前提点検"] == "機能別評価・対象外未完"
 
@@ -160,24 +162,27 @@ def test_project_role_overrides_application_role_without_granting_verification()
 
 def test_skill_coverage_requires_role_assignment_evidence_and_current_capacity():
     client, admin, vid = setup()
+    from test_review_security import join
+    member, _ = join(client, admin)
+    person = member["userId"]
     link = load_master().task_skills[0]
     task_id, skill_id = link["task_id"], link["skill_id"]
     roles = link["exec_role_ids"]
     tasks = client.get(f"/api/v1/ventures/{vid}/tasks", headers=admin).json()["items"]
     assert client.post(f"/api/v1/ventures/{vid}/tasks/applicability", headers=admin, json={"taskRowIds": [t["id"] for t in tasks if t["taskId"] != task_id], "applicability": "対象外", "reason": "このテストの対象工程を限定"}).status_code == 200
     for role in roles:
-        assert client.post(f"/api/v1/ventures/{vid}/members", headers=admin, json={"userId": "demo-user", "roleId": role}).status_code == 200
-    assessment = client.post(f"/api/v1/ventures/{vid}/skill-assessments", headers=admin, json={"skillId": skill_id, "userId": "demo-user", "assessedLevel": 3, "evidenceUri": "https://example.test/assessment"}).json()
+        assert client.post(f"/api/v1/ventures/{vid}/members", headers=admin, json={"userId": person, "roleId": role}).status_code == 200
+    assessment = client.post(f"/api/v1/ventures/{vid}/skill-assessments", headers=admin, json={"skillId": skill_id, "userId": person, "assessedLevel": 3, "evidenceUri": "https://example.test/assessment"}).json()
     def gap():
         return next(r for r in client.get(f"/api/v1/ventures/{vid}/skill-gap", headers=admin).json()["items"] if r["skillId"] == skill_id)
     assert gap()["gap"] > 0  # A capable but unallocated person does not cover demand.
     for role in roles:
         allocation = put(client, admin, vid, "assignment", {"Task ID": task_id, "Skill ID": skill_id, "Role ID": role,
-            "必要Lv": str(link["required_level"]), "PersonID": "demo-user", "能力評価記録ID": assessment["id"],
-            "必要性・担当範囲": "実施担当", "割当承認者": "admin-user", "承認日": "2026-09-01", "対象期間": "2026-2099"}, row_key=role)
+            "必要Lv": str(link["required_level"]), "PersonID": person, "能力評価記録ID": assessment["id"],
+            "必要性・担当範囲": "実施担当", "割当承認者": "admin-user", "承認日": "2026-09-01", "対象期間": "2026-2099", "対象開始": "2026-01-01", "対象終了": "2099-12-31"}, row_key=role)
         assert allocation.status_code == 200, allocation.text
     assert gap()["gap"] > 0  # Still no current capacity.
-    staffing = put(client, admin, vid, "role_staffing", {"PersonID": "demo-user", "配置開始": "2026-01-01", "配置終了": "2099-12-31", "割当FTE（入力）": "0.5", "当人の当日上限FTE": "1"}, row_key="CAPACITY")
+    staffing = put(client, admin, vid, "role_staffing", {"PersonID": person, "配置開始": "2026-01-01", "配置終了": "2099-12-31", "割当FTE（入力）": "0.5", "当人の当日上限FTE": "1"}, row_key="CAPACITY")
     assert staffing.status_code == 200, staffing.text
     assert gap()["gap"] == 0
     expired = put(client, admin, vid, "role_staffing", {"配置終了": "2026-09-01"}, entry_id=staffing.json()["id"])
@@ -254,10 +259,14 @@ def test_concurrent_plan_confirmation_and_edit_cannot_rewrite_final_plan():
     with ThreadPoolExecutor(max_workers=2) as pool:
         approved = pool.submit(put, client, admin, vid, "eval_plan", {"状態": "承認", "合格閾値/方向": APPROVED_PLAN["合格閾値/方向"]}, entry_id=draft["id"])
         edited = pool.submit(put, client, admin, vid, "eval_plan", {"合格閾値/方向": "閾値を0へ変更"}, entry_id=draft["id"])
-        assert approved.result().status_code == 200
-        assert edited.result().status_code in (200, 400)
+        outcomes = (approved.result().status_code, edited.result().status_code)
+        assert outcomes[0] in (200, 409) and outcomes[1] in (200, 400, 409)
+        assert 200 in outcomes
     final = next(r for r in rows_of(client, admin, vid, "eval_plan") if r["id"] == draft["id"])
-    assert final["values"]["合格閾値/方向"] == APPROVED_PLAN["合格閾値/方向"]
+    if final["values"]["状態"] == "承認":
+        assert final["values"]["合格閾値/方向"] == APPROVED_PLAN["合格閾値/方向"]
+    else:
+        assert outcomes[0] == 409  # Changed draft must be reviewed again before confirmation.
 
 
 def test_summary_prioritizes_overdue_decisions_and_calculates_evidenced_budget():
@@ -278,7 +287,7 @@ def test_data_use_change_invalidates_risk_and_old_decision_after_reconfirmation(
     assert put(client, admin, vid, "data", {"名称・種類": "個人情報を含む新データ", "個人情報区分": "個人情報"}, row_key="D-NEW").status_code == 200
     current = client.get(f"/api/v1/ventures/{vid}", headers=admin).json()
     assert current["governance"]["riskState"] == "再判定待ち"
-    reconfirmed = client.patch(f"/api/v1/ventures/{vid}", headers=admin, json={"confirmRisk": True, "riskEvidenceUri": "https://example.test/risk/v2"})
+    reconfirmed = client.patch(f"/api/v1/ventures/{vid}", headers=sign_in(client, "mentor@example.com", "Mentor123!"), json={"confirmRisk": True, "riskEvidenceUri": "https://example.test/risk/v2"})
     assert reconfirmed.status_code == 200
     assert rows_of(client, admin, vid, "gate_run")[0]["derived"]["必須評価・前提点検"] == "リスク・前提再確認要"
 

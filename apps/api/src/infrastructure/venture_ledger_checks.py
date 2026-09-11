@@ -568,6 +568,13 @@ def _check_condition(values: dict[str, str], context: CheckContext) -> dict[str,
     if state == "取消":
         return {"条件点検": "取消済"}
     if state == "解消":
+        if (not values.get("正本確認日時") or values.get("正本確認者PersonID") != values.get("確認者PersonID")
+                or values.get("確認者PersonID") == values.get("Owner PersonID")
+                or values.get("GateRun ID") not in context.gate_row_ids):
+            return {"条件点検": "解消記録不足"}
+        resolved, confirmed = parse_date(values.get("解消日")), parse_date(values.get("確認日"))
+        if not resolved or not confirmed or not resolved <= confirmed <= context.as_of:
+            return {"条件点検": "解消記録不足"}
         if _blank(values, "解消証拠URI", "確認者PersonID") or any(
             parse_date(values.get(column)) is None for column in ("解消日", "確認日")
         ):

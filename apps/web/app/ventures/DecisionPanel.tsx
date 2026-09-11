@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { VentureSummary, VentureDecisionRow } from "@newfan/contracts";
+import { Disclosure } from "@/app/components/ui/Disclosure";
 import { Section } from "@/app/components/ui/Section";
 import styles from "./ventures.module.css";
 
@@ -11,12 +12,14 @@ export function DecisionPanel({ ventureId, decisions }: { ventureId: string; dec
     ["資金計画", "cash_plan", decisions?.cashPlans ?? [], ["期首現金", "期間入金", "期間支出", "最低確保現金"]],
     ["運用・反復の期限", "task_run", decisions?.runs ?? [], ["Task ID", "開始トリガー", "予定期限", "次回期限", "Owner PersonID", "状態"]]
   ];
-  return <Section title="次の事業判断" meta="未入力・未計測は未確定として表示します。停止・再審査は正本で実施してください。" theme="company">
+  return <Section title="次に対応すること" theme="company">
     <p>リスク前提：{decisions?.riskState || "未確認"}</p>
     {decisions?.nextActions?.slice(0, 5).map(action => <p key={`${action.ledgerKey}/${action.rowId}`} className={action.overdue ? styles.error : undefined}>
       <Link href={`/ventures/${ventureId}/ledgers/${action.ledgerKey}`}>{action.rowId}：{action.action}</Link>
       {" — "}{action.overdue ? "期限超過・再審査要：" : "期限："}{action.dueDate || "未設定"} / 責任者：{action.owner}
     </p>)}
+    {!decisions?.nextActions?.length && <p className={styles.muted}>対応予定は未登録です。関連する記録を確認してください。</p>}
+    <Disclosure title="判断の根拠・関連記録">
     {groups.map(([title, key, rows, columns]) => <div key={key}>
       <h3><Link href={`/ventures/${ventureId}/ledgers/${key}`}>{title}</Link></h3>
       {!rows.length ? <p>未入力：判断に必要な記録を作成してください。</p> : rows.map(row => <details key={row.id}>
@@ -26,5 +29,6 @@ export function DecisionPanel({ ventureId, decisions }: { ventureId: string; dec
         </dl>
       </details>)}
     </div>)}
+    </Disclosure>
   </Section>;
 }

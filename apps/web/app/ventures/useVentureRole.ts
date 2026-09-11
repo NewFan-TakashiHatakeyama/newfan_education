@@ -18,6 +18,7 @@ export type VentureCapabilities = {
   /** サインイン中の利用者ID。自己申告の評価を弾くなどに使う。 */
   userId: string;
   /** 案件前提・要員管理：管理者または案件の R01 / R02 / R18。 */
+  archived: boolean;
   canManage: boolean;
   /** 案件台帳の記入。完了承認・正本確認には別途責任ロールが必要。 */
   canEdit: boolean;
@@ -56,7 +57,8 @@ export function useVentureRole(ventureId?: string): VentureCapabilities {
     };
     refresh();
     window.addEventListener("focus", refresh);
-    return () => { active = false; window.removeEventListener("focus", refresh); };
+    window.addEventListener("venture-updated", refresh);
+    return () => { active = false; window.removeEventListener("focus", refresh); window.removeEventListener("venture-updated", refresh); };
   }, [ventureId, userId, role]);
   return {
     role,
@@ -65,6 +67,7 @@ export function useVentureRole(ventureId?: string): VentureCapabilities {
     canEdit: ventureId ? !!permissions?.canEdit : false,
     canAssess: ventureId ? !!permissions?.canAssess : false,
     canVerify: !!permissions?.canVerify,
-    roleIds: permissions?.roleIds ?? []
+    archived: !!permissions?.archived,
+    roleIds: permissions?.archived ? [] : permissions?.roleIds ?? []
   };
 }

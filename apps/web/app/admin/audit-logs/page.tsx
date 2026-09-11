@@ -1,5 +1,6 @@
 "use client";
 
+import { Disclosure } from "@/app/components/ui/Disclosure";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -120,8 +121,8 @@ function AdminAuditLogsPageContent() {
   return (
     <main>
       <header className="page-header">
-        <h1>グローバル監査ログ</h1>
-        <p className="muted">テンプレート更新・ユーザー管理・公開設定変更を横断で確認します。</p>
+        <h1>監査ログ</h1>
+        <p className="muted">操作した人・対象・日時を確認できます。</p>
       </header>
       {error ? <p className="error">{error}</p> : null}
 
@@ -150,7 +151,7 @@ function AdminAuditLogsPageContent() {
               setLoading(true);
               setActorUserId(event.target.value);
             }}
-            placeholder="actor user id"
+            placeholder="操作したユーザーのID"
           />
           <label htmlFor="audit-occurred-from">開始日時</label>
           <input
@@ -172,7 +173,7 @@ function AdminAuditLogsPageContent() {
               setOccurredTo(event.target.value);
             }}
           />
-          <label htmlFor="audit-resource-type">resource type</label>
+          <label htmlFor="audit-resource-type">対象の種類</label>
           <input
             id="audit-resource-type"
             value={resourceType}
@@ -180,9 +181,9 @@ function AdminAuditLogsPageContent() {
               setLoading(true);
               setResourceType(event.target.value);
             }}
-            placeholder="resource type"
+            placeholder="対象の種類"
           />
-          <label htmlFor="audit-resource-id">resource id</label>
+          <label htmlFor="audit-resource-id">対象のID</label>
           <input
             id="audit-resource-id"
             value={resourceId}
@@ -190,7 +191,7 @@ function AdminAuditLogsPageContent() {
               setLoading(true);
               setResourceId(event.target.value);
             }}
-            placeholder="resource id"
+            placeholder="対象のID"
           />
           <label htmlFor="audit-limit">表示件数</label>
           <select id="audit-limit" value={limit} onChange={(event) => { setLoading(true); setLimit(Number(event.target.value)); }}>
@@ -221,11 +222,13 @@ function AdminAuditLogsPageContent() {
                   <strong>{item.summary}</strong>
                   <span className="status-pill">{item.action}</span>
                 </div>
+                <Disclosure title="操作の詳細">
                 <p className="muted">{`eventType: ${item.eventType}`}</p>
                 <p className="muted">{`resource: ${item.resourceType}/${item.resourceId}`}</p>
-                <p className="muted">{`actor: ${item.actorUserId} (${item.actorRole})`}</p>
-                <p className="muted">{`metadata: ${JSON.stringify(item.metadata)}`}</p>
-                <p className="muted">{`occurredAt: ${new Date(item.occurredAt).toLocaleString("ja-JP")}`}</p>
+                </Disclosure>
+                <p className="muted">{`操作した人: ${item.actorUserId} (${item.actorRole})`}</p>
+                <Disclosure title="追加情報"><pre style={{whiteSpace: "pre-wrap", overflowWrap: "anywhere"}}>{JSON.stringify(item.metadata, null, 2)}</pre></Disclosure>
+                <p className="muted">{`日時: ${new Date(item.occurredAt).toLocaleString("ja-JP")}`}</p>
               </li>
             ))}
           </ul>

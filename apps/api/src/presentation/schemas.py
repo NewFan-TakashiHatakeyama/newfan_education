@@ -306,8 +306,9 @@ class AuthSignUpRequest(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     displayName: str = Field(min_length=1, max_length=120)
     password: str = Field(min_length=8, max_length=255)
-    role: str = Field(pattern="^(learner|recruiter|admin|content_editor|mentor)$")
-    tenantId: str = Field(default="company-demo", min_length=3, max_length=64)
+    invitationToken: str = Field(default="", max_length=255)
+    role: str | None = None
+    tenantId: str | None = None
 
 
 class AuthSessionResponse(BaseModel):
@@ -580,6 +581,11 @@ class SalesSummaryCreateRequest(BaseModel):
 
 
 class ReportResponse(BaseModel):
+    requirementId: str
+    learnerId: str
+    generatedAt: str
+    createdBy: str
+    version: int
     id: str
     title: str
     summary: str

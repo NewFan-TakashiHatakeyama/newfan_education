@@ -6,20 +6,15 @@ from fastapi import Cookie, Header, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 
 from application.services import (
-    AuditLogService,
-    AuthService,
     CompanyService,
     ConsentService,
     CourseService,
     CurriculumImpactService,
-    CurriculumService,
     GoalService,
     ModerationService,
-    NotificationService,
     ProgressService,
     RoadmapService,
     SkillGapService,
-    UserManagementService,
 )
 from application.b2b_services import B2BService
 from application.venture_services import VentureService
@@ -27,28 +22,14 @@ from domain.models import (
     Company,
     CurriculumVersion,
     ModerationCase,
-    NotificationDeliverySetting,
-    Notification,
-    UserAccount,
     UserContext,
 )
 from infrastructure.auth import decode_access_token
 from infrastructure.db import Base, ScopedSession, engine
 from infrastructure.course_seed import default_courses
-from infrastructure.in_memory_repositories import (
-    InMemoryAuditLogRepository,
-    InMemoryCompanyRepository,
-    InMemoryConsentRepository,
-    InMemoryCourseRepository,
-    InMemoryCurriculumRepository,
-    InMemoryGoalRepository,
-    InMemoryModerationRepository,
-    InMemoryNotificationDeliverySettingRepository,
-    InMemoryNotificationRepository,
-    InMemoryProgressRepository,
-    InMemoryRoadmapRepository,
-    InMemoryUserRepository,
-)
+from infrastructure.in_memory_repositories import InMemoryCourseRepository
+from infrastructure.persistent_records import PersistentRecords, PersistentProgress, PersistentAudit
+from domain.models import ConsentRecord, Goal, Roadmap, ProgressEvent
 from infrastructure.postgres_b2b import PostgresB2BRepository
 from infrastructure.postgres_venture import PostgresVentureRepository
 from infrastructure.settings import load_settings
@@ -56,26 +37,20 @@ from infrastructure.settings import load_settings
 
 @dataclass(slots=True)
 class ServiceContainer:
-    auth_service: AuthService
     consent_service: ConsentService
     goal_service: GoalService
     roadmap_service: RoadmapService
-    curriculum_service: CurriculumService
     course_service: CourseService
     progress_service: ProgressService
     skill_gap_service: SkillGapService
     company_service: CompanyService
     moderation_service: ModerationService
     curriculum_impact_service: CurriculumImpactService
-    notification_service: NotificationService
-    user_management_service: UserManagementService
-    audit_log_service: AuditLogService
     b2b_service: B2BService
     venture_service: VentureService
 
 
 def build_container() -> ServiceContainer:
-    settings = load_settings()
     Base.metadata.create_all(bind=engine)
     # リクエスト単位のSessionを返すプロキシ。リポジトリはこれを Session として扱う。
     db_session = ScopedSession
@@ -84,10 +59,10 @@ def build_container() -> ServiceContainer:
     postgres_b2b_repository.seed_if_empty()
     postgres_b2b_repository.sync_legacy_demo_copy()
 
-    consent_repo = InMemoryConsentRepository()
-    goal_repo = InMemoryGoalRepository()
-    roadmap_repo = InMemoryRoadmapRepository()
-    curriculum_repo = InMemoryCurriculumRepository(
+    consent_repo = PersistentRecords(db_session, "consent", ConsentRecord)
+    goal_repo = PersistentRecords(db_session, "goal", Goal)
+    roadmap_repo = PersistentRecords(db_session, "roadmap", Roadmap)
+    curriculum_repo = PersistentRecords(db_session, "curriculum", CurriculumVersion,
         initial_values=[
             CurriculumVersion(
                 curriculum_slug="afr-enterprise-ai-dx-foundation",
@@ -209,8 +184,8 @@ def build_container() -> ServiceContainer:
         ]
     )
     course_repo = InMemoryCourseRepository(initial_values=default_courses())
-    progress_repo = InMemoryProgressRepository()
-    company_repo = InMemoryCompanyRepository(
+    progress_repo = PersistentProgress(db_session, "progress", ProgressEvent)
+    company_repo = PersistentRecords(db_session, "company", Company,
         initial_values=[
             Company(
                 id="company-example",
@@ -232,7 +207,7 @@ def build_container() -> ServiceContainer:
             ),
         ]
     )
-    moderation_repo = InMemoryModerationRepository(
+    moderation_repo = PersistentRecords(db_session, "moderation", ModerationCase,
         initial_values=[
             ModerationCase(
                 id="mod-001",
@@ -255,105 +230,18 @@ def build_container() -> ServiceContainer:
             ),
         ]
     )
-    notification_repo = InMemoryNotificationRepository(
-        initial_values=[
-            Notification(
-                user_id="demo-user",
-                category="learning",
-                title="演習レビューが完了しました",
-                body="業務課題定義書のフィードバックを確認してください。",
-                target_url="/learner/evidence",
-                is_important=True,
-            ),
-            Notification(
-                user_id="demo-user",
-                category="learning",
-                title="新しい教材が公開されました",
-                body="AI/DX全体像と業務活用パターン v1.0 を確認してください。",
-                target_url="/learn/afr-enterprise-ai-dx-foundation/main",
-            ),
-            Notification(
-                user_id="demo-user",
-                category="admin",
-                title="教材公開申請があります",
-                body="AIガバナンス基礎 v1.0.1 の公開承認待ちです。",
-                target_url="/admin/curriculum",
-            ),
-        ]
-    )
-    audit_log_repo = InMemoryAuditLogRepository()
-    user_repo = InMemoryUserRepository(
-        initial_values=[
-            UserAccount(
-                user_id="demo-user",
-                display_name="Demo Learner",
-                role="learner",
-                state="active",
-            ),
-            UserAccount(
-                user_id="admin-user",
-                display_name="Platform Admin",
-                role="admin",
-                state="active",
-            ),
-            UserAccount(
-                user_id="recruiter-user",
-                display_name="Recruiter User",
-                role="recruiter",
-                state="active",
-            ),
-        ]
-    )
-    notification_delivery_setting_repo = InMemoryNotificationDeliverySettingRepository(
-        initial_values=[
-            NotificationDeliverySetting(
-                user_id="demo-user",
-                category="learning",
-                email_enabled=False,
-                in_app_enabled=True,
-                push_enabled=True,
-            ),
-            NotificationDeliverySetting(
-                user_id="demo-user",
-                category="career",
-                email_enabled=True,
-                in_app_enabled=True,
-                push_enabled=False,
-            ),
-            NotificationDeliverySetting(
-                user_id="demo-user",
-                category="dm",
-                email_enabled=True,
-                in_app_enabled=True,
-                push_enabled=True,
-            ),
-            NotificationDeliverySetting(
-                user_id="demo-user",
-                category="admin",
-                email_enabled=False,
-                in_app_enabled=True,
-                push_enabled=False,
-            ),
-        ]
-    )
-
-    audit_log_service = AuditLogService(audit_log_repo)
+    audit_log_repo = PersistentAudit(db_session)
 
     return ServiceContainer(
-        auth_service=AuthService(user_repo),
         consent_service=ConsentService(consent_repo),
         goal_service=GoalService(goal_repo),
         roadmap_service=RoadmapService(goal_repo, roadmap_repo, curriculum_repo),
-        curriculum_service=CurriculumService(curriculum_repo),
         course_service=CourseService(course_repo),
         progress_service=ProgressService(progress_repo, roadmap_repo),
         skill_gap_service=SkillGapService(goal_repo, roadmap_repo, progress_repo),
         company_service=CompanyService(company_repo, audit_log_repo),
         moderation_service=ModerationService(moderation_repo, audit_log_repo),
         curriculum_impact_service=CurriculumImpactService(roadmap_repo),
-        notification_service=NotificationService(notification_repo, notification_delivery_setting_repo),
-        user_management_service=UserManagementService(user_repo, audit_log_repo),
-        audit_log_service=audit_log_service,
         b2b_service=B2BService(repository=postgres_b2b_repository),
         venture_service=VentureService(repository=postgres_venture_repository),
     )
@@ -385,4 +273,9 @@ def get_current_user(
         raise HTTPException(status_code=403, detail="Unsupported role")
     if not user_id or not tenant_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
+    current = CONTAINER.b2b_service.repository.get_user_by_user_id(user_id)
+    if (current is None or current.state != "active" or current.role != role
+            or current.tenant_id != tenant_id
+            or claims.get("session_version", 0) != current.session_version):
+        raise HTTPException(status_code=401, detail="Session revoked. Sign in again.")
     return UserContext(user_id=user_id, role=role, tenant_id=tenant_id)  # type: ignore[arg-type]

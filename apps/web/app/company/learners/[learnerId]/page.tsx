@@ -117,7 +117,7 @@ export default function CompanyLearnerDetailPage() {
         lead={
           <>
             {detail.teamName} / 目標ロール:{" "}
-            <strong>{detail.targetRole}</strong> · タブ切替で進捗・提出・レビュー・成果物・AIテーマ適合・履歴を確認できます。
+            <strong>{detail.targetRole}</strong>
           </>
         }
         readiness={readiness}
@@ -151,7 +151,7 @@ export default function CompanyLearnerDetailPage() {
               ロードマップを再割当
             </Link>
             <Link href="/company/reports" className={styles.actionPrimary}>
-              AIプロジェクト候補レポートを生成
+              提案を作成
             </Link>
           </>
         }
@@ -198,7 +198,7 @@ export default function CompanyLearnerDetailPage() {
           <EmptyState
             icon="◆"
             title="ロードマップタブ"
-            message="個別ロードマップ詳細はロードマップ管理画面から再割当できます。Phase 別タイムラインは受講者画面 (/learner/roadmaps/[id]) と同じトーンで提示予定。"
+            message="プランの変更は「学習プランの割り当て」から行えます。工程ごとの詳細表示は未提供です。"
             action={
               <Link href="/company/roadmaps" className={styles.actionPrimary}>
                 ロードマップ割当へ

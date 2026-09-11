@@ -12,6 +12,7 @@ from application.venture_services import (
     VentureAccessError,
     VentureNotFoundError,
     VentureValidationError,
+    VentureConflictError,
 )
 from domain.models import UserContext
 from presentation.dependencies import CONTAINER, get_current_user
@@ -47,10 +48,48 @@ from presentation.venture_schemas import (
 
 router = APIRouter(prefix="/api/v1", tags=["ventures"])
 
+
+@router.get("/ventures/{venture_id}/member-candidates")
+def member_candidates(venture_id: str, actor: UserContext = Depends(get_current_user)):
+    from infrastructure.sql_models import UserModel
+    from sqlalchemy import select
+    try:
+        service = CONTAINER.venture_service
+        service._assert(actor, {"admin", "recruiter", "learner", "mentor", "content_editor"})
+        service._project_permission(actor, venture_id, "canManage")
+        return {"items": [{"id": u.user_id, "name": u.display_name, "role": u.role}
+            for u in service.repository._db.scalars(select(UserModel).where(
+                UserModel.tenant_id == actor.tenant_id, UserModel.state == "active")).all()]}
+    except VENTURE_ERRORS as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/ventures/{venture_id}/skill-assessments/history")
+def assessment_history(venture_id: str, actor: UserContext = Depends(get_current_user)):
+    from infrastructure.sql_models import VentureSkillAssessmentModel
+    from sqlalchemy import select
+    try:
+        service = CONTAINER.venture_service
+        service._assert(actor, {"admin", "recruiter", "learner", "mentor", "content_editor"})
+        service._get_venture(actor, venture_id)
+        query = select(VentureSkillAssessmentModel).where(VentureSkillAssessmentModel.tenant_id == actor.tenant_id,
+            VentureSkillAssessmentModel.venture_id == venture_id)
+        if not service._can_see_all_assessments(actor, venture_id):
+            query = query.where(VentureSkillAssessmentModel.user_id == actor.user_id)
+        return {"items": [{"id": r.id, "skillId": r.skill_id, "userId": r.user_id,
+            "supersedesId": r.supersedes_id, "revoked": r.revoked,
+            "assessedLevel": r.assessed_level, "evidenceUri": r.evidence_uri, "dueDate": r.due_date,
+            "developmentPlan": r.development_plan, "assessedBy": r.assessed_by, "assessedAt": r.assessed_at}
+            for r in service.repository._db.scalars(query.order_by(VentureSkillAssessmentModel.assessed_at.desc())).all()]}
+    except VENTURE_ERRORS as exc:
+        raise _http_error(exc) from exc
+
 VENTURE_ERRORS = (VentureAccessError, VentureNotFoundError, VentureValidationError)
 
 
 def _http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, VentureConflictError):
+        return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, VentureAccessError):
         return HTTPException(status_code=403, detail=str(exc))
     if isinstance(exc, VentureNotFoundError):
@@ -131,7 +170,7 @@ def update_venture(
 ):
     try:
         return CONTAINER.venture_service.update_venture(
-            actor, venture_id, payload.model_dump(exclude_none=True)
+            actor, venture_id, payload.model_dump(exclude_none=True, exclude_unset=True)
         )
     except VENTURE_ERRORS as exc:
         raise _http_error(exc) from exc

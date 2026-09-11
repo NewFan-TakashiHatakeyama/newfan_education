@@ -1,9 +1,10 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "codex/**"]
 
 jobs:
   web:
@@ -36,3 +37,73 @@ jobs:
           python -m pip install -e "apps/api[dev]"
       - name: Run API tests
         run: python -m pytest apps/api/tests -q
+
+  postgres-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: newfan_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_POSTGRES_ADMIN_URL: postgresql+psycopg://postgres:ci-only-password@127.0.0.1:5432/postgres
+      DATABASE_URL: postgresql+psycopg://postgres:ci-only-password@127.0.0.1:5432/newfan_e2e
+      JWT_SECRET: isolated-ci-test-signing-key-not-for-production
+      APP_ENV: development
+      WEB_ORIGINS: http://127.0.0.1:3107
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8107
+      REVIEW_E2E: "1"
+      REVIEW_E2E_API_URL: http://127.0.0.1:8107
+      E2E_BASE_URL: http://127.0.0.1:3107
+      PLAYWRIGHT_SKIP_WEBSERVER: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: |
+          python -m pip install -e "apps/api[dev]"
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: PostgreSQL migration and concurrent API tests
+        run: python -m pytest apps/api/tests -q
+      - name: Verify backup restoration and upgrade from previous release
+        run: python apps/api/tools/verify_postgres.py
+      - name: Build web
+        run: npm run build:web
+      - name: Start isolated application
+        run: |
+          cd apps/api
+          python -m alembic upgrade head
+          python -m uvicorn main:app --app-dir src --host 127.0.0.1 --port 8107 > /tmp/newfan-api.log 2>&1 &
+          cd ../web
+          node ../../node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3107 > /tmp/newfan-web.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl -fsS http://127.0.0.1:8107/healthz && curl -fsS http://127.0.0.1:3107/auth/sign-in > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Business and UX E2E on PostgreSQL
+        working-directory: apps/web
+        run: node ../../node_modules/@playwright/test/cli.js test e2e/review-remediation.spec.ts e2e/ux-refinement.spec.ts e2e/p2-lifecycle.spec.ts
+      - name: Keep failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-e2e-failure
+          path: |
+            /tmp/newfan-api.log
+            /tmp/newfan-web.log
+            apps/web/test-results

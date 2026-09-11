@@ -96,7 +96,7 @@ export default function CompanyRoadmapsPage() {
         ...prev
       ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "育成ロードマップの割当に失敗しました。");
+      setError(err instanceof Error ? err.message : "学習プランの割当に失敗しました。");
     } finally {
       setSubmitting(false);
     }
@@ -110,13 +110,8 @@ export default function CompanyRoadmapsPage() {
         theme="company"
         ariaLabel="ロードマップ割当"
         eyebrow="ロードマップ割当"
-        title="受講者へ、業務課題起点の育成ロードマップを割り当てる"
-        lead={
-          <>
-            7つのAI人材トラック別テンプレを選び、受講者へ12週間プログラムの学習タスクを割り当てます。
-            業務課題から逆算した成果物作成タスクを配布し、PoC候補化につなげます。
-          </>
-        }
+        title="学習プランの割り当て"
+        lead="学習プランを選んで受講者に割り当てます。"
         metrics={[
           {
             label: "ロールテンプレート",
@@ -160,7 +155,7 @@ export default function CompanyRoadmapsPage() {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", gap: "1rem" }}>
         <Section
           title="ロールテンプレートを選ぶ"
-          meta="AI人材トラック別に、成果物作成に必要な学習モジュールと演習タスクが定義済みです。"
+          meta="目標に合うプランを選んでください。"
           theme="company"
           icon="target"
         >
@@ -229,7 +224,7 @@ export default function CompanyRoadmapsPage() {
 
         <Section
           title="受講者に割り当てる"
-          meta="選択したテンプレの育成タスクを受講者へ割当。割当履歴はこのセッション中のみ保持されます。"
+          meta="受講者を選んで割り当てます。"
           theme="company"
           icon="users"
         >
@@ -293,7 +288,7 @@ export default function CompanyRoadmapsPage() {
                   </span>
                   {selectedTemplate ? (
                     <p className={styles.fieldHelp} style={{ margin: 0 }}>
-                      <strong>{selectedTemplate.name}</strong> の育成ロードマップを割り当てます。重点スキル:{" "}
+                      <strong>{selectedTemplate.name}</strong> の学習プランを割り当てます。重点スキル:{" "}
                       {selectedTemplate.targetSkills.join(", ") || "—"}
                     </p>
                   ) : (
@@ -311,7 +306,7 @@ export default function CompanyRoadmapsPage() {
                   onClick={handleAssign}
                   disabled={!selectedTemplate || !selectedLearner || submitting}
                 >
-                  {submitting ? "割当中…" : <IconText icon="map">育成ロードマップを割当する</IconText>}
+                  {submitting ? "割当中…" : <IconText icon="map">学習プランを割当する</IconText>}
                 </button>
               </div>
             </>
@@ -320,8 +315,8 @@ export default function CompanyRoadmapsPage() {
       </div>
 
       <Section
-        title="割当履歴 (本セッション)"
-        meta="再読み込みすると履歴は消えます。恒久的な記録は今後対応予定です。"
+        title="今回の割り当て"
+        meta="この一覧は再読み込みでリセットされます。割り当て済みのプランは受講者詳細で確認できます。"
         theme="company"
         icon="calendarDays"
       >
@@ -329,7 +324,7 @@ export default function CompanyRoadmapsPage() {
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="まだ割当がありません"
-            message="左でテンプレを選び、右で受講者を選んで「育成ロードマップを割当する」を押すと、ここに記録されます。"
+            message="プランと受講者を選んで割り当ててください。"
           />
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "0.5rem" }}>

@@ -12,11 +12,14 @@ import type {
 import {
   createSalesSummaryReport,
   exportReport,
+  getReports,
+  downloadReportExport,
   getLearners,
   getRequirements
 } from "@/lib/api";
 
 import { PageHero } from "@/app/components/ui/PageHero";
+import { Disclosure } from "@/app/components/ui/Disclosure";
 import { Section } from "@/app/components/ui/Section";
 import { EmptyState } from "@/app/components/ui/EmptyState";
 import { SkeletonRow } from "@/app/components/ui/Skeleton";
@@ -46,6 +49,7 @@ export default function CompanyReportsPage() {
 
   useEffect(() => {
     let active = true;
+    getReports().then(result => { if (active) { setHistory(result.items); setReport(result.items[0] ?? null); } }).catch(err => { if (active) setError(err instanceof Error ? err.message : "帳票履歴の取得に失敗しました"); });
     Promise.allSettled([getRequirements(), getLearners()]).then((results) => {
       if (!active) return;
       const [r, l] = results;
@@ -94,7 +98,7 @@ export default function CompanyReportsPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "AIプロジェクト候補レポートの生成に失敗しました。必要な権限を持つアカウントでサインインしてください。"
+          : "プロジェクト提案レポートの生成に失敗しました。必要な権限を持つアカウントでサインインしてください。"
       );
     } finally {
       setSubmitting(false);
@@ -132,7 +136,8 @@ export default function CompanyReportsPage() {
     setExportMessage(null);
     try {
       const job = await exportReport(report.id, reportFormat);
-      setExportMessage(`${reportFormat.toUpperCase()} export completed: ${job.resultUrl}`);
+      await downloadReportExport(job.resultUrl, `${report.id}.${reportFormat}`);
+      setExportMessage(`${reportFormat.toUpperCase()}をダウンロードしました。`);
     } catch (err) {
       setExportMessage(err instanceof Error ? err.message : "レポートエクスポートに失敗しました");
     }
@@ -144,15 +149,10 @@ export default function CompanyReportsPage() {
     <main className={styles.page}>
       <PageHero
         theme="company"
-        ariaLabel="AIプロジェクト候補"
-        eyebrow="AIプロジェクト候補"
-        title="成果物と業務課題からAIプロジェクト候補レポートを自動生成"
-        lead={
-          <>
-            受講者の成果物と業務課題の適合度をもとに、社内AIプロジェクトの推進候補資料を自動生成します。
-            生成結果はコピー / Markdown ダウンロードで、部門提案・経営判断資料のたたき台として活用できます。
-          </>
-        }
+        ariaLabel="プロジェクト提案"
+        eyebrow="プロジェクト提案"
+        title="プロジェクト提案"
+        lead="業務課題と成果物をもとに、提案のたたき台を作成します。"
         metrics={[
           {
             label: "登録済み業務課題",
@@ -167,10 +167,10 @@ export default function CompanyReportsPage() {
             hint: "候補として選択可能"
           },
           {
-            label: "本セッションで生成",
+            label: "保存済みレポート",
             value: history.length,
             suffix: "件",
-            hint: "リロードで消えます"
+            hint: "保存した内容と証跡を保持"
           }
         ]}
         actions={
@@ -201,8 +201,8 @@ export default function CompanyReportsPage() {
       ) : null}
 
       <Section
-        title="AIプロジェクト候補レポートを生成"
-        meta="業務課題と受講者を選び、成果物に基づく提案文を確認します。"
+        title="1. 課題と受講者を選ぶ"
+        meta="業務課題と受講者を選んでください。"
         theme="company"
         icon="barChart3"
       >
@@ -253,6 +253,7 @@ export default function CompanyReportsPage() {
               </div>
             </div>
 
+            <Disclosure title="選択内容を確認">
             <div
               style={{
                 display: "grid",
@@ -311,6 +312,7 @@ export default function CompanyReportsPage() {
               ) : null}
             </div>
 
+            </Disclosure>
             <div className={styles.actionRow}>
               <button
                 type="button"
@@ -318,7 +320,7 @@ export default function CompanyReportsPage() {
                 onClick={handleGenerate}
                 disabled={!selectedRequirement || !selectedLearner || submitting}
               >
-                {submitting ? "生成中…" : <IconText icon="send">AIプロジェクト候補レポートを生成</IconText>}
+                {submitting ? "生成中…" : <IconText icon="send">提案を作成</IconText>}
               </button>
             </div>
           </div>
@@ -326,8 +328,8 @@ export default function CompanyReportsPage() {
       </Section>
 
       <Section
-        title="最新の生成結果"
-        meta="部門提案・経営判断資料としてそのままコピー / Markdown としてダウンロードできます。"
+        title="2. 提案を確認・ダウンロード"
+        meta="内容を確認してから共有してください。"
         theme="company"
         icon="notebookText"
       >
@@ -335,11 +337,11 @@ export default function CompanyReportsPage() {
           <article
             style={{
               border: "1px solid var(--border)",
-              borderRadius: 22,
+              borderRadius: 10,
               background:
-                "linear-gradient(180deg, #ffffff 0%, #f5f3ff 100%)",
+                "#ffffff",
               padding: "1.25rem 1.35rem",
-              boxShadow: "0 18px 36px -22px rgba(79, 70, 229, 0.45)",
+              boxShadow: "none",
               display: "grid",
               gap: "0.7rem"
             }}
@@ -359,13 +361,13 @@ export default function CompanyReportsPage() {
                   {copied ? "✓ コピー済" : <IconText icon="clipboardList">コピー</IconText>}
                 </button>
                 <button type="button" className={styles.actionPrimary} onClick={handleDownload}>
-                  <IconText icon="fileCode2">Markdown ダウンロード</IconText>
+                  <IconText icon="fileCode2">Markdown</IconText>
                 </button>
                 <button type="button" className={styles.actionGhost} onClick={() => void handleExport("csv")}>
-                  <IconText icon="fileCode2">CSVエクスポート</IconText>
+                  <IconText icon="fileCode2">CSVを保存</IconText>
                 </button>
                 <button type="button" className={styles.actionGhost} onClick={() => void handleExport("pdf")}>
-                  <IconText icon="fileCode2">PDFエクスポート</IconText>
+                  <IconText icon="fileCode2">PDFを保存</IconText>
                 </button>
               </div>
             </div>
@@ -398,23 +400,23 @@ export default function CompanyReportsPage() {
         ) : (
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
-            title="まだ生成していません"
-            message="業務課題と受講者を選んで『AIプロジェクト候補レポートを生成』を押すと、ここに表示されます。"
+            title="提案は未作成です"
+            message="業務課題と受講者を選んで『提案を作成』を押すと、ここに表示されます。"
           />
         )}
       </Section>
 
       <Section
-        title="生成履歴 (本セッション)"
-        meta="本セッション内の生成履歴です。ページ再読み込みで消えます。"
+        title="作成履歴"
+        meta="保存した提案を開き直せます。"
         theme="company"
         icon="calendarDays"
       >
         {history.length === 0 ? (
           <EmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
-            title="履歴なし"
-            message="まだ生成されたAIプロジェクト候補レポートはありません。"
+            title="履歴はありません"
+            message="まだ生成されたプロジェクト提案レポートはありません。"
           />
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "0.5rem" }}>

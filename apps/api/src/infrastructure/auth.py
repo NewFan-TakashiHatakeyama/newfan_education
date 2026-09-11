@@ -26,11 +26,13 @@ def create_access_token(
     tenant_id: str,
     display_name: str,
     expires_delta_minutes: int | None = None,
+    session_version: int = 0,
 ) -> str:
     expire_minutes = expires_delta_minutes or settings.access_token_expire_minutes
     expire = datetime.now(timezone.utc) + timedelta(minutes=expire_minutes)
     payload = {
         "sub": user_id,
+        "session_version": session_version,
         "role": role,
         "tenant_id": tenant_id,
         "display_name": display_name,

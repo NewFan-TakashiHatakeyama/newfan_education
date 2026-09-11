@@ -58,8 +58,7 @@ def test_b2b_core_flow_with_postgres_repository() -> None:
     submission_id = submitted.json()["id"]
 
     ai_review = client.post(f"/api/v1/submissions/{submission_id}/ai-review", headers=learner_headers)
-    assert ai_review.status_code == 200
-    assert ai_review.json()["reviewerType"] == "ai"
+    assert ai_review.status_code == 503
 
     mentor_review = client.post(
         f"/api/v1/submissions/{submission_id}/mentor-review",
@@ -165,7 +164,7 @@ def test_exercise_engines_cover_notebook_sql_rag_ocr() -> None:
         json={"code": "scores=[0.7,0.8]\nprint('avg_score=0.75')"},
     )
     assert notebook_run.status_code == 200
-    assert notebook_run.json()["engine"] == "pyodide"
+    assert notebook_run.json()["engine"] == "unavailable"
     assert notebook_run.json()["pipeline"] == "notebook"
 
     sql_run = client.post(
@@ -174,7 +173,7 @@ def test_exercise_engines_cover_notebook_sql_rag_ocr() -> None:
         json={"code": "SELECT learner_id, completed_items FROM progress_events"},
     )
     assert sql_run.status_code == 200
-    assert sql_run.json()["engine"] == "pyodide"
+    assert sql_run.json()["engine"] == "unavailable"
     assert sql_run.json()["pipeline"] == "sql"
 
     rag_run = client.post(
@@ -190,7 +189,7 @@ def test_exercise_engines_cover_notebook_sql_rag_ocr() -> None:
         },
     )
     assert rag_run.status_code == 200
-    assert rag_run.json()["engine"] == "docker_sandbox"
+    assert rag_run.json()["engine"] == "unavailable"
     assert rag_run.json()["pipeline"] == "rag"
 
     ocr_run = client.post(
@@ -199,7 +198,7 @@ def test_exercise_engines_cover_notebook_sql_rag_ocr() -> None:
         json={"code": "OUTPUT={'vendor':'A Corp','amount':1000,'date':'2026-05-01'}"},
     )
     assert ocr_run.status_code == 200
-    assert ocr_run.json()["engine"] == "docker_sandbox"
+    assert ocr_run.json()["engine"] == "unavailable"
     assert ocr_run.json()["pipeline"] == "ocr"
 
 
@@ -215,21 +214,7 @@ def test_notification_delivery_job_queue_flow() -> None:
     assert submit.status_code == 200
 
     jobs = CONTAINER.b2b_service.repository.reserve_notification_jobs(limit=10)
-    assert jobs
-    first = jobs[0]
-    CONTAINER.b2b_service.repository.create_in_app_notification(
-        tenant_id=first["tenantId"],
-        user_id=first["userId"],
-        category=first["category"],
-        title=first["title"],
-        body=first["body"],
-        target_url=first["targetUrl"],
-        is_important=first["isImportant"],
-    )
-    CONTAINER.b2b_service.repository.mark_notification_job_completed(
-        job_id=first["id"],
-        result={"deliveredChannels": ["in_app"]},
-    )
+    assert not jobs  # Durable inbox delivery completes in the submission transaction.
 
     notifications = client.get("/api/v1/notifications", headers=learner_headers)
     assert notifications.status_code == 200

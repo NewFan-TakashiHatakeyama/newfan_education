@@ -9,7 +9,10 @@ import {
   saveVentureLedgerEntry
 } from "@/lib/api";
 
+import { LoadFailure } from "@/app/components/ui/LoadFailure";
 import { Section } from "@/app/components/ui/Section";
+import { Disclosure } from "@/app/components/ui/Disclosure";
+import { Feedback } from "@/app/components/ui/Feedback";
 import { Drawer } from "@/app/components/ui/Drawer";
 import { SkeletonRow } from "@/app/components/ui/Skeleton";
 import { EmptyState } from "@/app/components/ui/EmptyState";
@@ -18,8 +21,9 @@ import { VentureNav } from "../../../VentureNav";
 import { useVentureRole } from "../../../useVentureRole";
 import { EvaluationCoverage } from "../../../EvaluationCoverage";
 import styles from "../../../ventures.module.css";
+import { ledgerLabel } from "../../../labels";
 
-const SERVER_COLUMNS = new Set(["正本確認者PersonID", "正本確認日時", "前提版"]);
+const SERVER_COLUMNS = new Set(["正本確認者PersonID", "正本確認日時", "前提版", "確認者PersonID", "確認日"]);
 const CANCELLATION_COLUMNS = new Set(["取消理由", "取消／置換Run ID", "無効化・取消理由"]);
 const editableValues = (values: Record<string, string>) => Object.fromEntries(Object.entries(values).filter(([k]) => !SERVER_COLUMNS.has(k)));
 
@@ -32,8 +36,10 @@ export default function VentureLedgerPage({
 }) {
   const { ventureId, ledgerKey } = use(params);
   const [data, setData] = useState<VentureLedgerSummary | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [conflict, setConflict] = useState<VentureLedgerEntry | null>(null);
   const [detail, setDetail] = useState<VentureLedgerEntry | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [newRowKey, setNewRowKey] = useState("");
@@ -42,10 +48,9 @@ export default function VentureLedgerPage({
 
   const refresh = useCallback(() => {
     fetchVentureLedger(ventureId, ledgerKey)
-      .then(setData)
+      .then(result => { setData(result); setLoadFailed(false); setError(null); })
       .catch((err: unknown) => {
-        // 空の結果を入れないと、読み込み中の骨組みが出たまま止まる。
-        setData({ ledger: null, items: [] });
+        setData(null); setLoadFailed(true);
         setError(err instanceof Error ? err.message : "台帳を取得できませんでした。");
       });
   }, [ventureId, ledgerKey]);
@@ -55,6 +60,7 @@ export default function VentureLedgerPage({
   }, [refresh]);
 
   const openDetail = (entry: VentureLedgerEntry) => {
+    setConflict(null);
     setDetail(entry);
     setDraft({ ...entry.values });
   };
@@ -63,11 +69,16 @@ export default function VentureLedgerPage({
     setSaving(true);
     setError(null);
     try {
-      const updated = await saveVentureLedgerEntry(ventureId, ledgerKey, { id: entry.id, values: editableValues(values) });
+      const updated = await saveVentureLedgerEntry(ventureId, ledgerKey, { id: entry.id, expectedRevision: entry.revision, values: editableValues(values) });
       setDetail(updated); setDraft({ ...updated.values });
       refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "保存できませんでした。");
+      try {
+        const latest = await fetchVentureLedger(ventureId, ledgerKey);
+        const current = latest.items.find(item => item.id === entry.id);
+        if (current && current.revision !== entry.revision) setConflict(current);
+      } catch { /* Keep the original draft and error if the refresh also fails. */ }
     } finally {
       setSaving(false);
     }
@@ -94,7 +105,7 @@ export default function VentureLedgerPage({
 
       <Section
         title={ledger?.name ?? "台帳"}
-        meta={ledger ? `${ledger.summary}（原本: ${ledger.sourceSheet}）` : undefined}
+        meta="記録を選んで確認・編集できます。"
         theme="company"
         actions={
           ledger && canEdit ? (
@@ -138,14 +149,15 @@ export default function VentureLedgerPage({
         {ledgerKey === "required_eval" ? <EvaluationCoverage entries={items} /> : null}
 
         {ledger && ledger.notes.length > 0 ? (
-          <div className={styles.note}>
+          <Disclosure title="記入ルール・参照元">
+            <p>{ledger.summary}（参照元: {ledger.sourceSheet}）</p>
             {ledger.notes.map((note, index) => (
               <div key={index}>{note}</div>
             ))}
-          </div>
+          </Disclosure>
         ) : null}
 
-        {data === null ? (
+        {loadFailed ? <LoadFailure onRetry={refresh} /> : data === null ? (
           <SkeletonRow />
         ) : items.length === 0 ? (
           <EmptyState
@@ -187,7 +199,7 @@ export default function VentureLedgerPage({
                     </td>
                     {previewMaster.map((column) => (
                       <td key={column} className={styles.wrapText}>
-                        {entry.master[column] ?? "—"}
+                        <span className="compact-preview">{entry.master[column] ?? "—"}</span>
                       </td>
                     ))}
                     <td>
@@ -212,7 +224,7 @@ export default function VentureLedgerPage({
                     ) : null}
                     {previewInput.map((column) => (
                       <td key={column} className={styles.wrapText}>
-                        {entry.values[column] || <span className={styles.muted}>未入力</span>}
+                        <span className="compact-preview">{entry.values[column] || "未入力"}</span>
                       </td>
                     ))}
                     <td className={styles.muted}>
@@ -235,18 +247,42 @@ export default function VentureLedgerPage({
         open={detail !== null}
         title={detail ? `${ledger?.name ?? ""} ${detail.rowKey}` : ""}
         onClose={() => setDetail(null)}
+        dirty={!!detail && JSON.stringify(draft) !== JSON.stringify(detail.values)}
+        busy={saving}
+        footer={detail && ledger ? (
+            <div className={styles.actionRow}>
+              {canEdit ? (
+                <button type="button" className="primary-button" disabled={saving} onClick={save}>
+                  {saving ? "保存中…" : "保存する"}
+                </button>
+              ) : (
+                <span className={styles.muted}>閲覧のみ：編集は案件の担当者に依頼してください。</span>
+              )}
+              {canVerify && ["eval_plan", "eval_run", "gate_run", "required_eval", "condition"].includes(ledgerKey) && !detail.values["正本確認日時"] ? (
+                <button type="button" className="ghost-button" disabled={saving || (ledgerKey !== "condition" && JSON.stringify(draft) !== JSON.stringify(detail.values))} onClick={async () => {
+                  setSaving(true);
+                  try {
+                    const updated = await saveVentureLedgerEntry(ventureId, ledgerKey, { id: detail.id, expectedRevision: detail.revision, verifyRecord: true, ...(ledgerKey === "condition" ? { values: { ...editableValues(draft), "状態": "解消" } } : {}) });
+                    setDetail(updated); setDraft({ ...updated.values }); refresh();
+                  } catch (e) { setError(String(e)); } finally { setSaving(false); }
+                }}>{ledgerKey === "condition" ? "条件の解消を独立確認" : "保存内容を独立確認"}</button>
+              ) : null}
+              <span className={styles.muted}>確定後の修正は新しい記録で行います。取消は履歴に残ります。</span>
+            </div>
+        ) : null}
       >
         {detail && ledger ? (
           <div>
+            <Feedback message={error} error />
             {ledger.masterColumns.length > 0 ? (
-              <dl className={styles.detailList}>
+              <Disclosure title="定義・参照情報"><dl className={styles.detailList}>
                 {ledger.masterColumns.map((column) => (
                   <div key={column} style={{ display: "contents" }}>
                     <dt>{column}</dt>
                     <dd>{detail.master[column] || "—"}</dd>
                   </div>
                 ))}
-              </dl>
+              </dl></Disclosure>
             ) : null}
 
             {Object.keys(detail.derived).length > 0 ? (
@@ -268,12 +304,12 @@ export default function VentureLedgerPage({
                 onChange={async (event) => {
                   setSaving(true);
                   try {
-                    await saveVentureLedgerEntry(ventureId, ledgerKey, {
-                      id: detail.id,
+                    const updated = await saveVentureLedgerEntry(ventureId, ledgerKey, {
+                      id: detail.id, expectedRevision: detail.revision,
                       status: event.target.value
                     });
                     refresh();
-                    setDetail({ ...detail, status: event.target.value });
+                    setDetail(updated);
                   } catch (err: unknown) {
                     setError(err instanceof Error ? err.message : "保存できませんでした。");
                   } finally {
@@ -289,7 +325,7 @@ export default function VentureLedgerPage({
               </select>
             </label>
 
-            {ledger.inputColumns.map((column) => {
+            {ledger.inputColumns.filter(column => !SERVER_COLUMNS.has(column)).map((column) => {
               // 原本の入力規則がある列は、自由記述ではなく候補・日付・数値で入力させる。
               const rule = ledger.columnRules[column];
               const final = !!detail.values["正本確認日時"] || (ledgerKey === "eval_plan" && ["承認", "対象外承認"].includes(detail.values["状態"])) ||
@@ -302,7 +338,7 @@ export default function VentureLedgerPage({
                 setDraft((current) => ({ ...current, [column]: next }));
               return (
                 <label key={column} className={styles.field}>
-                  {column}
+                  {ledgerLabel(column)}
                   {rule?.type === "select" && rule.options.length > 0 ? (
                     <select
                       value={value}
@@ -345,25 +381,21 @@ export default function VentureLedgerPage({
               );
             })}
 
-            <div className={styles.actionRow}>
-              {canEdit ? (
-                <button type="button" className="primary-button" disabled={saving} onClick={save}>
-                  {saving ? "保存中…" : "保存する"}
-                </button>
-              ) : (
-                <span className={styles.muted}>台帳の記入は事業責任者・PdM・編集担当が行います。</span>
-              )}
-              {canVerify && ["eval_plan", "eval_run", "gate_run", "required_eval"].includes(ledgerKey) && !detail.values["正本確認日時"] ? (
-                <button type="button" className="ghost-button" disabled={saving || JSON.stringify(draft) !== JSON.stringify(detail.values)} onClick={async () => {
-                  setSaving(true);
-                  try {
-                    const updated = await saveVentureLedgerEntry(ventureId, ledgerKey, { id: detail.id, verifyRecord: true });
-                    setDetail(updated); setDraft({ ...updated.values }); refresh();
-                  } catch (e) { setError(String(e)); } finally { setSaving(false); }
-                }}>保存済みの正本を確認したことを記録</button>
-              ) : null}
-              <span className={styles.muted}>確定済み記録は新しい版・Runを作成します。取消理由は履歴に残ります。</span>
-            </div>
+            <Disclosure title="確認・履歴情報"><dl className={styles.detailList}>
+              {ledger.inputColumns.filter(column => SERVER_COLUMNS.has(column)).map(column => <div key={column} style={{display: "contents"}}><dt>{ledgerLabel(column)}</dt><dd>{detail.values[column] || "未記録"}</dd></div>)}
+              <dt>更新者</dt><dd>{detail.updatedByName || "未記録"}</dd>
+              <dt>更新日時</dt><dd>{detail.updatedAt ? new Date(detail.updatedAt).toLocaleString("ja-JP") : "未記録"}</dd>
+            </dl></Disclosure>
+            {conflict && <section role="alert"><h3>更新が競合しました</h3><p>最新の保存内容と下書きを比較してください。</p>
+              <table><thead><tr><th>項目</th><th>最新の保存内容</th><th>下書き</th></tr></thead><tbody>
+                {Object.keys({...conflict.values, ...draft}).filter(k => conflict.values[k] !== draft[k]).map(k => <tr key={k}><th>{k}</th><td>{conflict.values[k]}</td><td>{draft[k]}</td></tr>)}
+              </tbody></table>
+              <button type="button" onClick={() => {
+                const myChanges = Object.fromEntries(Object.entries(draft).filter(([k, v]) => v !== detail.values[k]));
+                setDraft({...conflict.values, ...myChanges}); setDetail(conflict); setConflict(null);
+              }}>自分の変更を保持して最新の版へ反映</button>
+            </section>}
+
           </div>
         ) : null}
       </Drawer>

@@ -95,8 +95,8 @@ export default function AdminCurriculumPublishPage() {
   return (
     <main>
       <div className="page-header">
-        <h1>教材公開/差分確認</h1>
-        <p className="muted">差分確認と影響分析（最小）を経て新バージョンを公開します。</p>
+        <h1>教材の公開</h1>
+        <p className="muted">変更内容と影響を確認して公開してください。</p>
       </div>
       {error && <p className="error">{error}</p>}
       {publishedMessage && <p>{publishedMessage}</p>}
@@ -163,7 +163,7 @@ export default function AdminCurriculumPublishPage() {
           <CurriculumDiffViewer rows={diffRows} updateType={updateType} />
 
           <section>
-            <h2>影響分析（API連携）</h2>
+            <h2>変更の影響</h2>
             {impactLoading ? (
               <div>
                 <div className="skeleton" />

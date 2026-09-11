@@ -135,13 +135,8 @@ export default function LearnerRoadmapPage() {
     <main className={styles.page}>
       <LearnerHero
         eyebrow="ロードマップ"
-        title="目標ロールへのAIプロジェクト育成ロードマップ"
-        lead={
-          <>
-            「学習」ではなく「業務課題→AIプロジェクト化」に近づく順序でフェーズを並べています。各フェーズで成果物を
-            積み上げると、AIプロジェクト推進準備度のバッジが Ready に近づきます。
-          </>
-        }
+        title="学習プラン"
+        lead="次の課題と学習の進み具合を確認できます。"
         metrics={[
           {
             label: "ロードマップID",
@@ -188,8 +183,8 @@ export default function LearnerRoadmapPage() {
       ) : null}
 
       <LearnerSection
-        title="ロードマップ・タイムライン"
-        meta="1フェーズ = 30〜90分のスモールタスクで構成。完了 / 進行中 / 未開始 が一目でわかります。"
+        title="学習の進捗"
+        meta="課題を選んで学習を始めましょう。"
       >
         <ol className={styles.timeline} style={{ listStyle: "none", padding: "0 0 0 1.5rem", margin: 0 }}>
           {timeline.map((entry) => (

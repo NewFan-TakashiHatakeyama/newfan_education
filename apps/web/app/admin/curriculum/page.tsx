@@ -40,7 +40,7 @@ export default function AdminCurriculumPage() {
     <main>
       <div className="page-header">
         <h1>教材管理</h1>
-        <p className="muted">教材の版管理、公開、差分確認、影響分析を行えます。</p>
+        <p className="muted">教材を選んで内容・公開状態を確認します。</p>
       </div>
       {error && <p className="error">{error}</p>}
 

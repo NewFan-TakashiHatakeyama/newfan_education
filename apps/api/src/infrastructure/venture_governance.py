@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 RISK_FIELDS = ("riskTier", "riskTierRationale", "conditions", "industry",
                "serviceCountries", "processingCountries", "offeringType", "summary")
 VERIFICATION_FIELDS = ("正本確認者PersonID", "正本確認日時", "前提版")
-PROTECTED_LEDGERS = {"eval_plan", "eval_run", "gate_run", "required_eval"}
+PROTECTED_LEDGERS = {"eval_plan", "eval_run", "gate_run", "required_eval", "condition"}
 CANCELLATION_FIELDS = {"無効化・取消理由", "取消／置換Run ID", "取消理由"}
 EVENT_COLUMNS = {
     "release": {"承認日", "公開日時", "緊急権限行使日時", "事後審査期限"},
@@ -47,7 +47,9 @@ def extend_master(raw: dict) -> dict:
             additions += ["対象範囲/版", "対象期間", "追加投資実績（円）", "投資実績根拠URI"]
             rules["追加投資実績（円）"] = {"type": "number", "min": 0, "options": []}
         if key == "assignment":
-            additions += ["支援方法", "支援者PersonID", "支援証拠URI"]
+            additions += ["支援方法", "支援者PersonID", "支援証拠URI", "対象開始", "対象終了"]
+            for col in ("対象開始", "対象終了"):
+                rules[col] = {"type": "date", "options": []}
         if key in ("unit_economics", "cash_plan", "effect"):
             additions += ["測定区分", "対象外理由"]
             rules["測定区分"] = {"type": "select", "options": ["未計測", "実測", "対象外"]}
@@ -75,7 +77,7 @@ def task_checks(rows: list[dict], members: list[dict], basis, gate_runs: dict | 
     """Compute completion from evidence, accountable people and the dependency graph."""
     from infrastructure.venture_rules import parse_date
     by_id = {r["taskId"]: r for r in rows}
-    active = {(m["userId"], m["roleId"]) for m in members}
+    active = {(m["userId"], m["roleId"]) for m in members if m.get("roleEffective", True)}
     result: dict[str, dict] = {}
     visiting: set[str] = set()
 

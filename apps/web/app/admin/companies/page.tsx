@@ -134,7 +134,7 @@ export default function AdminCompaniesPage() {
     <main>
       <header className="page-header">
         <h1>企業管理</h1>
-        <p className="muted">登録企業の状態と公開中のキャリア機会数を管理者が確認します。</p>
+        <p className="muted">企業の登録内容と状態を管理します。</p>
       </header>
       {error ? <p className="error">{error}</p> : null}
       <section>

@@ -20,7 +20,10 @@ import {
   updateVentureTask
 } from "@/lib/api";
 
+import { LoadFailure } from "@/app/components/ui/LoadFailure";
 import { Section } from "@/app/components/ui/Section";
+import { Disclosure } from "@/app/components/ui/Disclosure";
+import { Feedback } from "@/app/components/ui/Feedback";
 import { Drawer } from "@/app/components/ui/Drawer";
 import { SkeletonRow } from "@/app/components/ui/Skeleton";
 import { EmptyState } from "@/app/components/ui/EmptyState";
@@ -45,11 +48,12 @@ export default function VentureTasksPage({
   const [members, setMembers] = useState<{ userId: string; userName: string }[]>([]);
   // 原本24の調査ソース。タスクの根拠IDを資料名・URLに解決する。
   const [sources, setSources] = useState<Record<string, VentureSource>>({});
+  const [loadFailed, setLoadFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [phaseId, setPhaseId] = useState(searchParams.get("phaseId") ?? "");
-  const [applicability, setApplicability] = useState("");
+  const [applicability, setApplicability] = useState(searchParams.get("applicability") ?? "");
   const [status, setStatus] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkReason, setBulkReason] = useState("");
@@ -57,7 +61,7 @@ export default function VentureTasksPage({
   // ドロワーの自由入力は下書きに溜めて明示的に保存する。onBlur だけに頼ると
   // Escape で閉じたときに入力が捨てられる。
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const { canManage: canEdit, roleIds, userId } = useVentureRole(ventureId);
+  const { canManage: canEdit, roleIds, userId, archived } = useVentureRole(ventureId);
 
   const refresh = useCallback(() => {
     fetchVentureTasks(ventureId, {
@@ -65,9 +69,9 @@ export default function VentureTasksPage({
       applicability: applicability || undefined,
       status: status || undefined
     })
-      .then((res) => setTasks(res.items))
+      .then((res) => { setTasks(res.items); setLoadFailed(false); setError(null); })
       .catch((err: unknown) => {
-        setTasks([]);
+        setTasks(null); setLoadFailed(true);
         setError(err instanceof Error ? err.message : "工程タスクを取得できませんでした。");
       });
   }, [ventureId, phaseId, applicability, status]);
@@ -190,11 +194,7 @@ export default function VentureTasksPage({
     return await patchTask(task.id, changed);
   };
 
-  const closeDetail = async () => {
-    // 閉じる前に書きかけを保存する。黙って捨てない。
-    const current = detail;
-    if (await saveDraft(current)) setDetail(null);
-  };
+  const closeDetail = () => setDetail(null);
 
   const patchTask = async (taskRowId: string, payload: Parameters<typeof updateVentureTask>[2]) => {
     setSaving(true);
@@ -219,8 +219,8 @@ export default function VentureTasksPage({
       <VentureNav ventureId={ventureId} />
 
       <Section
-        title="工程タスク台帳"
-        meta="適用判定は人が決めます。条件から自動提案された値も、確定するには判定の操作が必要です。"
+        title="工程タスク"
+        meta="提案された適用範囲を確認し、確定してください。"
         theme="company"
       >
         {error ? <p className={styles.error}>{error}</p> : null}
@@ -273,7 +273,7 @@ export default function VentureTasksPage({
               <input
                 value={bulkReason}
                 onChange={(event) => setBulkReason(event.target.value)}
-                placeholder="対象外を選ぶ場合は必須（原本17の除外理由）"
+                placeholder="対象外にする理由（必須）"
               />
             </label>
             {APPLICABILITY.filter((value) => value !== "未判定").map((value) => (
@@ -281,7 +281,7 @@ export default function VentureTasksPage({
                 key={value}
                 type="button"
                 className="ghost-button"
-                disabled={saving}
+                disabled={archived || saving}
                 onClick={() => applyBulk(value)}
               >
                 {value}にする
@@ -293,7 +293,7 @@ export default function VentureTasksPage({
           </div>
         ) : null}
 
-        {tasks === null ? (
+        {loadFailed ? <LoadFailure onRetry={refresh} /> : tasks === null ? (
           <SkeletonRow />
         ) : tasks.length === 0 ? (
           <EmptyState title="該当するタスクがありません" message="絞り込み条件を変えてください。" />
@@ -367,9 +367,24 @@ export default function VentureTasksPage({
         open={detail !== null}
         title={detail ? `${detail.taskId} ${detail.name}` : ""}
         onClose={closeDetail}
+        dirty={dirty}
+        busy={saving}
+        footer={detail ? (
+            <div className={styles.actionRow}>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={archived || saving || !dirty}
+                onClick={() => saveDraft(detail)}
+              >
+                {saving ? "保存中…" : dirty ? "入力を保存" : "保存済み"}
+              </button>
+            </div>
+        ) : null}
       >
         {detail ? (
           <div>
+            <Feedback message={error} error />
             <dl className={styles.detailList}>
               <dt>工程</dt>
               <dd>
@@ -381,9 +396,12 @@ export default function VentureTasksPage({
               <dd>{detail.deliverables}</dd>
               <dt>完了条件</dt>
               <dd>{detail.completionCriteria}</dd>
-              <dt>正本の置き場</dt>
+            </dl>
+            <Disclosure title="担当ロール・根拠資料">
+            <dl className={styles.detailList}>
+              <dt>記録の保存先</dt>
               <dd>{detail.recommendedSource || "—"}</dd>
-              <dt>AIと人の境界</dt>
+              <dt>人が確認する範囲</dt>
               <dd>{detail.aiBoundary || "—"}</dd>
               <dt>実施ロール</dt>
               <dd>
@@ -432,13 +450,14 @@ export default function VentureTasksPage({
                 </>
               ) : null}
             </dl>
+            </Disclosure>
 
             <div className={styles.formGrid}>
               <label className={styles.field}>
                 適用判定
                 <select
                   value={detail.applicability}
-                  disabled={saving || !canEdit}
+                  disabled={archived || saving || !canEdit}
                   onChange={(event) =>
                     patchTask(detail.id, {
                       applicability: event.target.value as VentureApplicability,
@@ -458,7 +477,7 @@ export default function VentureTasksPage({
                 <select
                   value={detail.status}
                   // サーバは編集担当に加えて、自分が担当するタスクの状態更新も許可する。
-                  disabled={saving || (!canEdit && detail.assigneeUserId !== userId)}
+                  disabled={archived || saving || (!canEdit && detail.assigneeUserId !== userId)}
                   onChange={(event) =>
                     patchTask(detail.id, { status: event.target.value as VentureTaskStatus })
                   }
@@ -474,7 +493,7 @@ export default function VentureTasksPage({
                 担当者
                 <select
                   value={detail.assigneeUserId ?? ""}
-                  disabled={saving || !canEdit}
+                  disabled={archived || saving || !canEdit}
                   onChange={(event) =>
                     patchTask(detail.id, { assigneeUserId: event.target.value || null })
                   }
@@ -492,7 +511,7 @@ export default function VentureTasksPage({
                 <input
                   type="date"
                   value={draft.plannedStart ?? ""}
-                  disabled={saving || !canEdit}
+                  disabled={archived || saving || !canEdit}
                   onChange={(event) =>
                     setDraft((current) => ({ ...current, plannedStart: event.target.value }))
                   }
@@ -503,7 +522,7 @@ export default function VentureTasksPage({
                 <input
                   type="date"
                   value={draft.plannedEnd ?? ""}
-                  disabled={saving || !canEdit}
+                  disabled={archived || saving || !canEdit}
                   onChange={(event) =>
                     setDraft((current) => ({ ...current, plannedEnd: event.target.value }))
                   }
@@ -514,7 +533,7 @@ export default function VentureTasksPage({
                 <input
                   type="date"
                   value={draft.actualStart ?? ""}
-                  disabled={saving}
+                  disabled={archived || saving}
                   onChange={(event) =>
                     setDraft((current) => ({ ...current, actualStart: event.target.value }))
                   }
@@ -525,7 +544,7 @@ export default function VentureTasksPage({
                 <input
                   type="date"
                   value={draft.actualEnd ?? ""}
-                  disabled={saving}
+                  disabled={archived || saving}
                   onChange={(event) =>
                     setDraft((current) => ({ ...current, actualEnd: event.target.value }))
                   }
@@ -537,7 +556,7 @@ export default function VentureTasksPage({
               完了証拠のURI
               <input
                 value={draft.evidenceUri ?? ""}
-                disabled={saving}
+                disabled={archived || saving}
                 placeholder={detail.minimumEvidence || "Issue・ドキュメント・評価Runの場所"}
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, evidenceUri: event.target.value }))
@@ -552,7 +571,7 @@ export default function VentureTasksPage({
               阻害要因
               <input
                 value={draft.blocker ?? ""}
-                disabled={saving}
+                disabled={archived || saving}
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, blocker: event.target.value }))
                 }
@@ -562,7 +581,7 @@ export default function VentureTasksPage({
               メモ
               <textarea
                 value={draft.note ?? ""}
-                disabled={saving}
+                disabled={archived || saving}
                 onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
               />
             </label>
@@ -572,8 +591,8 @@ export default function VentureTasksPage({
                 対象外にする理由・代替証拠
                 <textarea
                   value={draft.applicabilityReason ?? ""}
-                  disabled={saving}
-                  placeholder="対象外にするには理由が必要です（原本17の除外理由・代替証拠）"
+                  disabled={archived || saving}
+                  placeholder="対象外にする理由と代わりの証拠"
                   onChange={(event) =>
                     setDraft((current) => ({ ...current, applicabilityReason: event.target.value }))
                   }
@@ -581,16 +600,7 @@ export default function VentureTasksPage({
               </label>
             ) : null}
 
-            <div className={styles.actionRow}>
-              <button
-                type="button"
-                className="primary-button"
-                disabled={saving || !dirty}
-                onClick={() => saveDraft(detail)}
-              >
-                {saving ? "保存中…" : dirty ? "入力を保存" : "保存済み"}
-              </button>
-            </div>
+
 
             <div className={styles.actionRow}>
               {detail.completionApprovedAt ? (
@@ -602,7 +612,7 @@ export default function VentureTasksPage({
                     <button
                       type="button"
                       className="ghost-button"
-                      disabled={saving}
+                      disabled={archived || saving}
                       onClick={() => patchTask(detail.id, { approveCompletion: false })}
                     >
                       承認を取り消す
@@ -613,7 +623,7 @@ export default function VentureTasksPage({
                 <button
                   type="button"
                   className="primary-button"
-                  disabled={saving || dirty || !roleIds.includes(detail.approverRoleId) || !detail.evidenceUri || detail.status !== "完了"}
+                  disabled={archived || saving || dirty || !roleIds.includes(detail.approverRoleId) || !detail.evidenceUri || detail.status !== "完了"}
                   onClick={async () => {
                     await patchTask(detail.id, { approveCompletion: true });
                   }}

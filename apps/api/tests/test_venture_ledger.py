@@ -33,8 +33,11 @@ def create_venture(client: TestClient, headers: dict[str, str], **overrides) -> 
     payload.update(overrides)
     res = client.post("/api/v1/ventures", json=payload, headers=headers)
     assert res.status_code == 200, res.text
-    for role in ("R01", "R18", "R19"):
-        assert client.post(f"/api/v1/ventures/{res.json()['id']}/members", json={"userId": "admin-user", "roleId": role}, headers=headers).status_code == 200
+    for role in ("R01", "R18"):
+        added = client.post(f"/api/v1/ventures/{res.json()['id']}/members", json={"userId": "admin-user", "roleId": role}, headers=headers)
+        assert added.status_code == 200, added.text
+    added = client.post(f"/api/v1/ventures/{res.json()['id']}/members", json={"userId": "mentor-user", "roleId": "R19"}, headers=headers)
+    assert added.status_code == 200, added.text
     return res.json()
 
 
@@ -251,6 +254,7 @@ def test_ledger_entries_seed_master_rows_and_accept_input() -> None:
         f"/api/v1/ventures/{venture_id}/ledgers/risk/entries",
         json={
             "id": first["id"],
+            "expectedRevision": first["revision"],
             "status": "対応中",
             "values": {"案件での該当": "該当", "残存リスク": "支払意思の検証が未了"},
         },
@@ -818,22 +822,14 @@ def test_independent_approval_cannot_be_self_approved() -> None:
         },
         headers=admin,
     )
-    assert denied.status_code == 400
-    assert "分離" in denied.json()["detail"]
+    assert denied.status_code == 403  # Implementer has no independent appointment
 
     # 担当を別の人に変えれば承認できる
     client.patch(path, json={"assigneeUserId": "demo-user"}, headers=admin)
-    approved = client.patch(
-        path,
-        json={
-            "approveCompletion": True,
-            "status": "完了",
-            "evidenceUri": "https://example.test/e/2",
-        },
-        headers=admin,
-    )
+    assert client.patch(path, json={"status": "完了", "evidenceUri": "https://example.test/e/2"}, headers=admin).status_code == 200
+    reviewer = sign_in(client, "mentor@example.com", "Mentor123!")
+    approved = client.patch(path, json={"approveCompletion": True}, headers=reviewer)
     assert approved.status_code == 200
-
 
 
 def test_exclusion_requires_a_reason() -> None:
@@ -967,13 +963,13 @@ def test_date_and_number_rules_are_enforced() -> None:
     row = hypothesis["items"][0]
     negative = client.post(
         f"/api/v1/ventures/{venture_id}/ledgers/hypothesis/entries",
-        json={"id": row["id"], "values": {"予算上限（円）": "-1"}},
+        json={"id": row["id"], "expectedRevision": row["revision"], "values": {"予算上限（円）": "-1"}},
         headers=admin,
     )
     assert negative.status_code == 400
     ok = client.post(
         f"/api/v1/ventures/{venture_id}/ledgers/hypothesis/entries",
-        json={"id": row["id"], "values": {"予算上限（円）": "500000"}},
+        json={"id": row["id"], "expectedRevision": row["revision"], "values": {"予算上限（円）": "500000"}},
         headers=admin,
     )
     assert ok.status_code == 200
@@ -1072,6 +1068,9 @@ def test_manager_only_mutations_reject_non_managers() -> None:
     venture_id = create_venture(client, admin)["id"]
     gate_id = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"][0]["id"]
 
+    members = client.get(f"/api/v1/ventures/{venture_id}/members", headers=admin).json()["items"]
+    reviewer = next(m for m in members if m["userId"] == "mentor-user")
+    assert client.delete(f"/api/v1/ventures/{venture_id}/members/{reviewer['id']}", headers=admin).status_code == 200
     for email, password in (("learner@example.com", "Learner123!"), ("mentor@example.com", "Mentor123!")):
         headers = sign_in(client, email, password)
         assert (
@@ -1113,6 +1112,9 @@ def test_editor_only_mutations_reject_non_editors() -> None:
         0
     ]["id"]
 
+    members = client.get(f"/api/v1/ventures/{venture_id}/members", headers=admin).json()["items"]
+    reviewer = next(m for m in members if m["userId"] == "mentor-user")
+    assert client.delete(f"/api/v1/ventures/{venture_id}/members/{reviewer['id']}", headers=admin).status_code == 200
     for email, password in (("learner@example.com", "Learner123!"), ("mentor@example.com", "Mentor123!")):
         headers = sign_in(client, email, password)
         assert (

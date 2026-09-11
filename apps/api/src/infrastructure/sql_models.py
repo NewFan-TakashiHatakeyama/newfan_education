@@ -15,6 +15,7 @@ class UserModel(Base):
     display_name: Mapped[str] = mapped_column(String(120))
     role: Mapped[str] = mapped_column(String(32), index=True)
     state: Mapped[str] = mapped_column(String(32), default="active")
+    session_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     tenant_id: Mapped[str] = mapped_column(String(64), index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -23,6 +24,15 @@ class UserModel(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+class ApplicationRecordModel(Base):
+    """Durable snapshots for consent, learning records and generated reports."""
+    __tablename__ = "application_records"
+    namespace: Mapped[str] = mapped_column(String(64), primary_key=True)
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class TeamModel(Base):
@@ -390,6 +400,7 @@ class VentureMemberModel(Base):
     user_id: Mapped[str] = mapped_column(String(64), index=True)
     role_id: Mapped[str] = mapped_column(String(8), index=True)
     allocation_note: Mapped[str] = mapped_column(Text(), default="")
+    appointed_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
@@ -439,6 +450,8 @@ class VentureSkillAssessmentModel(Base):
     skill_id: Mapped[str] = mapped_column(String(16), index=True)
     user_id: Mapped[str] = mapped_column(String(64), index=True)
     assessed_level: Mapped[int] = mapped_column(Integer, default=0)
+    supersedes_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     evidence_uri: Mapped[str] = mapped_column(Text(), default="")
     development_plan: Mapped[str] = mapped_column(Text(), default="")
     due_date: Mapped[str] = mapped_column(String(10), default="")
@@ -449,7 +462,7 @@ class VentureSkillAssessmentModel(Base):
     )
 
     __table_args__ = (
-        Index("ux_venture_skill_user", "venture_id", "skill_id", "user_id", unique=True),
+        Index("ix_venture_skill_user", "venture_id", "skill_id", "user_id"),
     )
 
 

@@ -108,8 +108,8 @@ export default function AdminModerationPage() {
   return (
     <main>
       <header className="page-header">
-        <h1>通報/モデレーション</h1>
-        <p className="muted">通報ケースの状態を管理し、対応履歴を追跡します。</p>
+        <h1>通報の確認</h1>
+        <p className="muted">通報内容を確認し、対応状況を更新します。</p>
       </header>
       {error ? <p className="error">{error}</p> : null}
       <section>

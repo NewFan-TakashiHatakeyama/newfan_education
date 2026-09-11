@@ -7,6 +7,9 @@ import { getAdminUsers, patchAdminUser } from "@/lib/api";
 
 type UserState = "active" | "invited" | "suspended";
 
+const roleLabel: Record<string, string> = {learner: "受講者", mentor: "メンター", recruiter: "企業担当者", admin: "管理者", content_editor: "教材編集者"};
+const stateLabel: Record<string, string> = {active: "利用中", invited: "招待中", suspended: "停止中"};
+
 export default function AdminUsersPage() {
   const [items, setItems] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +80,7 @@ export default function AdminUsersPage() {
     <main>
       <header className="page-header">
         <h1>ユーザー管理</h1>
-        <p className="muted">管理者がユーザー一覧を確認し、ロールと状態を更新します。</p>
+        <p className="muted">ユーザーの権限と利用状態を管理します。</p>
       </header>
       {error ? <p className="error">{error}</p> : null}
 
@@ -87,23 +90,23 @@ export default function AdminUsersPage() {
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="userId / displayName"
+            placeholder="氏名・ユーザーID"
           />
           <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as "" | Role)}>
             <option value="">all roles</option>
-            <option value="learner">learner</option>
-            <option value="recruiter">recruiter</option>
-            <option value="admin">admin</option>
-            <option value="content_editor">content_editor</option>
+            <option value="learner">受講者</option>
+            <option value="recruiter">企業担当者</option>
+            <option value="admin">管理者</option>
+            <option value="content_editor">教材編集者</option>
           </select>
           <select
             value={stateFilter}
             onChange={(event) => setStateFilter(event.target.value as "" | UserState)}
           >
             <option value="">all states</option>
-            <option value="active">active</option>
-            <option value="invited">invited</option>
-            <option value="suspended">suspended</option>
+            <option value="active">利用中</option>
+            <option value="invited">招待中</option>
+            <option value="suspended">停止中</option>
           </select>
           <button type="button" onClick={() => void load()}>
             再検索
@@ -129,31 +132,34 @@ export default function AdminUsersPage() {
                   <strong>{item.displayName}</strong>
                   <span className="status-pill">{item.userId}</span>
                 </div>
-                <p className="muted">{`role: ${item.role} / state: ${item.state}`}</p>
-                <p className="muted">{`updatedAt: ${new Date(item.updatedAt).toLocaleString("ja-JP")}`}</p>
+                <p className="muted">{`権限: ${roleLabel[item.role] ?? item.role} / 状態: ${stateLabel[item.state] ?? item.state}`}</p>
+                <p className="muted">{`更新: ${new Date(item.updatedAt).toLocaleString("ja-JP")}`}</p>
                 <div className="inline-actions">
                   <select
+                    aria-label={`${item.displayName}の権限`}
                     value={item.role}
                     onChange={(event) =>
                       void updateUser(item, { role: event.target.value as Role })
                     }
                     disabled={savingUserId === item.userId}
                   >
-                    <option value="learner">learner</option>
-                    <option value="recruiter">recruiter</option>
-                    <option value="admin">admin</option>
-                    <option value="content_editor">content_editor</option>
+                    <option value="learner">受講者</option>
+                    <option value="mentor">メンター</option>
+                    <option value="recruiter">企業担当者</option>
+                    <option value="admin">管理者</option>
+                    <option value="content_editor">教材編集者</option>
                   </select>
                   <select
+                    aria-label={`${item.displayName}の利用状態`}
                     value={item.state}
                     onChange={(event) =>
                       void updateUser(item, { state: event.target.value as UserState })
                     }
                     disabled={savingUserId === item.userId}
                   >
-                    <option value="active">active</option>
-                    <option value="invited">invited</option>
-                    <option value="suspended">suspended</option>
+                    <option value="active">利用中</option>
+                    <option value="invited">招待中</option>
+                    <option value="suspended">停止中</option>
                   </select>
                 </div>
               </li>

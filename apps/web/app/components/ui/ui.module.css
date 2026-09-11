@@ -1884,3 +1884,33 @@
     padding: 1rem 1.05rem 1.1rem;
   }
 }
+/* Compact business UI. Marketing keeps its separate hero treatment. */
+.hero:not(.heroMarketing) { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: none; padding: 20px 24px; }
+.hero:not(.heroMarketing) .heroTitle { font-size: clamp(1.35rem, 2vw, 1.75rem); line-height: 1.4; letter-spacing: 0; }
+.hero:not(.heroMarketing) .heroLead { font-size: .9rem; line-height: 1.6; max-width: 70ch; margin: 6px 0 12px; }
+.hero:not(.heroMarketing) .heroEyebrow { background: transparent; padding: 0; color: #526174; letter-spacing: 0; font-size: .75rem; }
+.hero:not(.heroMarketing) .heroMetrics { margin-top: 16px; gap: 12px; }
+.hero:not(.heroMarketing) .metric { background: #f8fafc; box-shadow: none; border: 0; border-radius: 8px; padding: 12px 16px; }
+.section { box-shadow: none; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+.sectionTitle { font-size: 1.05rem; }
+.sectionMeta { font-size: .85rem; line-height: 1.6; }
+.overlay { padding: 0; color: var(--text); background: #fff; border: 0; max-width: 100vw; max-height: 100dvh; box-shadow: 0 16px 60px #0f172a30; }
+.overlay::backdrop { background: #0f172a66; }
+.sidePanel { margin: 0 0 0 auto; width: min(720px, 100vw); height: 100dvh; border-radius: 0; }
+.modal { margin: auto; width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); border-radius: 14px; }
+.overlayLayout { display: flex; flex-direction: column; max-height: inherit; height: 100%; }
+.overlay .drawerHeader { flex-shrink: 0; padding: 18px 24px; border-bottom: 1px solid #e2e8f0; align-items: center; }
+.overlay .drawerClose { min-width: 36px; min-height: 36px; background: #f1f5f9; color: #334155; border-radius: 8px; }
+.overlayBody { padding: 20px 24px; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+.overlayFooter { padding: 12px 24px; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.overlayBody > section { border: 0; padding: 0; box-shadow: none; }
+.discardPrompt { padding: 24px; }
+.disclosure { border-top: 1px solid #e2e8f0; padding: 12px 0; margin: 8px 0; }
+.disclosure > summary { cursor: pointer; color: #475569; font-size: .875rem; font-weight: 600; padding: 4px 0; }
+.disclosure > div { padding-top: 12px; }
+@media (max-width: 640px) { .overlayBody, .overlay .drawerHeader, .overlayFooter { padding: 16px; } .hero:not(.heroMarketing) { padding: 16px; } }
+.actionPrimary { background: #4f46e5; border: 1px solid #4f46e5; border-radius: 8px; box-shadow: none; }
+.actionGhost { background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: none; color: #334155; }
+.actionPrimary:hover, .actionGhost:hover { transform: none; box-shadow: none; }
+.kpiTile { border-radius: 10px; box-shadow: none; background: #f8fafc; }
+.kpiTileAccent { background: #f1f5f9; }

@@ -54,9 +54,9 @@ export function PageHero({
   ariaLabel = "ページステータス",
   extra
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
-  lead: ReactNode;
+  lead?: ReactNode;
   readiness?: ReadinessLevel;
   metrics?: PageHeroMetric[];
   actions?: ReactNode;
@@ -66,12 +66,12 @@ export function PageHero({
 }) {
   return (
     <section className={`${styles.hero} ${HERO_THEME[theme]}`} aria-label={ariaLabel}>
-      <div className={styles.heroTopRow}>
-        <span className={`${styles.heroEyebrow} ${HERO_EYEBROW_THEME[theme]}`}>{eyebrow}</span>
+      {(eyebrow || readiness) && <div className={styles.heroTopRow}>
+        {eyebrow && <span className={`${styles.heroEyebrow} ${HERO_EYEBROW_THEME[theme]}`}>{eyebrow}</span>}
         {readiness ? <ReadinessBadge level={readiness} /> : null}
-      </div>
+      </div>}
       <h1 className={`${styles.heroTitle} ${HERO_TITLE_THEME[theme]}`}>{title}</h1>
-      <p className={styles.heroLead}>{lead}</p>
+      {lead && <p className={styles.heroLead}>{lead}</p>}
       {actions ? <div className={styles.actionRow}>{actions}</div> : null}
       {metrics && metrics.length > 0 ? (
         <div className={styles.heroMetrics}>

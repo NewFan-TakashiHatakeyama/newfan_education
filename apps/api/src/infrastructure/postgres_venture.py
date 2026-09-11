@@ -6,9 +6,11 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dataclasses import replace
 import json
+import hashlib
+import math
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -16,6 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from infrastructure.sql_models import (
+    ApplicationRecordModel,
     AuditLogModel,
     UserModel,
     VentureGateModel,
@@ -641,6 +644,12 @@ class PostgresVentureRepository:
         status: str | None = None,
         assignee_user_id: str | None = None,
     ) -> list[dict]:
+        archived = self._archive_content(tenant_id, venture_id)
+        if archived:
+            return [r for r in archived["tasks"] if (not phase_id or r["phaseId"] == phase_id)
+                    and (not applicability or r["applicability"] == applicability)
+                    and (not status or r["status"] == status)
+                    and (not assignee_user_id or r["assigneeUserId"] == assignee_user_id)]
         query = select(VentureTaskModel).where(
             VentureTaskModel.tenant_id == tenant_id, VentureTaskModel.venture_id == venture_id
         )
@@ -782,6 +791,9 @@ class PostgresVentureRepository:
     # ゲート
     # ─────────────────────────────────────────────
     def list_gates(self, tenant_id: str, venture_id: str) -> list[dict]:
+        archived = self._archive_content(tenant_id, venture_id)
+        if archived:
+            return archived["gates"]
         master = load_master()
         tasks = self.list_tasks(tenant_id, venture_id)
         result = self.list_ledger_entries(tenant_id, venture_id, "gate_run") or {"items": []}
@@ -828,6 +840,7 @@ class PostgresVentureRepository:
             .scalars()
             .all()
         )
+        active_users = set(self._db.scalars(select(UserModel.user_id).where(UserModel.tenant_id == tenant_id, UserModel.state == "active")).all())
         master = load_master()
         names = self._user_names(tenant_id)
         return [
@@ -838,12 +851,15 @@ class PostgresVentureRepository:
                 "roleId": model.role_id,
                 "roleName": master.role_by_id.get(model.role_id, {}).get("name", model.role_id),
                 "allocationNote": model.allocation_note,
+                "appointedBy": model.appointed_by,
+                "roleEffective": model.user_id in active_users and (model.role_id != "R19" or bool(model.appointed_by and model.appointed_by != model.user_id
+                    and not any(m.user_id == model.user_id and m.role_id != "R19" for m in models))),
                 "createdAt": _iso(model.created_at),
             }
             for model in sorted(models, key=lambda m: (m.role_id, m.user_id))
         ]
 
-    def add_member(self, tenant_id: str, venture_id: str, user_id: str, role_id: str, note: str) -> dict:
+    def add_member(self, tenant_id: str, venture_id: str, user_id: str, role_id: str, note: str, actor_user_id: str | None = None) -> dict:
         existing = (
             self._db.execute(
                 select(VentureMemberModel).where(
@@ -864,10 +880,15 @@ class PostgresVentureRepository:
                     user_id=user_id,
                     role_id=role_id,
                     allocation_note=note,
+                    appointed_by=actor_user_id,
                 )
             )
         else:
             existing.allocation_note = note
+            existing.appointed_by = actor_user_id
+        self._write_audit(tenant_id=tenant_id, event_type="venture.member.appointed", resource_type="venture_member",
+            resource_id=user_id, action="appoint", actor_user_id=actor_user_id or "", actor_role="",
+            summary="Project role appointment", metadata={"ventureId": venture_id, "roleId": role_id})
         self._commit()
         rows = self.list_members(tenant_id, venture_id)
         return next(row for row in rows if row["userId"] == user_id and row["roleId"] == role_id)
@@ -885,6 +906,7 @@ class PostgresVentureRepository:
     # ─────────────────────────────────────────────
     #: 点検が参照する他の台帳。原本の数式が引くシートに対応する。
     RELATED_LEDGERS = {
+        "condition": ("gate_run",),
         "eval_run": ("eval_plan",),
         "required_eval": ("eval_plan", "eval_run"),
         "gate_run": ("required_eval", "retirement", "hypothesis", "condition", "eval_plan", "eval_run"),
@@ -969,12 +991,15 @@ class PostgresVentureRepository:
             },
             assessments=assessments,
             assessment_records=assessment_records,
-            member_roles={(m["userId"], m["roleId"]) for m in self.list_members(tenant_id, venture_id)} if ledger_key == "assignment" else set(),
+            member_roles={(m["userId"], m["roleId"]) for m in self.list_members(tenant_id, venture_id) if m.get("roleEffective")} if ledger_key == "assignment" else set(),
             venture=self._venture_row(venture, {}) if venture else {},
             tasks={t["taskId"]: t for t in self.list_tasks(tenant_id, venture_id)} if ledger_key in ("gate_run", "release") else {},
         )
 
     def list_ledger_entries(self, tenant_id: str, venture_id: str, ledger_key: str) -> dict | None:
+        archived = self._archive_content(tenant_id, venture_id)
+        if archived:
+            return archived["ledgers"].get(ledger_key)
         master = load_master()
         ledger = master.ledger_by_key.get(ledger_key)
         if ledger is None:
@@ -1011,7 +1036,12 @@ class PostgresVentureRepository:
                         for column, value in (model.values_json or {}).items()
                         if column in input_columns
                     },
+                    "revision": hashlib.sha256(json.dumps([model.values_json, model.status, _iso(model.updated_at)], sort_keys=True, ensure_ascii=False).encode()).hexdigest(),
                     "updatedBy": model.updated_by,
+                    # Only human-entered content counts. Classification/row IDs are templates,
+                    # and may be echoed back by clients without any substantive input.
+                    "hasInput": any(str(value).strip() for column, value in (model.values_json or {}).items()
+                        if column in input_columns and column not in {ledger["id_column"], "EvalType"} and value is not None),
                     "createdAt": _iso(model.created_at),
                     "derived": evaluate(
                         ledger_key,
@@ -1107,6 +1137,7 @@ class PostgresVentureRepository:
             if key in allowed:
                 values[key] = value
         model.values_json = values
+        model.updated_at = _now()
         model.updated_by = actor_user_id
         if values != before and ledger_key in {"data", "dependency", "privacy", "feature_decision", "risk_screening", "adr"}:
             venture = self._db.get(VentureModel, venture_id)
@@ -1136,6 +1167,9 @@ class PostgresVentureRepository:
     # スキル需要とギャップ
     # ─────────────────────────────────────────────
     def skill_gap(self, tenant_id: str, venture_id: str) -> dict:
+        archived = self._archive_content(tenant_id, venture_id)
+        if archived:
+            return archived["skillGap"]
         master = load_master()
         applied = (
             self._db.execute(
@@ -1161,27 +1195,45 @@ class PostgresVentureRepository:
             .all()
         )
         by_skill: dict[str, list[VentureSkillAssessmentModel]] = {}
-        for assessment in assessments:
+        latest = {}
+        for assessment in sorted(assessments, key=lambda a: (_iso(a.assessed_at) or "", a.id), reverse=True):
+            latest.setdefault((assessment.skill_id, assessment.user_id), assessment)
+        for assessment in latest.values():
+            if assessment.revoked:
+                continue
             by_skill.setdefault(assessment.skill_id, []).append(assessment)
 
         assignments = self._ledger_values(tenant_id, venture_id, "assignment")
-        members = {(m["userId"], m["roleId"]) for m in self.list_members(tenant_id, venture_id)}
-        staffing = self._ledger_values(tenant_id, venture_id, "role_staffing")
+        members = {(m["userId"], m["roleId"]) for m in self.list_members(tenant_id, venture_id) if m.get("roleEffective", True)}
+        staffing = {r.id: {**(r.values_json or {}), "__ventureId": r.venture_id} for r in self._db.scalars(select(VentureLedgerEntryModel).where(
+            VentureLedgerEntryModel.tenant_id == tenant_id, VentureLedgerEntryModel.ledger_key == "role_staffing")).all()}
         basis = as_of(self.get_venture(tenant_id, venture_id) or {})[0]
-        def has_capacity(person):
-            active = []
+        def has_capacity(person, period_start, period_end):
+            intervals = []
+            points = {period_start, period_end}
             for row in staffing.values():
                 if row.get("PersonID") != person:
                     continue
                 start, end = parse_date(row.get("配置開始")), parse_date(row.get("配置終了"))
-                try:
-                    amount = float(row.get("割当FTE（入力）", ""))
-                    cap = float(row.get("当人の当日上限FTE", ""))
-                except ValueError:
+                if not start or not end or start > end:
+                    return False
+                if end < period_start or start > period_end:
                     continue
-                if start and end and start <= basis <= end:
-                    active.append((amount, cap))
-            return bool(active) and 0 < sum(x[0] for x in active) <= min(x[1] for x in active)
+                try:
+                    amount, cap = float(row.get("割当FTE（入力）", "")), float(row.get("当人の当日上限FTE", ""))
+                except ValueError:
+                    return False
+                if not math.isfinite(amount) or not math.isfinite(cap) or amount <= 0 or cap <= 0:
+                    return False
+                intervals.append((start, end, amount, cap, row["__ventureId"]))
+                points.add(max(start, period_start))
+                if end < period_end:
+                    points.add(end + timedelta(days=1))
+            for day in points:
+                active = [r for r in intervals if r[0] <= day <= r[1]]
+                if not active or not any(r[4] == venture_id for r in active) or sum(r[2] for r in active) > min(r[3] for r in active):
+                    return False
+            return True
         names = self._user_names(tenant_id)
         course_titles = {course.slug: course.title for course in default_courses()}
         items = []
@@ -1198,19 +1250,22 @@ class PostgresVentureRepository:
                         approved_on = parse_date(allocation.get("承認日"))
                         if not all(allocation.get(k) for k in ("割当承認者", "対象期間", "必要性・担当範囲")) or not approved_on or approved_on > basis:
                             continue
+                        start, end = parse_date(allocation.get("対象開始")), parse_date(allocation.get("対象終了"))
+                        if not start or not end or not start <= basis <= end:
+                            continue
                         person, role = allocation.get("PersonID", ""), allocation.get("Role ID", "")
                         if (person, role) not in members or role not in standard["exec_role_ids"]:
                             continue
                         if allocation.get("役割区分") in ("独立評価", "品質決裁") and person == allocation.get("当該実装PersonID"):
                             continue
-                        if not has_capacity(person):
+                        if not has_capacity(person, start, end):
                             continue
-                        assessment = next((r for r in records if r.user_id == person and r.id == allocation.get("能力評価記録ID") and r.evidence_uri and r.assessed_by != person and (not r.due_date or (parse_date(r.due_date) and parse_date(r.due_date) >= basis))), None)
+                        assessment = next((r for r in records if r.user_id == person and r.id == allocation.get("能力評価記録ID") and r.evidence_uri and r.assessed_by != person and (not r.due_date or (parse_date(r.due_date) and parse_date(r.due_date) >= end))), None)
                         if assessment:
                             best_for_task = max(best_for_task, assessment.assessed_level)
                         supporter = allocation.get("支援者PersonID")
-                        if allocation.get("支援方法") and allocation.get("支援証拠URI") and supporter and has_capacity(supporter) and (supporter, role) in members:
-                            support = next((r for r in records if r.user_id == supporter and r.evidence_uri and r.assessed_by != supporter), None)
+                        if allocation.get("支援方法") and allocation.get("支援証拠URI") and supporter and has_capacity(supporter, start, end) and (supporter, role) in members:
+                            support = next((r for r in records if r.user_id == supporter and r.evidence_uri and r.assessed_by != supporter and (not r.due_date or (parse_date(r.due_date) and parse_date(r.due_date) >= end))), None)
                             if support and allocation.get("役割区分") not in ("独立評価", "品質決裁"):
                                 best_for_task = max(best_for_task, support.assessed_level)
                     required = standard["required_level"]
@@ -1261,28 +1316,22 @@ class PostgresVentureRepository:
     ) -> dict:
         skill_id = payload["skillId"]
         user_id = payload["userId"]
-        model = (
-            self._db.execute(
-                select(VentureSkillAssessmentModel).where(
-                    VentureSkillAssessmentModel.venture_id == venture_id,
-                    VentureSkillAssessmentModel.skill_id == skill_id,
-                    VentureSkillAssessmentModel.user_id == user_id,
-                )
-            )
-            .scalars()
-            .first()
-        )
-        if model is None:
-            model = VentureSkillAssessmentModel(
-                id=f"vs-{uuid4().hex[:12]}",
-                venture_id=venture_id,
-                tenant_id=tenant_id,
-                skill_id=skill_id,
-                user_id=user_id,
-            )
-            self._db.add(model)
+        previous = self._db.scalar(select(VentureSkillAssessmentModel).where(
+            VentureSkillAssessmentModel.tenant_id == tenant_id,
+            VentureSkillAssessmentModel.venture_id == venture_id,
+            VentureSkillAssessmentModel.skill_id == skill_id,
+            VentureSkillAssessmentModel.user_id == user_id).order_by(VentureSkillAssessmentModel.assessed_at.desc()))
+        model = VentureSkillAssessmentModel(id=f"vs-{uuid4().hex[:12]}", venture_id=venture_id,
+            tenant_id=tenant_id, skill_id=skill_id, user_id=user_id,
+            supersedes_id=previous.id if previous else None, revoked=bool(payload.get("revoked")),
+            due_date=previous.due_date if previous else "",
+            evidence_uri=previous.evidence_uri if previous else "",
+            development_plan=previous.development_plan if previous else "")
+        self._db.add(model)
         if payload.get("assessedLevel") is not None:
             model.assessed_level = int(payload["assessedLevel"])
+        if model.revoked:
+            model.assessed_level = 0
         for key, attribute in (
             ("evidenceUri", "evidence_uri"),
             ("developmentPlan", "development_plan"),
@@ -1292,11 +1341,17 @@ class PostgresVentureRepository:
                 setattr(model, attribute, payload[key])
         model.assessed_by = actor_user_id
         model.assessed_at = _now()
+        self._write_audit(tenant_id=tenant_id, event_type="venture.skill.assessed", resource_type="venture_skill",
+            resource_id=model.id, action="create", actor_user_id=actor_user_id, actor_role="",
+            summary="Immutable skill assessment revision", metadata={"previousId": previous.id if previous else "",
+            "ventureId": venture_id, "userId": user_id})
         self._commit()
         names = self._user_names(tenant_id)
         return {
             "id": model.id,
             "skillId": model.skill_id,
+            "revoked": model.revoked,
+            "supersedesId": model.supersedes_id,
             "userId": model.user_id,
             "userName": names.get(model.user_id, model.user_id),
             "assessedLevel": model.assessed_level,
@@ -1309,10 +1364,34 @@ class PostgresVentureRepository:
     # ─────────────────────────────────────────────
     # ダッシュボード
     # ─────────────────────────────────────────────
+    def _archive_content(self, tenant_id: str, venture_id: str) -> dict | None:
+        from copy import deepcopy
+        venture = self._db.get(VentureModel, venture_id)
+        if not venture or venture.tenant_id != tenant_id or venture.status != "アーカイブ":
+            return None
+        snapshot_id = (venture.governance or {}).get("archiveSnapshotId")
+        snapshot = self._db.get(ApplicationRecordModel, ("venture_archive", snapshot_id)) if snapshot_id else None
+        if snapshot and snapshot.payload.get("tenantId") == tenant_id and snapshot.payload.get("ventureId") == venture_id:
+            return deepcopy(snapshot.payload)
+        return None
+
+    def capture_archive(self, tenant_id: str, venture_id: str, actor_id: str) -> str:
+        snapshot_id = "archive-" + uuid4().hex
+        snapshot = {"tenantId": tenant_id, "ventureId": venture_id, "actorId": actor_id, "createdAt": _iso(_now()),
+            "summary": self.summary(tenant_id, venture_id), "tasks": self.list_tasks(tenant_id, venture_id),
+            "gates": self.list_gates(tenant_id, venture_id), "skillGap": self.skill_gap(tenant_id, venture_id),
+            "ledgers": {ledger["key"]: self.list_ledger_entries(tenant_id, venture_id, ledger["key"])
+                for ledger in load_master().ledgers}}
+        self._db.add(ApplicationRecordModel(namespace="venture_archive", id=snapshot_id, payload=snapshot))
+        return snapshot_id
+
     def summary(self, tenant_id: str, venture_id: str) -> dict | None:
         venture = self.get_venture(tenant_id, venture_id)
         if venture is None:
             return None
+        snapshot = self._archive_content(tenant_id, venture_id)
+        if snapshot:
+            return {**snapshot["summary"], "venture": venture}
         master = load_master()
         tasks = self.list_tasks(tenant_id, venture_id)
         phases = []
@@ -1344,7 +1423,7 @@ class PostgresVentureRepository:
                     "key": ledger["key"],
                     "name": ledger["name"],
                     "total": len(items),
-                    "filled": sum(1 for item in items if item["values"]),
+                    "filled": sum(1 for item in items if item["hasInput"]),
                 }
             )
         panels = {}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Disclosure } from "@/app/components/ui/Disclosure";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -257,9 +258,9 @@ function NotificationsPageContent() {
       return;
     }
     const next = {
-      emailEnabled: patch.emailEnabled ?? current.emailEnabled,
+      emailEnabled: false,
       inAppEnabled: patch.inAppEnabled ?? current.inAppEnabled,
-      pushEnabled: patch.pushEnabled ?? current.pushEnabled
+      pushEnabled: false
     };
     setSavingCategory(category);
     setError(null);
@@ -307,7 +308,7 @@ function NotificationsPageContent() {
         <div className="page-title-row">
           <div>
             <h1>通知センター</h1>
-            <p className="muted">学習・キャリア・DM・運営通知をカテゴリ別に確認できます。</p>
+
             <div className="inline-actions">
               <Link
                 href={buildNotificationCenterLink({
@@ -360,8 +361,7 @@ function NotificationsPageContent() {
         </div>
       </header>
 
-      <section>
-        <h2>配信設定</h2>
+      <Disclosure title="通知設定">
         {settings.length === 0 ? (
           <p className="muted">配信設定を読み込み中です。</p>
         ) : (
@@ -378,13 +378,14 @@ function NotificationsPageContent() {
                     <label>
                       <input
                         type="checkbox"
-                        checked={setting.emailEnabled}
-                        disabled={isSaving}
+                        checked={false}
+                        disabled
+                        title="メール配信は未提供です"
                         onChange={(event) => {
                           onUpdateSetting(setting.category, { emailEnabled: event.target.checked });
                         }}
                       />
-                      Email
+                      Email（未提供）
                     </label>
                     <label>
                       <input
@@ -400,13 +401,14 @@ function NotificationsPageContent() {
                     <label>
                       <input
                         type="checkbox"
-                        checked={setting.pushEnabled}
-                        disabled={isSaving}
+                        checked={false}
+                        disabled
+                        title="push配信は未提供です"
                         onChange={(event) => {
                           onUpdateSetting(setting.category, { pushEnabled: event.target.checked });
                         }}
                       />
-                      Push
+                      Push（未提供）
                     </label>
                   </div>
                   <p className="muted">
@@ -417,7 +419,7 @@ function NotificationsPageContent() {
             })}
           </ul>
         )}
-      </section>
+      </Disclosure>
 
       <section>
         <div className="inline-actions notifications-filter-row">

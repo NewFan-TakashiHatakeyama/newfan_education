@@ -138,9 +138,11 @@ def make_venture(client: TestClient, headers: dict[str, str], **overrides) -> di
     payload.update(overrides)
     res = client.post("/api/v1/ventures", json=payload, headers=headers)
     assert res.status_code == 200, res.text
-    for role in ("R01", "R18", "R19"):
+    for role in ("R01", "R18"):
         added = client.post(f"/api/v1/ventures/{res.json()['id']}/members", json={"userId": "admin-user", "roleId": role}, headers=headers)
         assert added.status_code == 200, added.text
+    added = client.post(f"/api/v1/ventures/{res.json()['id']}/members", json={"userId": "mentor-user", "roleId": "R19"}, headers=headers)
+    assert added.status_code == 200, added.text
     return res.json()
 
 
@@ -473,11 +475,12 @@ def test_rt45_independence_is_checked_by_person_not_role_name() -> None:
     }
     # Role が R19 でも、実装した本人なら承認できない
     denied = client.patch(path, json=payload, headers=admin)
-    assert denied.status_code == 400
-    assert "分離" in denied.json()["detail"]
+    assert denied.status_code == 403  # Implementer has no independent appointment
 
     client.patch(path, json={"assigneeUserId": "demo-user"}, headers=admin)
-    assert client.patch(path, json=payload, headers=admin).status_code == 200
+    assert client.patch(path, json={"status": "完了", "evidenceUri": payload["evidenceUri"]}, headers=admin).status_code == 200
+    reviewer = sign_in(client, "mentor@example.com", "Mentor123!")
+    assert client.patch(path, json={"approveCompletion": True}, headers=reviewer).status_code == 200
 
 
 
@@ -512,16 +515,17 @@ def test_it02_declared_input_columns_are_accepted() -> None:
     # 原本の候補どおりなら受け付ける
     saved = client.post(
         f"/api/v1/ventures/{venture_id}/ledgers/risk/entries",
-        json={"id": entry["id"], "values": {column: rule["options"][1]}},
+        json={"id": entry["id"], "expectedRevision": entry["revision"], "values": {column: rule["options"][1]}},
         headers=admin,
     )
     assert saved.status_code == 200
     assert saved.json()["values"][column] == rule["options"][1]
 
+    entry = saved.json()
     # 候補にない語彙は拒否する（原本の統制語彙を守る）
     rejected = client.post(
         f"/api/v1/ventures/{venture_id}/ledgers/risk/entries",
-        json={"id": entry["id"], "values": {column: "だいたい該当"}},
+        json={"id": entry["id"], "expectedRevision": entry["revision"], "values": {column: "だいたい該当"}},
         headers=admin,
     )
     assert rejected.status_code == 400
@@ -554,7 +558,7 @@ def test_it06_stored_values_are_never_evaluated_as_formulas() -> None:
 
     saved = client.post(
         f"/api/v1/ventures/{venture_id}/ledgers/risk/entries",
-        json={"id": entry["id"], "values": {column: formula}},
+        json={"id": entry["id"], "expectedRevision": entry["revision"], "values": {column: formula}},
         headers=admin,
     )
     assert saved.status_code == 200
@@ -582,8 +586,13 @@ def put(client, headers, venture_id, ledger_key, values, *, row_key=None, entry_
         payload["rowKey"] = row_key
     if entry_id:
         payload["id"] = entry_id
+        existing = next((r for r in rows_of(client, headers, venture_id, ledger_key) if r["id"] == entry_id), None)
+        if existing:
+            payload["expectedRevision"] = existing["revision"]
     if status:
         payload["status"] = status
+    if (verify or any(values.get(k) for k in ("取消理由", "無効化・取消理由", "取消／置換Run ID"))) and ledger_key in {"eval_plan", "eval_run", "required_eval", "condition"}:
+        headers = sign_in(client, "mentor@example.com", "Mentor123!")
     return client.post(
         f"/api/v1/ventures/{venture_id}/ledgers/{ledger_key}/entries", json=payload, headers=headers
     )
@@ -999,8 +1008,9 @@ def test_rt51_to_rt55_condition_lifecycle() -> None:
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = make_venture(client, admin, asOfDate="2026-09-30")["id"]
-    gate = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"][0]
-    base = {**CONDITION_BASE, "GateRun ID": gate["id"]}
+    gate = put(client, admin, venture_id, "gate_run", {"Gate": "G3"}, row_key="GR-CONDITION")
+    assert gate.status_code == 200
+    base = {**CONDITION_BASE, "GateRun ID": "GR-CONDITION", "Owner PersonID": "admin-user"}
 
     # RT51: 期限内なら制約継続
     live = put(client, admin, venture_id, "condition", base, row_key="C-01")
@@ -1017,8 +1027,8 @@ def test_rt51_to_rt55_condition_lifecycle() -> None:
     resolved = put(
         client, admin, venture_id, "condition",
         {**base, "状態": "解消", "解消証拠URI": "https://example.test/fix",
-         "解消日": "2026-09-20", "確認者PersonID": "recruiter-user", "確認日": "2026-09-21"},
-        row_key="C-03",
+         "解消日": "2026-09-10"},
+        row_key="C-03", verify=True,
     )
     assert resolved.json()["derived"]["条件点検"] == "解消確認済"
 
@@ -1026,8 +1036,8 @@ def test_rt51_to_rt55_condition_lifecycle() -> None:
     late = put(
         client, admin, venture_id, "condition",
         {**base, "期限": "2026-09-01", "状態": "解消", "解消証拠URI": "https://example.test/fix",
-         "解消日": "2026-09-20", "確認者PersonID": "recruiter-user", "確認日": "2026-09-21"},
-        row_key="C-04",
+         "解消日": "2026-09-10"},
+        row_key="C-04", verify=True,
     )
     assert late.json()["derived"]["条件点検"] == "期限後解消・再承認要"
 
@@ -1303,6 +1313,10 @@ def seed_required_eval(client, headers, venture_id, classification_count=18):
     """18分類・前提の独立確認・機能除外を含めてG3の正常系を構成する。"""
     updated = client.patch(f"/api/v1/ventures/{venture_id}", headers=headers, json={
         "conditions": {"RAG": "対象外", "Agent": "対象外"}, "riskTierRationale": "匿名テキストのみ・人が最終判断",
+        })
+    assert updated.status_code == 200, updated.text
+    reviewer = sign_in(client, "mentor@example.com", "Mentor123!")
+    updated = client.patch(f"/api/v1/ventures/{venture_id}", headers=reviewer, json={
         "confirmRisk": True, "riskEvidenceUri": "https://example.test/risk"})
     assert updated.status_code == 200, updated.text
     tasks = client.get(f"/api/v1/ventures/{venture_id}/tasks", headers=headers).json()["items"]
@@ -1548,14 +1562,14 @@ def test_rt45_assignment_checks_independence_by_person() -> None:
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = make_venture(client, admin, asOfDate="2026-09-30")["id"]
-    for user_id, role_id in (("demo-user", "R02"), ("demo-user", "R19"), ("mentor-user", "R19")):
+    for user_id, role_id in (("demo-user", "R03"), ("mentor-user", "R19")):
         client.post(
             f"/api/v1/ventures/{venture_id}/members",
             json={"userId": user_id, "roleId": role_id}, headers=admin,
         )
     assessment = client.post(
         f"/api/v1/ventures/{venture_id}/skill-assessments",
-        json={"skillId": "S077", "userId": "demo-user", "assessedLevel": 3, "evidenceUri": "https://example.test/assessment"},
+        json={"skillId": "S077", "userId": "mentor-user", "assessedLevel": 3, "evidenceUri": "https://example.test/assessment"},
         headers=admin,
     ).json()
 
@@ -1564,12 +1578,12 @@ def test_rt45_assignment_checks_independence_by_person() -> None:
         "Role ID": "R19",
         "Skill ID": "S077",
         "必要Lv": "3",
-        "PersonID": "demo-user",
+        "PersonID": "mentor-user",
         "能力評価記録ID": assessment["id"],
         "割当承認者": "admin-user", "承認日": "2026-09-01", "対象期間": "2026Q3",
         "必要性・担当範囲": "独立評価の実施",
         "役割区分": "独立評価",
-        "当該実装PersonID": "demo-user",
+        "当該実装PersonID": "mentor-user",
     }
     not_independent = put(client, admin, venture_id, "assignment", base, row_key="A-01")
     assert not_independent.status_code == 200
@@ -1577,7 +1591,7 @@ def test_rt45_assignment_checks_independence_by_person() -> None:
 
     ok = put(
         client, admin, venture_id, "assignment",
-        {**base, "当該実装PersonID": "mentor-user"}, row_key="A-02",
+        {**base, "当該実装PersonID": "demo-user"}, row_key="A-02",
     )
     assert ok.json()["derived"]["割当点検"] == "割当記録あり"
     assert ok.json()["derived"]["評価Lv（参照）"] == "3"

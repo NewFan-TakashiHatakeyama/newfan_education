@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import json
 import os
 import secrets
 from uuid import uuid4
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, update
 from sqlalchemy.orm import Session
 
 from infrastructure.auth import hash_password
@@ -389,8 +390,74 @@ class PostgresB2BRepository:
         return self._db.get(UserModel, user_id)
 
     def get_user_by_email(self, email: str) -> UserModel | None:
-        stmt = select(UserModel).where(UserModel.email == email)
+        stmt = select(UserModel).where(UserModel.email == email.strip().lower())
         return self._db.scalar(stmt)
+
+    def list_managed_users(self, actor, role=None, state=None, query=None) -> dict:
+        if actor.role != "admin":
+            raise PermissionError("Only admin can manage users")
+        users = self._db.scalars(select(UserModel).where(UserModel.tenant_id == actor.tenant_id)).all()
+        return {"items": [self._managed_user(u) for u in users
+            if (not role or u.role == role) and (not state or u.state == state)
+            and (not query or query.lower() in (u.user_id + u.display_name).lower())]}
+
+    @staticmethod
+    def _managed_user(user):
+        return {"userId": user.user_id, "displayName": user.display_name, "role": user.role,
+                "state": user.state, "createdAt": user.created_at.isoformat(), "updatedAt": user.updated_at.isoformat()}
+
+    def update_managed_user(self, actor, user_id, role=None, state=None, display_name=None):
+        if actor.role != "admin":
+            raise PermissionError("Only admin can manage users")
+        if role is None and state is None and display_name is None:
+            raise ValueError("At least one field is required for update")
+        user = self._db.scalar(select(UserModel).where(UserModel.user_id == user_id,
+            UserModel.tenant_id == actor.tenant_id).with_for_update())
+        if user is None:
+            raise ValueError("User not found")
+        before = self._managed_user(user)
+        if role is not None: user.role = role
+        if state is not None: user.state = state
+        if display_name is not None: user.display_name = display_name
+        user.session_version += 1
+        user.updated_at = datetime.now(timezone.utc)
+        self.append_audit_log(tenant_id=actor.tenant_id, event_type="admin.user.updated", resource_type="user",
+            resource_id=user_id, action="update", actor_user_id=actor.user_id, actor_role=actor.role,
+            summary="User account updated; sessions revoked", metadata={"before": json.dumps(before),
+            "after": json.dumps(self._managed_user(user))})
+        return self._managed_user(user)
+
+    def accept_invite(self, *, token, user_id, email, display_name, password_hash_value):
+        email = email.strip().lower()
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+        # Compare-and-set works on SQLite too; row locking alone would not.
+        invite = self._db.scalar(update(InviteModel).where(InviteModel.token == token,
+            InviteModel.status == "invited", InviteModel.email == email,
+            InviteModel.created_at >= cutoff).values(status="accepted").returning(InviteModel))
+        if invite is None:
+            self._db.rollback()
+            raise ValueError("招待が無効、期限切れ、受理済み、またはメールが一致しません")
+        inviter = self.get_user_by_user_id(invite.invited_by)
+        if not inviter or inviter.state != "active" or inviter.tenant_id != invite.tenant_id or inviter.role != "admin":
+            self._db.rollback()
+            raise ValueError("招待管理者が現在有効ではありません")
+        user = UserModel(user_id=user_id, email=email, display_name=display_name, role=invite.role,
+            tenant_id=invite.tenant_id, state="active", password_hash=password_hash_value)
+        self._db.add(user)
+        self._db.flush()
+        if user.role == "learner":
+            self._db.add(LearnerProfileModel(user_id=user_id, tenant_id=user.tenant_id,
+                team_name="", target_role="未設定", strong_skills=[], gap_skills=[]))
+        if invite.team_id:
+            team = self._db.get(TeamModel, invite.team_id)
+            if not team or team.tenant_id != user.tenant_id:
+                self._db.rollback()
+                raise ValueError("招待のチームが無効です")
+            self._db.add(TeamMemberModel(id=f"tm-{uuid4().hex}", team_id=team.id, user_id=user_id))
+        self.append_audit_log(tenant_id=user.tenant_id, event_type="auth.invite.accepted", resource_type="user",
+            resource_id=user_id, action="create", actor_user_id=user_id, actor_role=user.role,
+            summary="Invitation accepted", metadata={"inviteId": invite.id, "invitedBy": invite.invited_by})
+        return user
 
     def create_user(
         self,
@@ -472,10 +539,16 @@ class PostgresB2BRepository:
         invited_by: str,
         team_id: str | None = None,
     ) -> dict:
+        if role not in {"admin", "recruiter", "learner", "mentor", "content_editor"}:
+            raise ValueError("Invalid role")
+        if team_id:
+            team = self._db.get(TeamModel, team_id)
+            if not team or team.tenant_id != tenant_id:
+                raise ValueError("Team not found")
         invite = InviteModel(
             id=f"invite-{uuid4().hex[:8]}",
             tenant_id=tenant_id,
-            email=email,
+            email=email.strip().lower(),
             role=role,
             team_id=team_id,
             token=f"invite-token-{uuid4().hex}",
@@ -483,7 +556,9 @@ class PostgresB2BRepository:
             invited_by=invited_by,
         )
         self._db.add(invite)
-        self._db.commit()
+        self.append_audit_log(tenant_id=tenant_id, event_type="auth.invite.created", resource_type="invite",
+            resource_id=invite.id, action="create", actor_user_id=invited_by, actor_role="admin",
+            summary="Invitation link issued; no email sent", metadata={"email": invite.email, "role": role})
         return {
             "id": invite.id,
             "email": invite.email,
@@ -985,19 +1060,17 @@ class PostgresB2BRepository:
         channels: list[str],
         is_important: bool = False,
     ) -> dict:
-        value = NotificationDeliveryJobModel(
-            id=f"ndj-{uuid4().hex[:8]}",
-            tenant_id=tenant_id,
-            user_id=user_id,
-            category=category,
-            title=title,
-            body=body,
-            target_url=target_url,
-            channels=channels,
-            is_important=is_important,
-            status="queued",
-        )
+        if set(channels) - {"in_app"}:
+            raise ValueError("メール・push配信は未提供です")
+        job_id = f"ndj-{uuid4().hex}"
+        value = NotificationDeliveryJobModel(id=job_id, tenant_id=tenant_id, user_id=user_id,
+            category=category, title=title, body=body, target_url=target_url, channels=channels,
+            is_important=is_important, status="completed", result_json={"deliveredChannels": channels})
         self._db.add(value)
+        if "in_app" in channels:
+            self._db.add(NotificationInboxModel(id=job_id, tenant_id=tenant_id, user_id=user_id,
+                category=category, title=title, body=body, target_url=target_url, is_important=is_important))
+        # Inbox and delivery status commit atomically, without an external worker.
         self._db.commit()
         return {"id": value.id, "status": value.status}
 
@@ -1147,9 +1220,9 @@ class PostgresB2BRepository:
             items.append(
                 {
                     "category": category,
-                    "emailEnabled": value.email_enabled if value else False,
+                    "emailEnabled": False,
                     "inAppEnabled": value.in_app_enabled if value else True,
-                    "pushEnabled": value.push_enabled if value else False,
+                    "pushEnabled": False,
                     "updatedAt": (
                         value.updated_at.isoformat()
                         if value and hasattr(value.updated_at, "isoformat")

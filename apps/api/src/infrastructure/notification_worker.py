@@ -29,6 +29,9 @@ def run_worker() -> None:
                     delivered_channels: list[str] = []
                     channels = job.get("channels", ["in_app"])
 
+                    if set(channels) - {"in_app"}:
+                        raise ValueError("Unsupported delivery channel; nothing sent")
+
                     if "in_app" in channels:
                         repo.create_in_app_notification(
                             tenant_id=job["tenantId"],
@@ -40,12 +43,6 @@ def run_worker() -> None:
                             is_important=job["isImportant"],
                         )
                         delivered_channels.append("in_app")
-
-                    # Extendable hooks for future real dispatch providers.
-                    if "email" in channels:
-                        delivered_channels.append("email")
-                    if "push" in channels:
-                        delivered_channels.append("push")
 
                     repo.mark_notification_job_completed(
                         job_id=job["id"],

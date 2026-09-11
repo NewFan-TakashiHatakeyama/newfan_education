@@ -10,12 +10,17 @@ import {
   addVentureMember,
   fetchVentureMaster,
   fetchVentureSummary,
-  getLearners,
+  getVentureMemberCandidates,
   removeVentureMember,
   updateVenture
 } from "@/lib/api";
 
+import { LoadFailure } from "@/app/components/ui/LoadFailure";
 import { PageHero } from "@/app/components/ui/PageHero";
+import { AppIcon } from "@/app/components/ui/Icon";
+import { Drawer, Modal } from "@/app/components/ui/Drawer";
+import { Disclosure } from "@/app/components/ui/Disclosure";
+import { Feedback } from "@/app/components/ui/Feedback";
 import { Section } from "@/app/components/ui/Section";
 import { SkeletonRow } from "@/app/components/ui/Skeleton";
 import { EmptyState } from "@/app/components/ui/EmptyState";
@@ -23,6 +28,7 @@ import { EmptyState } from "@/app/components/ui/EmptyState";
 import { GateDecisionPill, VentureNav } from "../VentureNav";
 import { useVentureRole } from "../useVentureRole";
 import styles from "../ventures.module.css";
+import { LedgerDirectory } from "../LedgerDirectory";
 import { DecisionPanel } from "../DecisionPanel";
 
 const APPLICABILITY: VentureApplicability[] = ["未判定", "適用", "対象外"];
@@ -38,6 +44,13 @@ export default function VentureOverviewPage({
   const [master, setMaster] = useState<VentureMaster | null>(null);
   const [learners, setLearners] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
+  const [reopenReason, setReopenReason] = useState("");
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const { canManage } = useVentureRole(ventureId);
 
@@ -49,9 +62,7 @@ export default function VentureOverviewPage({
   const refresh = useCallback(() => {
     fetchVentureSummary(ventureId)
       .then(setSummary)
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "案件の概要を取得できませんでした。")
-      );
+      .catch((err: unknown) => { setSummary(null); setError(err instanceof Error ? err.message : "案件の概要を取得できませんでした。"); });
   }, [ventureId]);
 
   useEffect(() => {
@@ -59,19 +70,23 @@ export default function VentureOverviewPage({
     fetchVentureMaster()
       .then(setMaster)
       .catch(() => setMaster(null));
-    getLearners()
+    getVentureMemberCandidates(ventureId)
       .then((res) => setLearners(res.items.map((item) => ({ id: item.id, name: item.name }))))
       .catch(() => setLearners([]));
-  }, [refresh]);
+  }, [refresh, ventureId]);
 
   const patchVenture = async (payload: Parameters<typeof updateVenture>[1]) => {
     setSaving(true);
     setError(null);
     try {
       await updateVenture(ventureId, payload);
+      window.dispatchEvent(new Event("venture-updated"));
       refresh();
+      setNotice("変更を保存しました。");
+      return true;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "更新できませんでした。");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -81,7 +96,7 @@ export default function VentureOverviewPage({
     return (
       <>
         <VentureNav ventureId={ventureId} />
-        {error ? <p className={styles.error}>{error}</p> : <SkeletonRow />}
+        {error ? <LoadFailure onRetry={() => { setError(null); refresh(); }} /> : <SkeletonRow />}
       </>
     );
   }
@@ -95,11 +110,15 @@ export default function VentureOverviewPage({
     <>
       <VentureNav ventureId={ventureId} />
 
+      {venture.status === "アーカイブ" && <section><strong>アーカイブ済み · 閲覧専用</strong><p>編集するには、理由を記録して案件を再開してください。</p>
+        {venture.capabilities?.canReopen && <button onClick={() => setReopenOpen(true)}>案件を再開</button>}
+      </section>}
       <PageHero
         eyebrow={`${venture.currentPhaseId} / 規模 ${venture.scale} / ${venture.riskTier}`}
         title={venture.name}
         lead={venture.summary || "概要は未入力です。"}
         theme="company"
+        actions={<><button className="ghost-button" onClick={() => setShowSettings(true)}>案件設定</button><button className="ghost-button" onClick={() => setShowMembers(true)}>メンバー管理</button></>}
         metrics={[
           {
             label: "適用タスクの完了",
@@ -113,114 +132,16 @@ export default function VentureOverviewPage({
         ]}
       />
 
-      {error ? <p className={styles.error}>{error}</p> : null}
+      <Feedback message={error} error /><Feedback message={notice} />
 
-      <Section
-        title="案件の前提"
-        meta="規模・Risk Tier・機能の条件は、工程タスクの適用提案に使われます。人が決めた判定は上書きされません。"
-        theme="company"
-      >
-        <div className={styles.formGrid}>
-          <label className={styles.field}>
-            状態
-            <select
-              value={venture.status}
-              disabled={saving || !canManage}
-              onChange={(event) => patchVenture({ status: event.target.value as never })}
-            >
-              {VENTURE_STATUS.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.field}>
-            現在の工程
-            <select
-              value={venture.currentPhaseId}
-              disabled={saving || !canManage}
-              onChange={(event) => patchVenture({ currentPhaseId: event.target.value })}
-            >
-              {summary.phases.map((phase) => (
-                <option key={phase.phaseId} value={phase.phaseId}>
-                  {phase.phaseId} {phase.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.field}>
-            規模
-            <select
-              value={venture.scale}
-              disabled={saving || !canManage}
-              onChange={(event) => patchVenture({ scale: event.target.value as "S" | "M" | "L" })}
-            >
-              <option value="S">S（小規模）</option>
-              <option value="M">M（中規模）</option>
-              <option value="L">L（大規模）</option>
-            </select>
-          </label>
-          <label className={styles.field}>
-            Risk Tier
-            <select
-              value={venture.riskTier}
-              disabled={saving || !canManage}
-              onChange={(event) => patchVenture({ riskTier: event.target.value })}
-            >
-              <option value="未判定">未判定</option>
-              {(master?.riskTiers ?? []).map((tier) => (
-                <option key={tier.tierId} value={tier.tierId}>
-                  {tier.tierId} {tier.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <p>リスク確認：{venture.governance?.riskState || "未確認"}</p>
-        <label className={styles.field}>リスク判定の根拠
-          <textarea defaultValue={venture.riskTierRationale} disabled={!canManage || saving}
-            onBlur={e => patchVenture({ riskTierRationale: e.target.value })} />
-        </label>
-        <label className={styles.field}>リスク判定の正本URI<input value={riskEvidence} onChange={e => setRiskEvidence(e.target.value)} /></label>
-        <button disabled={saving || !venture.capabilities?.roleIds.includes("R19") || !riskEvidence}
-          onClick={() => patchVenture({ confirmRisk: true, riskEvidenceUri: riskEvidence })}>現在の前提をR19として確認</button>
-        {master && master.conditionKeys.length > 0 ? (
-          <div style={{ marginTop: 16 }}>
-            <p className={styles.muted} style={{ marginBottom: 8 }}>
-              機能・条件の判定
-            </p>
-            <div className={styles.conditionGrid}>
-              {master.conditionKeys.map((key) => (
-                <label key={key} className={styles.field}>
-                  {key}
-                  <select
-                    value={venture.conditions[key] ?? "未判定"}
-                    disabled={saving || !canManage}
-                    onChange={(event) =>
-                      patchVenture({
-                        conditions: { [key]: event.target.value as VentureApplicability }
-                      })
-                    }
-                  >
-                    {APPLICABILITY.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </Section>
-
+      {(undecidedTotal > 0 || summary.skillGapCount > 0) && <div className="page-actions" aria-label="要対応事項">
+        {undecidedTotal > 0 && <Link className="ghost-button" href={`/ventures/${ventureId}/tasks?applicability=未判定`}>適用範囲を確認 · {undecidedTotal}件</Link>}
+        {summary.skillGapCount > 0 && <Link className="ghost-button" href={`/ventures/${ventureId}/skills`}>不足スキルを確認 · {summary.skillGapCount}件</Link>}
+      </div>}
       <DecisionPanel ventureId={ventureId} decisions={summary.decisions} />
       <Section
         title="工程の進捗"
-        meta="七工程は反復・並行できます。適用判定が済んでいないタスクは進捗に数えません。"
+        meta="適用が確定したタスクの進捗です。"
         theme="company"
         actions={
           <Link href={`/ventures/${ventureId}/tasks`} className="ghost-button">
@@ -237,6 +158,14 @@ export default function VentureOverviewPage({
                 <div className={styles.phaseHead}>
                   <span className={styles.phaseId}>{phase.phaseId}</span>
                   <span className={styles.phaseName}>{phase.name}</span>
+                  <Link
+                    href={`/ventures/${ventureId}/tasks?phaseId=${phase.phaseId}`}
+                    className={styles.phaseOpenLink}
+                    aria-label={`${phase.name}のタスクを開く`}
+                    title={`${phase.name}のタスクを開く`}
+                  >
+                    <AppIcon name="arrowRight" size={18} />
+                  </Link>
                 </div>
                 <div className={styles.bar} aria-hidden>
                   <span className={styles.barDone} style={{ width: `${done * 100}%` }} />
@@ -249,12 +178,6 @@ export default function VentureOverviewPage({
                   {phase.undecided > 0 ? <span>判定待ち {phase.undecided}</span> : null}
                   {phase.blocked > 0 ? <span>阻害 {phase.blocked}</span> : null}
                 </div>
-                <Link
-                  href={`/ventures/${ventureId}/tasks?phaseId=${phase.phaseId}`}
-                  className={styles.rowButton}
-                >
-                  この工程を見る
-                </Link>
               </div>
             );
           })}
@@ -263,7 +186,7 @@ export default function VentureOverviewPage({
 
       <Section
         title="ゲート"
-        meta="投資と公開の判断。品質・法令の不合格を事業判断で上書きしません。"
+        meta="各段階の承認状況を確認できます。"
         theme="company"
         actions={
           <Link href={`/ventures/${ventureId}/gates`} className="ghost-button">
@@ -303,32 +226,166 @@ export default function VentureOverviewPage({
 
       <Section
         title="台帳"
-        meta="データ・依存・ADR・リスクなど。点検行はマスタ由来で、案件側で入力を埋めます。"
+        meta="必要な記録を選んで開きます。"
         theme="company"
       >
-        <div className={styles.ledgerLinks}>
-          {summary.ledgers.map((ledger) => (
-            <Link
-              key={ledger.key}
-              href={`/ventures/${ventureId}/ledgers/${ledger.key}`}
-              className={styles.ledgerLink}
-            >
-              <span className={styles.ledgerName}>{ledger.name}</span>
-              <span className={styles.muted}>
-                {ledger.total === 0
-                  ? "行なし（起票して使う）"
-                  : `${ledger.filled} / ${ledger.total} 行に入力あり`}
-              </span>
-            </Link>
-          ))}
-        </div>
+        <LedgerDirectory ventureId={ventureId} ledgers={summary.ledgers} />
       </Section>
 
+      {summary.topSkillGaps.length > 0 ? (
+        <Section
+          title="不足しているスキル"
+          meta="必要なレベルに達していないスキルです。"
+          theme="company"
+          actions={
+            <Link href={`/ventures/${ventureId}/skills`} className="ghost-button">
+              スキル充足を開く
+            </Link>
+          }
+        >
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>スキル</th>
+                  <th>軸</th>
+                  <th>必要Lv</th>
+                  <th>到達Lv</th>
+                  <th>不足</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.topSkillGaps.map((item) => (
+                  <tr key={item.skillId}>
+                    <td>
+                      <span className={styles.taskId}>{item.skillId}</span> {item.name}
+                    </td>
+                    <td className={styles.muted}>{item.axis}</td>
+                    <td>{item.requiredLevel}</td>
+                    <td>{item.coveredLevel}</td>
+                    <td className={`${styles.gapBadge} ${styles.gapHigh}`}>-{item.gap}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      ) : null}
+
+      <Drawer open={showSettings} title="案件設定" onClose={() => { setShowSettings(false); setRiskEvidence(""); }} busy={saving} dirty={!!riskEvidence}>
       <Section
-        title="要員"
-        meta="ロールは工程マスタの定義（R01〜）に合わせます。担当者は学習者アカウントから選びます。"
+        title="前提条件"
+        meta="変更は自動保存されます。適用範囲の確定はタスク画面で行います。"
         theme="company"
       >
+        <Feedback message={error} error />
+        <Feedback message={notice} />
+        <div className={styles.formGrid}>
+          <label className={styles.field}>
+            状態
+            <select
+              value={venture.status}
+              disabled={saving || !canManage}
+              onChange={(event) => patchVenture({ status: event.target.value as never })}
+            >
+              {VENTURE_STATUS.filter(value => value !== "アーカイブ" || venture.status === "アーカイブ").map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            現在の工程
+            <select
+              value={venture.currentPhaseId}
+              disabled={saving || !canManage}
+              onChange={(event) => patchVenture({ currentPhaseId: event.target.value })}
+            >
+              {summary.phases.map((phase) => (
+                <option key={phase.phaseId} value={phase.phaseId}>
+                  {phase.phaseId} {phase.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            規模
+            <select
+              value={venture.scale}
+              disabled={saving || !canManage}
+              onChange={(event) => patchVenture({ scale: event.target.value as "S" | "M" | "L" })}
+            >
+              <option value="S">S（小規模）</option>
+              <option value="M">M（中規模）</option>
+              <option value="L">L（大規模）</option>
+            </select>
+          </label>
+          <label className={styles.field}>
+            リスク区分
+            <select
+              value={venture.riskTier}
+              disabled={saving || !canManage}
+              onChange={(event) => patchVenture({ riskTier: event.target.value })}
+            >
+              <option value="未判定">未判定</option>
+              {(master?.riskTiers ?? []).map((tier) => (
+                <option key={tier.tierId} value={tier.tierId}>
+                  {tier.tierId} {tier.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <p>リスク確認：{venture.governance?.riskState || "未確認"}</p>
+        <label className={styles.field}>リスク判定の根拠
+          <textarea defaultValue={venture.riskTierRationale} disabled={!canManage || saving}
+            onBlur={e => patchVenture({ riskTierRationale: e.target.value })} />
+        </label>
+        <label className={styles.field}>判定根拠のリンク<input value={riskEvidence} onChange={e => setRiskEvidence(e.target.value)} /></label>
+        <button disabled={venture.status === "アーカイブ" || saving || !venture.capabilities?.roleIds.includes("R19") || !riskEvidence}
+          onClick={() => patchVenture({ confirmRisk: true, riskEvidenceUri: riskEvidence }).then(saved => { if (saved) setRiskEvidence(""); })}>リスク判定を確認</button>
+        {master && master.conditionKeys.length > 0 ? (
+          <Disclosure title="機能・条件の設定">
+            <p className={styles.muted} style={{ marginBottom: 8 }}>
+              機能・条件の判定
+            </p>
+            <div className={styles.conditionGrid}>
+              {master.conditionKeys.map((key) => (
+                <label key={key} className={styles.field}>
+                  {key}
+                  <select
+                    value={venture.conditions[key] ?? "未判定"}
+                    disabled={saving || !canManage}
+                    onChange={(event) =>
+                      patchVenture({
+                        conditions: { [key]: event.target.value as VentureApplicability }
+                      })
+                    }
+                  >
+                    {APPLICABILITY.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+          </Disclosure>
+        ) : null}
+      </Section>
+
+        {canManage && <Disclosure title="案件の保管"><p>履歴を保持して案件をアーカイブします。</p><button className="danger-button" onClick={() => setArchiveConfirm(true)}>案件をアーカイブ</button></Disclosure>}
+      </Drawer>
+      <Drawer open={showMembers} title="メンバー管理" onClose={() => { setShowMembers(false); setMemberUserId(""); setMemberRoleId(""); setMemberNote(""); }} busy={saving} dirty={!!memberUserId || !!memberRoleId || !!memberNote}>
+      <Section
+        title="担当メンバー"
+        meta="独立確認者は管理者が任命します。実施・管理担当との兼務はできません。"
+        theme="company"
+      >
+        <Feedback message={error} error />
         {canManage ? (
         <div className={styles.toolbar}>
           <label className={styles.field}>
@@ -419,19 +476,7 @@ export default function VentureOverviewPage({
                         type="button"
                         className={styles.rowButton}
                         disabled={saving || !canManage}
-                        onClick={async () => {
-                          setSaving(true);
-                          try {
-                            await removeVentureMember(ventureId, member.id);
-                            refresh();
-                          } catch (err: unknown) {
-                            setError(
-                              err instanceof Error ? err.message : "要員を外せませんでした。"
-                            );
-                          } finally {
-                            setSaving(false);
-                          }
-                        }}
+                        onClick={() => setRemoveTarget(member.id)}
                       >
                         外す
                       </button>
@@ -444,49 +489,25 @@ export default function VentureOverviewPage({
         )}
       </Section>
 
-      {summary.topSkillGaps.length > 0 ? (
-        <Section
-          title="不足しているスキル"
-          meta="適用タスクが求めるLvに対し、要員の到達Lvが届いていないものです。"
-          theme="company"
-          actions={
-            <Link href={`/ventures/${ventureId}/skills`} className="ghost-button">
-              スキル充足を開く
-            </Link>
-          }
-        >
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>スキル</th>
-                  <th>軸</th>
-                  <th>必要Lv</th>
-                  <th>到達Lv</th>
-                  <th>不足</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.topSkillGaps.map((item) => (
-                  <tr key={item.skillId}>
-                    <td>
-                      <span className={styles.taskId}>{item.skillId}</span> {item.name}
-                    </td>
-                    <td className={styles.muted}>{item.axis}</td>
-                    <td>{item.requiredLevel}</td>
-                    <td>{item.coveredLevel}</td>
-                    <td className={`${styles.gapBadge} ${styles.gapHigh}`}>-{item.gap}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Section>
-      ) : null}
-
-      {canManage ? <Section title="案件の保管" meta="アーカイブ後も承認・評価・保全記録を保持します。" theme="company">
-        <button disabled={saving} onClick={() => patchVenture({ status: "アーカイブ" })}>案件をアーカイブする</button>
-      </Section> : null}
+      </Drawer>
+      <Modal open={reopenOpen} title="案件を再開" onClose={() => { setReopenOpen(false); setReopenReason(""); }} dirty={!!reopenReason} busy={saving}>
+        <p>状態を進行中に戻します。リスク前提は再確認が必要です。</p><Feedback message={error} error />
+        <label>再開理由<textarea value={reopenReason} onChange={e => setReopenReason(e.target.value)} maxLength={2000} /></label>
+        <button className="primary-button" disabled={saving || !reopenReason.trim()} onClick={async () => { if (await patchVenture({status: "進行中", reopenReason})) { setReopenOpen(false); setReopenReason(""); } }}>理由を記録して再開</button>
+      </Modal>
+      <Modal open={archiveConfirm} title="案件をアーカイブしますか？" onClose={() => setArchiveConfirm(false)} busy={saving}>
+        <p>タスク・台帳・評価が閲覧専用になります。保管時の記録は保持され、再開には理由が必要です。</p><Feedback message={error} error />
+        <button className="danger-button" disabled={saving} onClick={async () => { if (await patchVenture({ status: "アーカイブ" })) { setArchiveConfirm(false); setShowSettings(false); } }}>アーカイブする</button>
+      </Modal>
+      <Modal open={removeTarget !== null} title="メンバーを外しますか？" onClose={() => setRemoveTarget(null)} busy={saving}>
+        <p>この案件の担当から外れます。担当タスクとスキルの充足状況を再確認してください。</p><Feedback message={error} error />
+        <button className="danger-button" disabled={saving} onClick={async () => {
+          if (!removeTarget) return; setSaving(true); setError(null);
+          try { await removeVentureMember(ventureId, removeTarget); setRemoveTarget(null); refresh(); }
+          catch (err) { setError(err instanceof Error ? err.message : "メンバーを外せませんでした。"); }
+          finally { setSaving(false); }
+        }}>メンバーを外す</button>
+      </Modal>
     </>
   );
 }

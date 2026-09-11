@@ -1,5 +1,6 @@
 "use client";
 
+import { Disclosure } from "@/app/components/ui/Disclosure";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -148,12 +149,7 @@ export default function MentorReviewDetailPage() {
         ariaLabel="メンター詳細レビュー"
         eyebrow="メンター詳細レビュー"
         title={`提出 ${submission.id}`}
-        lead={
-          <>
-            AIレビュー結果・ルーブリックスコア・再提出履歴を確認し、承認 / 再提出 / 要面談を判断します。
-            承認するとPoC判断・部門提案に使える成果物として記録されます。
-          </>
-        }
+        lead="提出内容と評価基準を確認して、レビューを記録します。"
         metrics={[
           {
             label: "受講者",
@@ -197,6 +193,7 @@ export default function MentorReviewDetailPage() {
       ) : null}
 
       <div className={styles.reviewGrid}>
+        <Disclosure title="AI採点について"><p>AI採点は現在未提供です。</p>
         <Section
           title="AIレビュー結果"
           meta="正確性 / 可読性 / 業務理解 / 改善提案の4観点 (各4点)。"
@@ -249,11 +246,11 @@ export default function MentorReviewDetailPage() {
               }
             />
           )}
-        </Section>
+        </Section>        </Disclosure>
 
         <Section
           title="メンター判断"
-          meta="承認 / 再提出 / 要面談 を選択。承認はレビュー合格成果物になります。"
+          meta="承認すると合格の評価として記録されます。"
           theme="mentor"
           icon="shieldCheck"
         >
@@ -276,7 +273,7 @@ export default function MentorReviewDetailPage() {
               onClick={() => handleMentorDecision("approved")}
               disabled={submittingMentor}
             >
-              {submittingMentor ? "登録中…" : <IconText icon="checkCircle2">承認 (レビュー合格)</IconText>}
+              {submittingMentor ? "登録中…" : <IconText icon="checkCircle2">承認する</IconText>}
             </button>
             <button
               type="button"
@@ -325,18 +322,7 @@ export default function MentorReviewDetailPage() {
         </pre>
       </Section>
 
-      <Section
-        title="改善履歴 / 再提出履歴"
-        meta="同じ演習に対する以前の提出と AI 評価は、将来ここに時系列で表示します。"
-        theme="mentor"
-        icon="calendarDays"
-      >
-        <EmptyState
-          icon={<AppIcon name="circleDashed" size={24} />}
-          title="履歴は準備中"
-          message="本MVPでは同一受講者・同一演習の過去提出履歴を順次対応します。"
-        />
-      </Section>
+      <Disclosure title="過去の提出履歴"><p>履歴の一覧表示は現在未提供です。</p></Disclosure>
     </main>
   );
 }

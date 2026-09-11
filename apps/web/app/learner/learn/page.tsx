@@ -13,6 +13,7 @@ import type {
 import { getDashboard, getEvidenceItems, getNotifications } from "@/lib/api";
 import { getDemoAuthSession } from "@/lib/auth";
 
+import { Disclosure } from "@/app/components/ui/Disclosure";
 import { LearnerHero } from "@/app/components/learner/LearnerHero";
 import { LearnerSection } from "@/app/components/learner/Section";
 import { LearnerEmptyState } from "@/app/components/learner/EmptyState";
@@ -39,7 +40,7 @@ const STRONG_LIKE: ReadonlyArray<EvidenceStrength> = [
 const TODAY_TASK = {
   title: "業務課題整理演習 — AI活用テーマの具体化",
   estimatedMinutes: 45,
-  useCase: "自部門の業務課題をAIプロジェクト候補に落とし込む前準備として、課題・KPI・制約を整理する場面",
+  useCase: "自部門の業務課題をプロジェクト提案に落とし込む前準備として、課題・KPI・制約を整理する場面",
   rubricFocus: ["業務課題の具体性", "KPI設計", "ガバナンス観点"],
   exerciseId: "ex-python-api-001"
 };
@@ -146,12 +147,7 @@ export default function LearnerLearnPage() {
         <LearnerHero
           eyebrow="受講者ホーム"
           title={`おかえりなさい、${learnerName} さん`}
-          lead={
-            <>
-              本日の演習を完了し、部門・経営の判断に使える成果物を1件増やしましょう。学習完走より、
-              AIプロジェクト化に必要な成果物づくりを優先して進めます。
-            </>
-          }
+          lead="学習を続けて、課題を提出しましょう。"
           readiness={readiness}
           metrics={[
             {
@@ -192,24 +188,18 @@ export default function LearnerLearnPage() {
         />
       )}
 
-      <LearnerSection
-        title="12週間 Enterprise カリキュラム"
-        meta="業務課題定義からAIプロジェクト提案まで、各週の成果物を順に積み上げます。"
-        icon="calendarDays"
-      >
-        <EnterpriseCurriculumTimeline completionRate={dashboard?.completionRate ?? 0} />
-      </LearnerSection>
+
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
           gap: "1.2rem"
         }}
       >
         <LearnerSection
-          title="本日の育成演習（AIプロジェクトに近づく実務）"
-          meta="1演習30〜90分。再提出は減点ではなく、PoC判断で説明できる改善履歴として残します。"
+          title="次の課題"
+          meta="課題を選んで取り組みましょう。"
           icon="bookOpen"
           actions={
             <Link
@@ -247,7 +237,7 @@ export default function LearnerLearnPage() {
                 }}
               >
                 推定 {TODAY_TASK.estimatedMinutes} 分。業務課題とKPIを整理し、
-                AIレビュー合格で成果物に加算します。
+                AI採点は現在未提供です。提出内容は保存できます。
               </p>
             </div>
             <div className={styles.evidenceUseCase}>
@@ -269,7 +259,7 @@ export default function LearnerLearnPage() {
 
         <LearnerSection
           title="レビュー待ち・再提出"
-          meta="提出後24時間以内にAIレビューが返ります。合格・改善内容は成果物レポートに反映されます。"
+          meta="提出物を保存して確認できます。自動採点は現在未提供です。"
           icon="clock3"
         >
           {evidence === null ? (
@@ -350,8 +340,16 @@ export default function LearnerLearnPage() {
       </div>
 
       <LearnerSection
+        title="カリキュラム"
+        meta="業務課題定義からAIプロジェクト提案まで、各週の成果物を順に積み上げます。"
+        icon="calendarDays"
+      >
+        <Disclosure title="すべての学習内容を見る"><EnterpriseCurriculumTimeline completionRate={dashboard?.completionRate ?? 0} /></Disclosure>
+      </LearnerSection>
+
+      <LearnerSection
         title="直近の成果物"
-        meta="部門・経営判断に使える成果物を新しい順に最大3件表示。一覧は成果物ページへ。"
+        meta="最新3件を表示しています。"
         icon="fileCheck2"
         actions={
           <Link href="/learner/evidence" className={styles.actionGhost}>
@@ -369,7 +367,7 @@ export default function LearnerLearnPage() {
           <LearnerEmptyState
             icon={<AppIcon name="circleDashed" size={24} />}
             title="まだ成果物がありません"
-            message="演習を提出するとAIレビューと成果物レポートが自動生成されます。まず本日の演習から着手してください。"
+            message="演習の提出内容を保存できます。自動採点は現在未提供です。まず本日の演習から着手してください。"
             action={
               <Link
                 href={`/learner/exercises/${TODAY_TASK.exerciseId}`}
@@ -390,7 +388,7 @@ export default function LearnerLearnPage() {
 
       <LearnerSection
         title="育成・レビュー通知"
-        meta="ロードマップ割当・レビュー結果・教材更新など、プログラム期間の育成に関わる通知を要約表示します。"
+        meta="学習に関するお知らせです。"
         icon="messageSquare"
         actions={
           <Link href="/notifications" className={styles.actionGhost}>
