@@ -42,10 +42,25 @@ def as_of(venture: dict) -> tuple[date, str]:
 def parse_date(value: str | None) -> date | None:
     """YYYY-MM-DD だけを受ける。書式が違えば None。"""
     text = (value or "").strip()
+    if "T" in text:
+        timestamp = parse_timestamp(text)
+        return timestamp.date() if timestamp else None
     if not DATE_PATTERN.match(text):
         return None
     try:
         return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def parse_timestamp(value: str | None) -> datetime | None:
+    """Events require an explicit UTC offset; date-only legacy values stay unverified."""
+    try:
+        text = (value or "").strip()
+        if "T" not in text:
+            return None
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return parsed.astimezone(timezone.utc) if parsed.tzinfo is not None else None
     except ValueError:
         return None
 

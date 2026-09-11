@@ -1,11 +1,15 @@
 """事業PJ台帳のアプリケーションサービス。
 
 工程マスタは読み取り専用で全員が参照できる。案件台帳の更新は役割で制限する。
-学習者は自分に割り当てられた工程タスクだけ更新できる。
+進捗担当、案件責任ロール、正本確認ロールを分けて制御する。
 """
 from __future__ import annotations
 
 import re
+import math
+from datetime import datetime, timezone
+from infrastructure.venture_governance import (risk_fingerprint, VERIFICATION_FIELDS, PROTECTED_LEDGERS, CANCELLATION_FIELDS, record_is_final, task_checks)
+from infrastructure.venture_rules import parse_timestamp
 from dataclasses import dataclass
 
 from domain.models import UserContext
@@ -27,14 +31,13 @@ from infrastructure.venture_master import (
 INDEPENDENT_APPROVER_ROLE = "R19"
 
 VIEWER_ROLES = {"learner", "mentor", "recruiter", "admin", "content_editor"}
-MANAGER_ROLES = {"admin", "recruiter"}
-EDITOR_ROLES = {"admin", "recruiter", "content_editor"}
-ASSESSOR_ROLES = {"admin", "recruiter", "mentor"}
+MANAGER_ROLES = VIEWER_ROLES
+EDITOR_ROLES = VIEWER_ROLES
 
 # テナント内の全案件を見られる役割。これ以外は要員として登録された案件だけ見える。
 # 案件台帳にはデータ台帳の個人情報区分・保存場所や、要員のスキル評価・育成計画が
 # 入るため、案件に関与していない利用者には見せない。
-ALL_VENTURES_ROLES = MANAGER_ROLES
+ALL_VENTURES_ROLES = {"admin"}
 
 
 class VentureAccessError(PermissionError):
@@ -72,8 +75,26 @@ class VentureService:
             raise VentureNotFoundError("案件が見つかりません")
         return venture
 
-    def _can_see_all_assessments(self, actor: UserContext) -> bool:
-        return actor.role in ALL_VENTURES_ROLES or actor.role in ASSESSOR_ROLES
+    def capabilities(self, actor: UserContext, venture_id: str) -> dict:
+        members = self.repository.list_members(actor.tenant_id, venture_id)
+        roles = {m["roleId"] for m in members if m["userId"] == actor.user_id}
+        return {"canManage": actor.role == "admin" or bool(roles & {"R01", "R02", "R18"}),
+                "canEdit": actor.role == "admin" or bool(roles),
+                "canAssess": actor.role == "admin" or bool(roles & {"R02", "R19"}),
+                "canVerify": bool(roles & {"R01", "R18", "R19"}), "roleIds": sorted(roles)}
+
+    def _project_permission(self, actor: UserContext, venture_id: str, capability: str):
+        self.repository.lock_venture(actor.tenant_id, venture_id)
+        self._get_venture(actor, venture_id)
+        if not self.capabilities(actor, venture_id).get(capability):
+            raise VentureAccessError("案件の責任ロールにこの操作が割り当てられていません")
+
+    def _require_role(self, actor: UserContext, venture_id: str, role_id: str):
+        if role_id not in self.capabilities(actor, venture_id)["roleIds"]:
+            raise VentureAccessError(f"正本確認には案件の {role_id} 割当が必要です")
+
+    def _can_see_all_assessments(self, actor: UserContext, venture_id: str) -> bool:
+        return self.capabilities(actor, venture_id)["canAssess"]
 
     # ── マスタ ──────────────────────────────────────
     def get_master(self, actor: UserContext) -> dict:
@@ -148,30 +169,47 @@ class VentureService:
 
     def get_venture(self, actor: UserContext, venture_id: str) -> dict:
         self._assert(actor, VIEWER_ROLES)
-        return self._get_venture(actor, venture_id)
+        return {**self._get_venture(actor, venture_id), "capabilities": self.capabilities(actor, venture_id)}
 
     def create_venture(self, actor: UserContext, payload: dict) -> dict:
-        self._assert(actor, MANAGER_ROLES)
+        self._assert(actor, {"admin", "recruiter"})
         self._validate_venture_payload(payload)
         if not (payload.get("name") or "").strip():
             raise VentureValidationError("事業・サービス名を入力してください")
         return self.repository.create_venture(actor.tenant_id, actor.user_id, payload)
 
     def update_venture(self, actor: UserContext, venture_id: str, payload: dict) -> dict:
-        self._assert(actor, MANAGER_ROLES)
-        self._get_venture(actor, venture_id)
+        self._assert(actor, VIEWER_ROLES)
+        self.repository.lock_venture(actor.tenant_id, venture_id)
+        if payload.get("confirmRisk") and set(payload) <= {"confirmRisk", "riskEvidenceUri"}:
+            self._get_venture(actor, venture_id)
+            self._require_role(actor, venture_id, "R19")
+        else:
+            self._project_permission(actor, venture_id, "canManage")
+        current = self._get_venture(actor, venture_id)
         self._validate_venture_payload(payload)
+        merged = {**current, **payload, "conditions": {**current["conditions"], **(payload.get("conditions") or {})}}
+        governance = dict(current.get("governance") or {})
+        if risk_fingerprint(merged) != risk_fingerprint(current):
+            governance.update(riskConfirmed=False, riskState="再判定待ち" if governance.get("riskFingerprint") else "判定案")
+        if payload.pop("confirmRisk", False):
+            self._require_role(actor, venture_id, "R19")
+            if merged.get("riskTier") in ("", "未判定") or not merged.get("riskTierRationale") or any(merged["conditions"].get(k) not in ("適用", "対象外") for k in ("RAG", "Agent")):
+                raise VentureValidationError("Risk Tier・根拠・RAG/Agentの適用を確定してください")
+            evidence = payload.pop("riskEvidenceUri", "")
+            if not evidence:
+                raise VentureValidationError("リスク判定の正本URIを入力してください")
+            governance.update(riskConfirmed=True, riskState="確認済み", riskFingerprint=risk_fingerprint(merged),
+                riskEvidenceUri=evidence, riskConfirmedBy=actor.user_id, riskConfirmedAt=datetime.now(timezone.utc).isoformat())
+        payload["governance"] = governance
+        payload["_actor"] = actor.user_id
         venture = self.repository.update_venture(actor.tenant_id, venture_id, payload)
-        if venture is None:
-            raise VentureNotFoundError("案件が見つかりません")
-        return venture
+        return {**venture, "capabilities": self.capabilities(actor, venture_id)}
 
     def delete_venture(self, actor: UserContext, venture_id: str) -> dict:
-        self._assert(actor, MANAGER_ROLES)
-        self._get_venture(actor, venture_id)
-        if not self.repository.delete_venture(actor.tenant_id, venture_id, actor.user_id, actor.role):
-            raise VentureNotFoundError("案件が見つかりません")
-        return {"removed": True}
+        self._assert(actor, VIEWER_ROLES)
+        self._project_permission(actor, venture_id, "canManage")
+        raise VentureValidationError("証拠保全のため完全削除できません。状態をアーカイブに変更してください")
 
     def _validate_venture_payload(self, payload: dict) -> None:
         master = load_master()
@@ -179,7 +217,7 @@ class VentureService:
             raise VentureValidationError(f"規模は {', '.join(SCALE_VALUES)} のいずれかです")
         if payload.get("status") and payload["status"] not in VENTURE_STATUS_VALUES:
             raise VentureValidationError(f"状態は {', '.join(VENTURE_STATUS_VALUES)} のいずれかです")
-        tiers = {tier["tier_id"] for tier in master.risk_tiers}
+        tiers = {tier["tier_id"] for tier in master.risk_tiers} | {"未判定"}
         if payload.get("riskTier") and payload["riskTier"] not in tiers:
             raise VentureValidationError(f"Risk Tier は {', '.join(sorted(tiers))} のいずれかです")
         phases = {phase["phase_id"] for phase in master.phases}
@@ -202,6 +240,7 @@ class VentureService:
 
     def update_task(self, actor: UserContext, venture_id: str, task_row_id: str, payload: dict) -> dict:
         self._assert(actor, VIEWER_ROLES)
+        self.repository.lock_venture(actor.tenant_id, venture_id)
         self._get_venture(actor, venture_id)
         if payload.get("status") and payload["status"] not in TASK_STATUS_VALUES:
             raise VentureValidationError(f"状態は {', '.join(TASK_STATUS_VALUES)} のいずれかです")
@@ -211,11 +250,14 @@ class VentureService:
         if current is None:
             raise VentureNotFoundError("タスクが見つかりません")
 
-        if actor.role not in EDITOR_ROLES:
+        if not self.capabilities(actor, venture_id)["canManage"]:
             # 学習者・メンターは自分に割り当てられたタスクの進捗だけ更新できる。
-            if current["assigneeUserId"] != actor.user_id:
+            approver = current["approverRoleId"] in self.capabilities(actor, venture_id)["roleIds"]
+            if current["assigneeUserId"] != actor.user_id and not (approver and set(payload) <= {"approveCompletion"}):
                 raise VentureAccessError("自分が担当するタスクのみ更新できます")
             allowed_keys = {"status", "actualStart", "actualEnd", "actualHours", "evidenceUri", "blocker", "note"}
+            if approver:
+                allowed_keys.add("approveCompletion")
             rejected = set(payload) - allowed_keys
             if rejected:
                 raise VentureAccessError(f"この項目は担当者では変更できません: {', '.join(sorted(rejected))}")
@@ -230,9 +272,25 @@ class VentureService:
 
         if payload.get("dependsOn") is not None:
             self._assert_dependency_change(current, payload)
+            rows = self.repository.list_tasks(actor.tenant_id, venture_id)
+            graph = {r["taskId"]: r["dependsOn"] for r in rows}
+            graph[current["taskId"]] = payload["dependsOn"]
+            def walk(node, stack):
+                if node in stack:
+                    raise VentureValidationError("循環依存は登録できません")
+                for child in graph.get(node, []):
+                    walk(child, stack | {node})
+            walk(current["taskId"], set())
 
         if payload.get("approveCompletion") is True:
+            self._require_role(actor, venture_id, current["approverRoleId"])
             self._assert_completion_approvable(actor, current, payload)
+            proposed = {**current, **payload, "completionApprovedBy": actor.user_id, "completionApprovedAt": datetime.now(timezone.utc).isoformat()}
+            rows = self.repository.list_tasks(actor.tenant_id, venture_id)
+            rows = [proposed if r["id"] == current["id"] else r for r in rows]
+            checks = task_checks(rows, self.repository.list_members(actor.tenant_id, venture_id), as_of(self._get_venture(actor, venture_id))[0], self.repository._ledger_values(actor.tenant_id, venture_id, "gate_run"))
+            if not checks[current["taskId"]]["completionValid"]:
+                raise VentureValidationError(checks[current["taskId"]]["completionCheck"])
 
         task = self.repository.update_task(
             actor.tenant_id, venture_id, task_row_id, payload, actor.user_id, actor.role
@@ -306,7 +364,7 @@ class VentureService:
 
     def bulk_decide_applicability(self, actor: UserContext, venture_id: str, payload: dict) -> dict:
         self._assert(actor, EDITOR_ROLES)
-        self._get_venture(actor, venture_id)
+        self._project_permission(actor, venture_id, "canManage")
         applicability = payload.get("applicability")
         if applicability not in APPLICABILITY_VALUES:
             raise VentureValidationError(f"適用判定は {', '.join(APPLICABILITY_VALUES)} のいずれかです")
@@ -327,24 +385,9 @@ class VentureService:
         return {"items": self.repository.list_gates(actor.tenant_id, venture_id)}
 
     def update_gate(self, actor: UserContext, venture_id: str, gate_row_id: str, payload: dict) -> dict:
-        self._assert(actor, MANAGER_ROLES)
+        self._assert(actor, VIEWER_ROLES)
         self._get_venture(actor, venture_id)
-        if payload.get("decision"):
-            gates = self.repository.list_gates(actor.tenant_id, venture_id)
-            gate = next((item for item in gates if item["id"] == gate_row_id), None)
-            if gate is None:
-                raise VentureNotFoundError("ゲートが見つかりません")
-            allowed = set(gate["allowedDecisions"])
-            if payload["decision"] not in allowed:
-                raise VentureValidationError(
-                    f"{gate['gateId']} で選べる判断は {', '.join(sorted(allowed))} です"
-                )
-        gate = self.repository.update_gate(
-            actor.tenant_id, venture_id, gate_row_id, payload, actor.user_id, actor.role
-        )
-        if gate is None:
-            raise VentureNotFoundError("ゲートが見つかりません")
-        return gate
+        raise VentureValidationError("承認はGateRun台帳へ統一しました。ゲート承認記録から新しい判断を作成してください")
 
     # ── 要員 ────────────────────────────────────────
     def list_members(self, actor: UserContext, venture_id: str) -> dict:
@@ -354,7 +397,7 @@ class VentureService:
 
     def add_member(self, actor: UserContext, venture_id: str, payload: dict) -> dict:
         self._assert(actor, MANAGER_ROLES)
-        self._get_venture(actor, venture_id)
+        self._project_permission(actor, venture_id, "canManage")
         master = load_master()
         role_id = payload.get("roleId", "")
         if role_id not in master.role_by_id:
@@ -368,7 +411,7 @@ class VentureService:
 
     def remove_member(self, actor: UserContext, venture_id: str, member_id: str) -> dict:
         self._assert(actor, MANAGER_ROLES)
-        self._get_venture(actor, venture_id)
+        self._project_permission(actor, venture_id, "canManage")
         if not self.repository.remove_member(actor.tenant_id, venture_id, member_id):
             raise VentureNotFoundError("要員が見つかりません")
         return {"removed": True}
@@ -384,7 +427,7 @@ class VentureService:
 
     def upsert_ledger_entry(self, actor: UserContext, venture_id: str, ledger_key: str, payload: dict) -> dict:
         self._assert(actor, EDITOR_ROLES)
-        self._get_venture(actor, venture_id)
+        self._project_permission(actor, venture_id, "canEdit")
         ledger = load_master().ledger_by_key.get(ledger_key)
         if ledger is None:
             raise VentureNotFoundError(f"台帳が見つかりません: {ledger_key}")
@@ -401,22 +444,32 @@ class VentureService:
         entry_id = payload.get("id")
         existing = next((item for item in current["items"] if item["id"] == entry_id), None)
 
-        limit = ledger.get("row_limit")
-        if existing is None and limit is not None and len(current["items"]) >= limit:
-            # 原本33 K03 の予約行数。上限外は原本の改訂が要る（IT04）。
-            raise VentureValidationError(
-                f"この台帳の予約行は {limit} 行です。上限を超える記録は正本側で管理してください"
-            )
-
-        state_column = ledger.get("state_column", "")
-        locked = set(ledger.get("locked_states", []))
-        if existing is not None and locked and state_column:
-            state = (existing["values"].get(state_column) or "").strip()
-            if state in locked:
-                # 原本15「承認後の上書きをせず新しい版を作る」（IT11）
-                raise VentureValidationError(
-                    f"{state} の行は上書きできません。版を上げて新しい行を起票してください"
-                )
+        if any(key in values for key in VERIFICATION_FIELDS):
+            raise VentureAccessError("正本確認情報は確認操作でのみ記録できます")
+        if existing and record_is_final(ledger_key, existing["values"]):
+            changed = {k for k, v in values.items() if v != existing["values"].get(k, "")}
+            if changed - CANCELLATION_FIELDS:
+                raise VentureValidationError("確定済みの行は上書きできません。新しい版・Runを作成してください")
+            if any(not values[k] or existing["values"].get(k) for k in changed & CANCELLATION_FIELDS):
+                raise VentureValidationError("取消履歴は消去・変更できません")
+        cancellation_added = any(values.get(k) and values.get(k) != (existing or {}).get("values", {}).get(k) for k in CANCELLATION_FIELDS)
+        if ledger_key in PROTECTED_LEDGERS and (payload.get("verifyRecord") or cancellation_added):
+            merged_for_role = {**(existing["values"] if existing else {}), **values}
+            required_role = "R19"
+            if ledger_key == "gate_run":
+                required_role = load_master().gate_by_id.get(merged_for_role.get("Gate"), {}).get("approver_role_id", "R01")
+            self._require_role(actor, venture_id, required_role)
+        if payload.get("verifyRecord"):
+            if existing and existing["values"].get("正本確認日時"):
+                raise VentureValidationError("確認済みの記録は再確認で上書きできません。新しい版・Runを作成してください")
+            if ledger_key not in PROTECTED_LEDGERS:
+                raise VentureValidationError("この台帳は正本確認操作の対象ではありません")
+            if ledger_key == "gate_run" and not ({**(existing["values"] if existing else {}), **values}).get("正本決裁URI"):
+                raise VentureValidationError("正本決裁URIを入力してください")
+            venture = self._get_venture(actor, venture_id)
+            values = {**values, "正本確認者PersonID": actor.user_id, "正本確認日時": datetime.now(timezone.utc).isoformat(),
+                      "前提版": (venture.get("governance") or {}).get("riskFingerprint", "")}
+            payload["values"] = values
 
         self._validate_ledger_values(ledger, values)
 
@@ -425,7 +478,13 @@ class VentureService:
         if payload.get("status"):
             merged.setdefault(ledger["id_column"], existing["rowKey"] if existing else "")
         row_key = existing["rowKey"] if existing else (payload.get("rowKey") or "").strip()
-        merged[ledger["id_column"]] = row_key
+        if ledger_key == "eval_plan":
+            if existing and existing["isMasterRow"]:
+                merged.setdefault("EvalType", row_key)
+            if not merged.get("EvalType") and values:
+                raise VentureValidationError("EvalTypeを選択してください")
+        else:
+            merged[ledger["id_column"]] = row_key
         siblings = {
             item["rowKey"]: item["values"]
             for item in current["items"]
@@ -473,25 +532,30 @@ class VentureService:
                         f"{column} は {'、'.join(rule['options'])} のいずれかです"
                     )
             elif rule["type"] == "date":
-                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+                if parse_date(text) is None or "T" in text:
                     raise VentureValidationError(f"{column} は YYYY-MM-DD で入力してください")
+            elif rule["type"] == "datetime":
+                if parse_timestamp(text) is None:
+                    raise VentureValidationError(f"{column} は時差付き日時（例: 2026-09-11T09:00:00+09:00）で入力してください")
             elif rule["type"] == "number":
                 try:
                     number = float(text)
                 except ValueError:
                     raise VentureValidationError(f"{column} は数値で入力してください") from None
+                if not math.isfinite(number):
+                    raise VentureValidationError(f"{column} は有限の数値で入力してください")
                 minimum = rule.get("min")
                 if minimum is not None and number < minimum:
                     raise VentureValidationError(f"{column} は {minimum:g} 以上で入力してください")
 
     def delete_ledger_entry(self, actor: UserContext, venture_id: str, ledger_key: str, entry_id: str) -> dict:
         self._assert(actor, EDITOR_ROLES)
-        self._get_venture(actor, venture_id)
+        self._project_permission(actor, venture_id, "canEdit")
         result = self.repository.delete_ledger_entry(actor.tenant_id, venture_id, ledger_key, entry_id)
         if result == "not_found":
             raise VentureNotFoundError("台帳の行が見つかりません")
-        if result == "master_row":
-            raise VentureValidationError("この行は削除できません。点検行は状態で管理してください")
+        if result in ("master_row", "protected"):
+            raise VentureValidationError("証拠保全のため削除できません。取消・置換を記録してください")
         return {"removed": True}
 
     # ── スキル ──────────────────────────────────────
@@ -499,7 +563,7 @@ class VentureService:
         self._assert(actor, VIEWER_ROLES)
         self._get_venture(actor, venture_id)
         result = self.repository.skill_gap(actor.tenant_id, venture_id)
-        if not self._can_see_all_assessments(actor):
+        if not self._can_see_all_assessments(actor, venture_id):
             # 充足の集計は全員に見せるが、個人別の到達Lvと育成計画は本人と評価者だけ。
             for item in result.get("items", []):
                 item["assessments"] = [
@@ -510,8 +574,9 @@ class VentureService:
         return result
 
     def upsert_skill_assessment(self, actor: UserContext, venture_id: str, payload: dict) -> dict:
-        self._assert(actor, ASSESSOR_ROLES)
+        self._assert(actor, VIEWER_ROLES)
         self._get_venture(actor, venture_id)
+        self._project_permission(actor, venture_id, "canAssess")
         master = load_master()
         if payload.get("skillId") not in master.skill_by_id:
             raise VentureValidationError(f"未知のスキルです: {payload.get('skillId')}")
@@ -536,4 +601,5 @@ class VentureService:
         result = self.repository.summary(actor.tenant_id, venture_id)
         if result is None:
             raise VentureNotFoundError("案件が見つかりません")
+        result["venture"]["capabilities"] = self.capabilities(actor, venture_id)
         return result

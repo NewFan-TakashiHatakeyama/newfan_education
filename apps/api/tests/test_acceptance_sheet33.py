@@ -115,7 +115,7 @@ SHEET33_CASES: dict[str, tuple[str, str]] = {
     "IT01": (COVERED, "工程マスタの参照が全て解決する"),
     "IT02": (COVERED, "マスタが定義した入力列は書き込める"),
     "IT03": (COVERED, "台帳の入力列にない列は400で拒否する"),
-    "IT04": (COVERED, "原本33 K03 が名指しする7表の予約行数を守る"),
+    "IT04": (COVERED, "予約行数は参考値として保全し、アプリの運用上限にはしない"),
     "IT05": (COVERED, "工程マスタを更新するAPIが無い"),
     "IT06": (COVERED, "取り込んだ値を式として解釈しない"),
     "IT07": (COVERED, "開始トリガーは原本の6候補だけを受け付ける"),
@@ -138,6 +138,9 @@ def make_venture(client: TestClient, headers: dict[str, str], **overrides) -> di
     payload.update(overrides)
     res = client.post("/api/v1/ventures", json=payload, headers=headers)
     assert res.status_code == 200, res.text
+    for role in ("R01", "R18", "R19"):
+        added = client.post(f"/api/v1/ventures/{res.json()['id']}/members", json={"userId": "admin-user", "roleId": role}, headers=headers)
+        assert added.status_code == 200, added.text
     return res.json()
 
 
@@ -167,7 +170,7 @@ def test_case_inventory_matches_the_workbook() -> None:
 
 
 def test_coverage_does_not_regress() -> None:
-    """実装済みの件数が減っていないこと。増えたらこの期待値を更新する。"""
+    """目録の対応有無のみを検査する。件数は製品適合の証明には使わない。"""
     covered = {case for case, (status, _) in SHEET33_CASES.items() if status == COVERED}
     missing = {case for case, (status, _) in SHEET33_CASES.items() if status == MISSING}
     assert len(covered) + len(missing) == 72
@@ -314,7 +317,8 @@ def test_rt01_and_rt02_completion_record() -> None:
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = make_venture(client, admin)["id"]
-    task = client.get(f"/api/v1/ventures/{venture_id}/tasks", headers=admin).json()["items"][0]
+    from test_venture_governance import prepare_task
+    task = prepare_task(client, admin, venture_id)
     path = f"/api/v1/ventures/{venture_id}/tasks/{task['id']}"
 
     # RT02: 完了証拠が無ければ完了記録は成立しない
@@ -328,8 +332,8 @@ def test_rt01_and_rt02_completion_record() -> None:
         json={
             "approveCompletion": True,
             "status": "完了",
-            "actualStart": "2026-09-01",
-            "actualEnd": "2026-09-05",
+            "actualStart": task["actualStart"],
+            "actualEnd": task["actualEnd"],
             "evidenceUri": "https://example.test/issue/1",
         },
         headers=admin,
@@ -341,24 +345,20 @@ def test_rt01_and_rt02_completion_record() -> None:
     assert body["completionApprovedAt"] is not None
 
 
+
 def test_rt14_gate_decision_must_fit_the_gate() -> None:
-    """RT14 G3のScale不適合: Gate判断不適合。"""
+    from test_acceptance_sheet33 import put, GATE_RUN_BASE
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
-    venture_id = make_venture(client, admin)["id"]
-    gates = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"]
-    g3 = next(gate for gate in gates if gate["gateId"] == "G3")
-    g4 = next(gate for gate in gates if gate["gateId"] == "G4")
-
-    bad = client.patch(
-        f"/api/v1/ventures/{venture_id}/gates/{g3['id']}", json={"decision": "Scale"}, headers=admin
-    )
-    assert bad.status_code == 400
-    # G4 は Scale を選べる
-    good = client.patch(
-        f"/api/v1/ventures/{venture_id}/gates/{g4['id']}", json={"decision": "Scale"}, headers=admin
-    )
-    assert good.status_code == 200
+    vid = make_venture(client, admin)["id"]
+    row = put(client, admin, vid, "gate_run", {**GATE_RUN_BASE, "A実名": "外部決裁者の実名"}, row_key="GR")
+    assert row.status_code == 200, row.text
+    gate = next(g for g in client.get(f"/api/v1/ventures/{vid}/gates", headers=admin).json()["items"] if g["gateId"] == "G3")
+    assert gate["decidedByName"] == "外部決裁者の実名"
+    assert gate["recordedDecision"] == "承認" and not gate["effective"]
+    assert gate["decision"] == "未審査"
+    invalid = put(client, admin, vid, "gate_run", {**GATE_RUN_BASE, "判断結果": "Scale"}, row_key="BAD")
+    assert invalid.json()["derived"]["判定整合"] == "Gate判断不適合"
 
 
 @pytest.mark.parametrize("level", [1.5, -1, 4])
@@ -450,8 +450,15 @@ def test_rt45_independence_is_checked_by_person_not_role_name() -> None:
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = make_venture(client, admin)["id"]
     tasks = client.get(f"/api/v1/ventures/{venture_id}/tasks", headers=admin).json()["items"]
-    independent = next(task for task in tasks if task["approverRoleId"] == "R19")
-    path = f"/api/v1/ventures/{venture_id}/tasks/{independent['id']}"
+    task = next(task for task in tasks if task["approverRoleId"] == "R19")
+    from test_venture_governance import prepare_task
+    task = prepare_task(client, admin, venture_id, task["taskId"], person="admin-user")
+    deps = [r["id"] for r in tasks if r["taskId"] in task["dependsOn"]]
+    if deps:
+        assert client.post(f"/api/v1/ventures/{venture_id}/tasks/applicability", headers=admin,
+            json={"taskRowIds": deps, "applicability": "対象外", "reason": "独立性テストの対象範囲で除外承認"}).status_code == 200
+    assert client.post(f"/api/v1/ventures/{venture_id}/members", headers=admin, json={"userId": "demo-user", "roleId": task["roleId"]}).status_code == 200
+    path = f"/api/v1/ventures/{venture_id}/tasks/{task['id']}"
 
     client.post(
         f"/api/v1/ventures/{venture_id}/members",
@@ -471,6 +478,8 @@ def test_rt45_independence_is_checked_by_person_not_role_name() -> None:
 
     client.patch(path, json={"assigneeUserId": "demo-user"}, headers=admin)
     assert client.patch(path, json=payload, headers=admin).status_code == 200
+
+
 
 
 def test_rt60_same_eval_type_can_have_multiple_plan_versions() -> None:
@@ -567,8 +576,8 @@ def test_it09_negative_numbers_are_rejected() -> None:
 
 
 # ══ 台帳の記録点検（原本15/16/20/21/22/25 の点検列） ══════════
-def put(client, headers, venture_id, ledger_key, values, *, row_key=None, entry_id=None, status=None):
-    payload: dict = {"values": values}
+def put(client, headers, venture_id, ledger_key, values, *, row_key=None, entry_id=None, status=None, verify=False):
+    payload: dict = {"values": values, "verifyRecord": verify}
     if row_key:
         payload["rowKey"] = row_key
     if entry_id:
@@ -649,7 +658,7 @@ def test_it11_approved_eval_plan_cannot_be_overwritten() -> None:
     # 計画版を上げた新しい行なら書ける（RT60 と同じ導線）
     added = put(
         client, admin, venture_id, "eval_plan",
-        {**APPROVED_PLAN, "計画版": "2", "合格閾値/方向": "0.85 以上"}, row_key="EP-001@2",
+        {**APPROVED_PLAN, "EvalType": "E01", "計画版": "2", "合格閾値/方向": "0.85 以上"}, row_key="EP-001@2",
     )
     assert added.status_code == 200
 
@@ -670,8 +679,8 @@ RUN_BASE = {
     "証拠URI": "https://example.test/run/1",
     "実行者PersonID": "demo-user",
     "独立確認者PersonID": "mentor-user",
-    "日時": "2026-09-01",
-    "承認日": "2026-09-02",
+    "日時": "2026-09-01T09:00:00+09:00",
+    "承認日": "2026-09-02T09:00:00+09:00",
     "人の合否": "合格",
 }
 
@@ -703,7 +712,7 @@ def test_rt15_rt16_rt31_rt32_rt58_eval_run_checks() -> None:
 
     # RT16: 承認日が実施日時より前
     reversed_dates = put(
-        client, admin, venture_id, "eval_run", {**RUN_BASE, "承認日": "2026-08-20"}, row_key="R-04"
+        client, admin, venture_id, "eval_run", {**RUN_BASE, "承認日": "2026-08-20T09:00:00+09:00"}, row_key="R-04"
     )
     assert reversed_dates.status_code == 400
     assert reversed_dates.json()["detail"] == "評価承認日時逆転"
@@ -737,8 +746,8 @@ RELEASE_BASE = {
     "監視担当": "R12",
     "Rollback/補償URI": "https://example.test/rollback",
     "最終承認者": "山田太郎",
-    "承認日": "2026-09-01",
-    "公開日時": "2026-09-03",
+    "承認日": "2026-09-01T09:00:00+09:00",
+    "公開日時": "2026-09-03T09:00:00+09:00",
     "状態": "展開中",
     "運用CS適用": "必要",
     "運用/CS準備URI": "https://example.test/cs",
@@ -766,7 +775,7 @@ def test_rt17_rt18_rt19_rt57_release_checks() -> None:
 
     # RT19（承認より前に公開している）
     reversed_release = put(
-        client, admin, venture_id, "release", {**RELEASE_BASE, "公開日時": "2026-08-25"}, row_key="REL-03"
+        client, admin, venture_id, "release", {**RELEASE_BASE, "公開日時": "2026-08-25T09:00:00+09:00"}, row_key="REL-03"
     )
     assert reversed_release.status_code == 400
     assert reversed_release.json()["detail"] == "承認前の通常公開"
@@ -782,7 +791,7 @@ def test_rt17_rt18_rt19_rt57_release_checks() -> None:
         client, admin, venture_id, "release",
         {**RELEASE_BASE, "変更区分": "Emergency", "Major該当理由": "重大事故の緊急復旧",
          "緊急例外／手順ID": "EM-01", "緊急権限者": "R18 佐藤",
-         "緊急権限行使日時": "2026-09-02", "事後審査期限": "2026-09-20",
+         "緊急権限行使日時": "2026-09-02T09:00:00+09:00", "事後審査期限": "2026-09-20T09:00:00+09:00",
          "事後審査URI": "https://example.test/review"},
         row_key="REL-05",
     )
@@ -799,8 +808,8 @@ def test_rt20_rt21_incident_state_requires_matching_evidence() -> None:
         "概要・利用者影響": "検索結果に他社データが混入",
         "重大度/境界": "重大・製品AI",
         "Owner": "R12 田中",
-        "検知日時": "2026-09-01",
-        "受付日時": "2026-09-01",
+        "検知日時": "2026-09-01T09:00:00+09:00",
+        "受付日時": "2026-09-01T09:00:00+09:00",
     }
 
     # RT21: 初動は最小項目で登録できる
@@ -814,7 +823,7 @@ def test_rt20_rt21_incident_state_requires_matching_evidence() -> None:
 
     full = put(
         client, admin, venture_id, "incident",
-        {**base, "状態": "復旧", "復旧日時": "2026-09-02", "封じ込め/手動対応": "検索を停止",
+        {**base, "状態": "復旧", "復旧日時": "2026-09-02T09:00:00+09:00", "封じ込め/手動対応": "検索を停止",
          "manifest/trace URI": "https://example.test/trace"},
         row_key="INC-03",
     )
@@ -823,7 +832,7 @@ def test_rt20_rt21_incident_state_requires_matching_evidence() -> None:
     # 解決にするなら原因・救済・再発防止・Postmortem まで要る
     solved = put(
         client, admin, venture_id, "incident",
-        {**base, "状態": "解決", "復旧日時": "2026-09-02", "封じ込め/手動対応": "検索を停止",
+        {**base, "状態": "解決", "復旧日時": "2026-09-02T09:00:00+09:00", "封じ込め/手動対応": "検索を停止",
          "manifest/trace URI": "https://example.test/trace"},
         row_key="INC-04",
     )
@@ -832,7 +841,7 @@ def test_rt20_rt21_incident_state_requires_matching_evidence() -> None:
     # 時刻の前後が逆なら入口で拒否
     bad = put(
         client, admin, venture_id, "incident",
-        {**base, "受付日時": "2026-08-25", "状態": "受付"}, row_key="INC-05",
+        {**base, "受付日時": "2026-08-25T09:00:00+09:00", "状態": "受付"}, row_key="INC-05",
     )
     assert bad.status_code == 400
     assert bad.json()["detail"] == "時刻不正"
@@ -890,6 +899,7 @@ def test_rt39_rt40_carried_over_hypothesis_needs_limits() -> None:
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = make_venture(client, admin, asOfDate="2026-09-30")["id"]
     gate = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"][0]
+    gate = put(client, admin, venture_id, "gate_run", {**GATE_RUN_BASE, "Gate": "G0", "判断結果": "承認"}, row_key="GR-HYP").json()
     rows = {item["rowKey"]: item for item in rows_of(client, admin, venture_id, "hypothesis")}
     base = {
         "具体仮説/対象者": "現場監督が日報作成時間を半減できる",
@@ -899,7 +909,7 @@ def test_rt39_rt40_carried_over_hypothesis_needs_limits() -> None:
         "対象セグメント・期間": "建設3現場・2026Q4",
         "比較対象": "手作業の現状",
         "Gateで必要な証拠": "実業務での利用ログ",
-        "承認記録ID": gate["id"],
+        "承認記録ID": gate["rowKey"],
         "検証状態": "未検証で限定継続",
     }
 
@@ -925,6 +935,8 @@ def test_rt39_rt40_carried_over_hypothesis_needs_limits() -> None:
     )
     assert bad_gate.status_code == 400
     assert bad_gate.json()["detail"] == "GateRun不正"
+
+
 
 
 def test_rt03_future_actuals_are_rejected() -> None:
@@ -1044,6 +1056,7 @@ def test_rt35_required_eval_set_needs_passing_run_or_approved_exclusion() -> Non
     put(client, admin, venture_id, "eval_run", RUN_BASE, row_key="R-PASS")
 
     entry = {
+        **SET_APPROVAL,
         "Release ID": "REL-001",
         "ManifestHash": "sha256:aaa",
         "EvalPlanKey": "EP-001@1",
@@ -1091,6 +1104,7 @@ def test_rt35_required_eval_set_needs_passing_run_or_approved_exclusion() -> Non
     )
     assert mismatch.status_code == 400
     assert mismatch.json()["detail"] == "評価対象不一致"
+
 
 
 # ══ 18_見積・AI効果測定 ════════════════════════════════════
@@ -1212,6 +1226,7 @@ def test_rt49_rt50_unit_cost_separates_variable_and_allocated_fixed() -> None:
     venture_id = make_venture(client, admin, asOfDate="2026-09-30")["id"]
     rows = {item["rowKey"]: item for item in rows_of(client, admin, venture_id, "unit_economics")}
     base = {
+        **{c: "0" for c in load_master().ledger_by_key["unit_economics"]["input_columns"] if load_master().ledger_by_key["unit_economics"].get("column_rules", {}).get(c, {}).get("type") == "number"},
         "予測/実績": "実績",
         "対象期間/条件": "2026Q3",
         "成功業務の定義・ID": "日報1件の要約完了",
@@ -1251,6 +1266,7 @@ def test_rt49_rt50_unit_cost_separates_variable_and_allocated_fixed() -> None:
     assert zero.json()["derived"]["入力点検"] == "成功0・単位原価計算不可"
 
 
+
 def test_investment_decision_principles_are_available() -> None:
     """原本26末尾の投資/継続判断の原則（G4の判断語彙の意味）が読めること。"""
     client = TestClient(app)
@@ -1262,6 +1278,11 @@ def test_investment_decision_principles_are_available() -> None:
 
 # ══ 29_ゲート判断Run と 20 の決裁接続 ═══════════════════════
 GATE_RUN_BASE = {
+    "集合版／正本ID": "SET@1",
+    "正本決裁URI": "https://example.test/decision",
+    "事業Risk受容/予算": "リスク受容済・予算100万円",
+    "必須評価集合URI": "https://example.test/set",
+    "集合承認者": "独立評価者",
     "Gate": "G3",
     "対象範囲/版": "v1.0 現場日報の要約",
     "証拠パッケージURI": "https://example.test/gate/g3",
@@ -1278,16 +1299,42 @@ GATE_RUN_BASE = {
 }
 
 
-def seed_required_eval(client, headers, venture_id):
-    """G3の必須評価セットを充足させる（評価計画→Run→必須評価）。"""
+def seed_required_eval(client, headers, venture_id, classification_count=18):
+    """18分類・前提の独立確認・機能除外を含めてG3の正常系を構成する。"""
+    updated = client.patch(f"/api/v1/ventures/{venture_id}", headers=headers, json={
+        "conditions": {"RAG": "対象外", "Agent": "対象外"}, "riskTierRationale": "匿名テキストのみ・人が最終判断",
+        "confirmRisk": True, "riskEvidenceUri": "https://example.test/risk"})
+    assert updated.status_code == 200, updated.text
+    tasks = client.get(f"/api/v1/ventures/{venture_id}/tasks", headers=headers).json()["items"]
+    excluded = client.post(f"/api/v1/ventures/{venture_id}/tasks/applicability", headers=headers, json={
+        "taskRowIds": [r["id"] for r in tasks if r["taskId"] in ("B4-03", "B4-04")],
+        "applicability": "対象外", "reason": "検索・Agentなし。正本の構成審査で確認"})
+    assert excluded.status_code == 200, excluded.text
     approve_eval_plan(client, headers, venture_id)
-    put(client, headers, venture_id, "eval_run", RUN_BASE, row_key="R-PASS")
-    put(
+    run = put(client, headers, venture_id, "eval_run", RUN_BASE, row_key="R-PASS")
+    assert run.status_code == 200, run.text
+    first = put(
         client, headers, venture_id, "required_eval",
         {"Release ID": "REL-001", "ManifestHash": "sha256:aaa", "EvalPlanKey": "EP-001@1",
+         **SET_APPROVAL,
          "適用": "必須", "EvalRun ID": "R-PASS"},
         row_key="S-01",
     )
+    assert first.status_code == 200, first.text
+    for i in range(2, classification_count + 1):
+        plan_id = f"EP-{i:03}"
+        plan = put(client, headers, venture_id, "eval_plan", {
+            **APPROVED_PLAN, "EvalType": f"E{i:02}", "EvalPlan ID": plan_id,
+            "状態": "対象外承認", "対象外理由": "当該公開範囲では対象外・集合審査で承認"}, row_key=f"{plan_id}@1")
+        assert plan.status_code == 200, plan.text
+        entry = put(client, headers, venture_id, "required_eval", {
+            **SET_APPROVAL, "Release ID": "REL-001", "ManifestHash": "sha256:aaa", "EvalPlanKey": f"{plan_id}@1",
+            "適用": "対象外", "対象外理由": "当該公開範囲では対象外・集合審査で承認"}, row_key=f"S-{i:02}")
+        assert entry.status_code == 200, entry.text
+        assert entry.json()["derived"]["充足フラグ"] == "1", entry.json()
+
+
+SET_APPROVAL = {"集合承認URI": "https://example.test/set", "承認者": "独立評価者", "集合版／正本ID": "SET@1", "承認日": "2026-09-03"}
 
 
 def test_rt12_rt13_rt30_gate_run_history_and_verdicts() -> None:
@@ -1298,7 +1345,7 @@ def test_rt12_rt13_rt30_gate_run_history_and_verdicts() -> None:
     seed_required_eval(client, admin, venture_id)
 
     # RT12: 新しいGateRunでも定義（判断対象・標準Task・最終A Role）はマスタから補完される
-    run = put(client, admin, venture_id, "gate_run", GATE_RUN_BASE, row_key="GR-001")
+    run = put(client, admin, venture_id, "gate_run", GATE_RUN_BASE, row_key="GR-001", verify=True)
     assert run.status_code == 200
     derived = run.json()["derived"]
     assert derived["判断対象"] == "本番公開"
@@ -1311,20 +1358,21 @@ def test_rt12_rt13_rt30_gate_run_history_and_verdicts() -> None:
 
     # RT13: 独立QAが不合格なら、承認しても有効な公開許可にはならない
     failed = put(
-        client, admin, venture_id, "gate_run", {**GATE_RUN_BASE, "独立QA判定": "不合格"}, row_key="GR-002"
+        client, admin, venture_id, "gate_run", {**GATE_RUN_BASE, "独立QA判定": "不合格"}, row_key="GR-002", verify=True
     )
     assert failed.json()["derived"]["判定整合"] == "停止判定と承認が矛盾"
     assert failed.json()["derived"]["有効性点検"] == "停止判定と承認が矛盾"
 
     # G3にScaleは選べない（原本32の許容判断）
     unfit = put(
-        client, admin, venture_id, "gate_run", {**GATE_RUN_BASE, "判断結果": "Scale"}, row_key="GR-003"
+        client, admin, venture_id, "gate_run", {**GATE_RUN_BASE, "判断結果": "Scale"}, row_key="GR-003", verify=True
     )
     assert unfit.json()["derived"]["判定整合"] == "Gate判断不適合"
 
     # RT30: 判断Run IDは重複できない
-    duplicated = put(client, admin, venture_id, "gate_run", GATE_RUN_BASE, row_key="GR-001")
+    duplicated = put(client, admin, venture_id, "gate_run", GATE_RUN_BASE, row_key="GR-001", verify=True)
     assert duplicated.status_code == 400
+
 
 
 def test_rt34_rt56_release_needs_a_valid_decision_for_the_same_version() -> None:
@@ -1333,7 +1381,7 @@ def test_rt34_rt56_release_needs_a_valid_decision_for_the_same_version() -> None
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = make_venture(client, admin, asOfDate="2026-09-30")["id"]
     seed_required_eval(client, admin, venture_id)
-    put(client, admin, venture_id, "gate_run", GATE_RUN_BASE, row_key="GR-001")
+    put(client, admin, venture_id, "gate_run", GATE_RUN_BASE, row_key="GR-001", verify=True)
 
     release = {**RELEASE_BASE, "GateRun ID": "GR-001", "公開ManifestHash": "sha256:aaa"}
 
@@ -1369,6 +1417,7 @@ def test_rt34_rt56_release_needs_a_valid_decision_for_the_same_version() -> None
     assert reused["derived"]["公開準備点検"] == "決裁整合未充足"
 
 
+
 def test_rt22_gate_g5_needs_every_asset_decided() -> None:
     """RT22 の29側: 22の資産処理決定が揃って初めて G5 の前提が充足する。"""
     client = TestClient(app)
@@ -1377,10 +1426,11 @@ def test_rt22_gate_g5_needs_every_asset_decided() -> None:
 
     g5 = put(
         client, admin, venture_id, "gate_run",
-        {**GATE_RUN_BASE, "Gate": "G5", "判断結果": "廃止完了承認"}, row_key="GR-G5",
+        {**GATE_RUN_BASE, "Gate": "G5", "判断結果": "廃止完了承認"}, row_key="GR-G5", verify=True,
     )
     assert g5.json()["derived"]["必須評価・前提点検"] == "終了残件あり・資産台帳確認"
     assert g5.json()["derived"]["有効性点検"] == "終了残件あり・資産台帳確認"
+
 
 
 # ══ 34_反復TaskRun ═════════════════════════════════════════
@@ -1449,7 +1499,7 @@ def test_rt41_rt42_rt43_it07_repeat_runs() -> None:
     put(
         client, admin, venture_id, "gate_run",
         {**GATE_RUN_BASE, "Gate": "G4", "判断結果": "Stop", "条件運用区分": "なし"},
-        row_key="GR-STOP",
+        row_key="GR-STOP", verify=True,
     )
     started = put(
         client, admin, venture_id, "task_run",
@@ -1498,16 +1548,16 @@ def test_rt45_assignment_checks_independence_by_person() -> None:
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = make_venture(client, admin, asOfDate="2026-09-30")["id"]
-    for user_id, role_id in (("demo-user", "R02"), ("mentor-user", "R19")):
+    for user_id, role_id in (("demo-user", "R02"), ("demo-user", "R19"), ("mentor-user", "R19")):
         client.post(
             f"/api/v1/ventures/{venture_id}/members",
             json={"userId": user_id, "roleId": role_id}, headers=admin,
         )
-    client.post(
+    assessment = client.post(
         f"/api/v1/ventures/{venture_id}/skill-assessments",
-        json={"skillId": "S077", "userId": "demo-user", "assessedLevel": 3},
+        json={"skillId": "S077", "userId": "demo-user", "assessedLevel": 3, "evidenceUri": "https://example.test/assessment"},
         headers=admin,
-    )
+    ).json()
 
     base = {
         "Task ID": "B4-01",
@@ -1515,7 +1565,8 @@ def test_rt45_assignment_checks_independence_by_person() -> None:
         "Skill ID": "S077",
         "必要Lv": "3",
         "PersonID": "demo-user",
-        "能力評価記録ID": "SA-001",
+        "能力評価記録ID": assessment["id"],
+        "割当承認者": "admin-user", "承認日": "2026-09-01", "対象期間": "2026Q3",
         "必要性・担当範囲": "独立評価の実施",
         "役割区分": "独立評価",
         "当該実装PersonID": "demo-user",
@@ -1548,6 +1599,7 @@ def test_rt46_scale_needs_behavioural_evidence() -> None:
     venture_id = make_venture(client, admin, asOfDate="2026-09-30")["id"]
     gate = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"][0]
     rows = {item["rowKey"]: item for item in rows_of(client, admin, venture_id, "hypothesis")}
+    put(client, admin, venture_id, "gate_run", {**GATE_RUN_BASE, "Gate": "G0"}, row_key="GR-HYP")
     hypothesis = {
         "具体仮説/対象者": "無償デモで好評",
         "成功条件/測定": "反復利用率30%",
@@ -1556,7 +1608,7 @@ def test_rt46_scale_needs_behavioural_evidence() -> None:
         "対象セグメント・期間": "建設3現場・2026Q3",
         "比較対象": "手作業",
         "Gateで必要な証拠": "実業務での反復利用",
-        "承認記録ID": gate["id"],
+        "承認記録ID": "GR-HYP",
         "検証状態": "検証済み",
         "実測/顧客証拠URI": "https://example.test/evidence",
         "実際の証拠区分": "無償デモ",
@@ -1569,7 +1621,7 @@ def test_rt46_scale_needs_behavioural_evidence() -> None:
 
     scale = put(
         client, admin, venture_id, "gate_run",
-        {**GATE_RUN_BASE, "Gate": "G4", "判断結果": "Scale", "条件運用区分": "なし"},
+        {**GATE_RUN_BASE, "Gate": "G4", "判断結果": "Scale", "条件運用区分": "なし", "対象期間": "2026Q3", "仮説ID": "HY02"},
         row_key="GR-G4",
     )
     assert scale.status_code == 200
@@ -1579,22 +1631,25 @@ def test_rt46_scale_needs_behavioural_evidence() -> None:
     put(
         client, admin, venture_id, "hypothesis",
         {**hypothesis, "実際の証拠区分": "有償継続", "事業拡大判定": "拡大可能",
-         "必要証拠の充足判定": "充足"},
+         "必要証拠の充足判定": "充足", "対象範囲/版": GATE_RUN_BASE["対象範囲/版"], "対象期間": "2026Q3"},
         entry_id=rows["HY02"]["id"],
     )
     approved = put(
         client, admin, venture_id, "gate_run",
-        {**GATE_RUN_BASE, "Gate": "G4", "判断結果": "Scale", "条件運用区分": "なし"},
+        {**GATE_RUN_BASE, "Gate": "G4", "判断結果": "Scale", "条件運用区分": "なし", "対象期間": "2026Q3", "仮説ID": "HY02"},
         row_key="GR-G4b",
     )
     assert approved.json()["derived"]["判定整合"] == "判定整合"
 
 
+
+
 def test_it04_reserved_row_limits_follow_the_workbook() -> None:
-    """IT04 予約行の上限外拒否。原本33 K03 が名指しする7表の上限を守る。"""
+    """IT04 Excelの予約範囲を保持するが、アプリでは上限を設けない。"""
     from infrastructure.venture_master import load_master
 
-    limits = {ledger["key"]: ledger.get("row_limit") for ledger in load_master().ledgers}
+    assert all(l.get("row_limit") is None for l in load_master().ledgers)
+    limits = {ledger["key"]: ledger.get("workbook_row_limit") for ledger in load_master().ledgers}
     assert limits["eval_plan"] == 100
     assert limits["eval_run"] == 100
     assert limits["gate_run"] == 80
@@ -1606,12 +1661,14 @@ def test_it04_reserved_row_limits_follow_the_workbook() -> None:
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = make_venture(client, admin)["id"]
-    # 上限10の案件判定は点検行で埋まっているので、追加を拒否する
+    # 点検行を使い切っても案件固有の行を追加できる。
     over = put(
         client, admin, venture_id, "risk_screening", {"確認状態": "確認済"}, row_key="EXTRA"
     )
-    assert over.status_code == 400
-    assert "予約行" in over.json()["detail"]
+    assert over.status_code == 200
+    assert over.json()["rowKey"] == "EXTRA"
+
+
 
 
 def test_rt04_changing_standard_dependencies_needs_approval() -> None:

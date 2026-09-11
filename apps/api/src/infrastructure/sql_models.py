@@ -277,6 +277,7 @@ class VentureModel(Base):
     """自社事業のAIプロジェクト。工程マスタを参照して台帳を持つ。"""
 
     __tablename__ = "ventures"
+    governance: Mapped[dict] = mapped_column(JSON, default=dict)
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(64), index=True)
@@ -287,7 +288,7 @@ class VentureModel(Base):
     service_countries: Mapped[str] = mapped_column(String(255), default="")
     processing_countries: Mapped[str] = mapped_column(String(255), default="")
     scale: Mapped[str] = mapped_column(String(8), default="S")
-    risk_tier: Mapped[str] = mapped_column(String(8), default="T1")
+    risk_tier: Mapped[str] = mapped_column(String(8), default="未判定")
     risk_tier_rationale: Mapped[str] = mapped_column(Text(), default="")
     status: Mapped[str] = mapped_column(String(16), default="計画中", index=True)
     current_phase_id: Mapped[str] = mapped_column(String(8), default="B0")

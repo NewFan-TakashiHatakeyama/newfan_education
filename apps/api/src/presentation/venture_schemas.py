@@ -240,7 +240,7 @@ class VentureCreateRequest(BaseModel):
     serviceCountries: str = Field(default="", max_length=255)
     processingCountries: str = Field(default="", max_length=255)
     scale: str = Field(default="S", max_length=8)
-    riskTier: str = Field(default="T1", max_length=8)
+    riskTier: str = Field(default="未判定", max_length=8)
     riskTierRationale: str = Field(default="", max_length=TEXT_MAX)
     currentPhaseId: str = Field(default="B0", max_length=8)
     businessOwnerUserId: str | None = Field(default=None, max_length=64)
@@ -249,6 +249,8 @@ class VentureCreateRequest(BaseModel):
 
 
 class VentureUpdateRequest(BaseModel):
+    confirmRisk: bool = False
+    riskEvidenceUri: str = Field(default="", max_length=TEXT_MAX)
     name: str | None = Field(default=None, max_length=200)
     summary: str | None = Field(default=None, max_length=TEXT_MAX)
     offeringType: str | None = Field(default=None, max_length=32)
@@ -266,6 +268,8 @@ class VentureUpdateRequest(BaseModel):
 
 
 class VentureResponse(BaseModel):
+    governance: dict = {}
+    capabilities: dict = {}
     id: str
     name: str
     summary: str
@@ -298,6 +302,8 @@ class VenturesResponse(BaseModel):
 
 # ── 工程タスク ──────────────────────────────────────
 class VentureTaskResponse(BaseModel):
+    completionValid: bool = False
+    completionCheck: str = "未確認"
     id: str
     ventureId: str
     taskId: str
@@ -386,6 +392,10 @@ class VentureApplicabilityBulkResponse(BaseModel):
 
 # ── ゲート ──────────────────────────────────────────
 class VentureGateResponse(BaseModel):
+    recordedDecision: str = "未審査"
+    effective: bool = False
+    validity: str = "判断記録なし"
+    gateRunId: str = ""
     id: str
     gateId: str
     subject: str
@@ -452,6 +462,8 @@ class VentureRemovedResponse(BaseModel):
 
 # ── 汎用台帳 ────────────────────────────────────────
 class VentureLedgerEntryResponse(BaseModel):
+    checks: dict[str, dict[str, str]] = {}
+    createdAt: str | None = None
     id: str
     rowKey: str
     isMasterRow: bool
@@ -471,6 +483,7 @@ class VentureLedgerResponse(BaseModel):
 
 
 class VentureLedgerEntryUpsertRequest(BaseModel):
+    verifyRecord: bool = False
     id: str | None = Field(default=None, max_length=80)
     rowKey: str | None = Field(default=None, max_length=64)
     status: str | None = Field(default=None, max_length=32)
@@ -508,6 +521,7 @@ class VentureSkillCourseResponse(BaseModel):
 
 
 class VentureSkillGapItemResponse(BaseModel):
+    assignments: list[dict] = []
     skillId: str
     name: str
     axis: str
@@ -571,6 +585,7 @@ class VentureLedgerProgressResponse(BaseModel):
 
 
 class VentureSummaryResponse(BaseModel):
+    decisions: dict = {}
     venture: VentureResponse
     phases: list[VenturePhaseProgressResponse]
     gates: list[VentureGateResponse]

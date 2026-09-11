@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from dataclasses import replace
+import json
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -26,7 +28,8 @@ from infrastructure.sql_models import (
 from infrastructure.course_seed import default_courses
 from infrastructure.skill_course_map import courses_for_skill
 from infrastructure.venture_ledger_checks import CHECK_COLUMNS, CheckContext, evaluate, plan_key
-from infrastructure.venture_rules import as_of
+from infrastructure.venture_rules import as_of, parse_date
+from infrastructure.venture_governance import task_checks, risk_fingerprint, check_statuses
 from infrastructure.venture_master import (
     APPLICABILITY_APPLIED,
     APPLICABILITY_EXCLUDED,
@@ -51,6 +54,8 @@ def _dependencies(model: VentureTaskModel, task: dict) -> list[str]:
     """案件の実効依存。上書きが無ければ標準依存（原本02の基本依存ID）。"""
     override = (model.depends_on_override or "").strip()
     if not override:
+        if model.dependency_change_approved_by and model.dependency_change_reason:
+            return []
         return task.get("depends_on", [])
     return [part.strip() for part in override.split(",")]
 
@@ -59,6 +64,8 @@ def _dependency_check(model: VentureTaskModel, task: dict) -> str:
     """原本17!BC 依存記法点検と、W の依存変更承認不足。"""
     override = (model.depends_on_override or "").strip()
     if not override:
+        if model.dependency_change_approved_by and model.dependency_change_reason:
+            return "依存なし"
         return "標準依存"
     parts = override.split(",")
     if any(not part.strip() or part != part.strip() for part in parts):
@@ -93,6 +100,15 @@ class PostgresVentureRepository:
 
     def __init__(self, db: Session) -> None:
         self._db = db
+
+    def lock_venture(self, tenant_id: str, venture_id: str) -> None:
+        """Serialize validation and mutation so an approval cannot race a core edit."""
+        connection = self._db.connection()
+        if connection.dialect.name == "sqlite" and not connection.connection.driver_connection.in_transaction:
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
+        self._db.execute(select(VentureModel.id).where(
+            VentureModel.id == venture_id, VentureModel.tenant_id == tenant_id).with_for_update()).first()
+        self._db.expire_all()
 
     def _commit(self) -> None:
         """コミットに失敗したら必ずロールバックしてからそのまま投げる。
@@ -371,6 +387,7 @@ class PostgresVentureRepository:
             "scale": model.scale,
             "riskTier": model.risk_tier,
             "riskTierRationale": model.risk_tier_rationale,
+            "governance": model.governance or {},
             "status": model.status,
             "currentPhaseId": model.current_phase_id,
             "businessOwnerUserId": model.business_owner_user_id,
@@ -405,18 +422,12 @@ class PostgresVentureRepository:
         return self._venture_row(model, self._progress_counts(venture_id))
 
     def _progress_counts(self, venture_id: str) -> dict:
-        tasks = (
-            self._db.execute(select(VentureTaskModel).where(VentureTaskModel.venture_id == venture_id))
-            .scalars()
-            .all()
-        )
-        applied = [t for t in tasks if t.applicability == APPLICABILITY_APPLIED]
-        return {
-            "taskTotal": len(tasks),
-            "taskApplied": len(applied),
-            "taskUndecided": sum(1 for t in tasks if t.applicability == APPLICABILITY_UNDECIDED),
-            "taskCompleted": sum(1 for t in applied if t.status == "完了"),
-        }
+        venture = self._db.get(VentureModel, venture_id)
+        rows = self.list_tasks(venture.tenant_id, venture_id) if venture else []
+        applied = [r for r in rows if r["applicability"] == APPLICABILITY_APPLIED]
+        return {"taskTotal": len(rows), "taskApplied": len(applied),
+                "taskUndecided": sum(r["applicability"] == APPLICABILITY_UNDECIDED for r in rows),
+                "taskCompleted": sum(r["completionValid"] for r in applied)}
 
     def create_venture(self, tenant_id: str, created_by: str, payload: dict) -> dict:
         master = load_master()
@@ -433,8 +444,9 @@ class PostgresVentureRepository:
             service_countries=payload.get("serviceCountries", ""),
             processing_countries=payload.get("processingCountries", ""),
             scale=payload.get("scale", "S"),
-            risk_tier=payload.get("riskTier", "T1"),
+            risk_tier=payload.get("riskTier", "未判定"),
             risk_tier_rationale=payload.get("riskTierRationale", ""),
+            governance={"riskConfirmed": False, "riskState": "未判定" if payload.get("riskTier", "未判定") == "未判定" else "判定案", "riskLedgerRevision": 0},
             status=payload.get("status", "計画中"),
             current_phase_id=payload.get("currentPhaseId", "B0"),
             business_owner_user_id=payload.get("businessOwnerUserId"),
@@ -445,6 +457,8 @@ class PostgresVentureRepository:
         self._db.add(model)
 
         # 工程タスク 132 件を展開する
+        self._db.add(VentureMemberModel(id=f"vm-{uuid4().hex[:12]}", venture_id=venture_id,
+            tenant_id=tenant_id, user_id=created_by, role_id="R02", allocation_note="案件作成時の管理担当"))
         for task in master.tasks:
             self._db.add(
                 VentureTaskModel(
@@ -498,6 +512,7 @@ class PostgresVentureRepository:
         model = self._db.get(VentureModel, venture_id)
         if model is None or model.tenant_id != tenant_id:
             return None
+        before = self._venture_row(model)
         field_map = {
             "name": "name",
             "summary": "summary",
@@ -512,6 +527,7 @@ class PostgresVentureRepository:
             "currentPhaseId": "current_phase_id",
             "businessOwnerUserId": "business_owner_user_id",
             "asOfDate": "as_of_date",
+            "governance": "governance",
         }
         for key, attribute in field_map.items():
             if key in payload and payload[key] is not None:
@@ -537,46 +553,14 @@ class PostgresVentureRepository:
             for task in tasks:
                 task.applicability = master.suggest_applicability(task.task_id, conditions)
 
+        self._write_audit(tenant_id=tenant_id, event_type="venture.context.change", resource_type="venture",
+            resource_id=venture_id, action="update", actor_user_id=payload.get("_actor", ""), actor_role="",
+            summary="案件前提・確認状態の更新", metadata={"before": json.dumps(before, ensure_ascii=False), "after": json.dumps(self._venture_row(model), ensure_ascii=False)})
         self._commit()
         return self.get_venture(tenant_id, venture_id)
 
     def delete_venture(self, tenant_id: str, venture_id: str, actor_user_id: str, actor_role: str) -> bool:
-        """案件と子テーブルの行を消す。
-
-        DBのFKに ON DELETE CASCADE を頼らず、子を明示的に消してから親を消す
-        （SQLiteはデフォルトでFK制約を強制しないため、Postgres・SQLite両方で
-        同じ挙動にする）。監査ログだけは resource_id が文字列参照のFKなしなので
-        そのまま残り、削除された案件がかつて存在した痕跡になる。
-        """
-        model = self._db.get(VentureModel, venture_id)
-        if model is None or model.tenant_id != tenant_id:
-            return False
-        name = model.name
-        for child_model in (
-            VentureTaskModel,
-            VentureGateModel,
-            VentureMemberModel,
-            VentureLedgerEntryModel,
-            VentureSkillAssessmentModel,
-        ):
-            rows = self._db.execute(
-                select(child_model).where(child_model.venture_id == venture_id)
-            ).scalars().all()
-            for row in rows:
-                self._db.delete(row)
-        self._db.delete(model)
-        self._write_audit(
-            tenant_id=tenant_id,
-            event_type="venture.delete",
-            resource_type="venture",
-            resource_id=venture_id,
-            action="delete",
-            actor_user_id=actor_user_id,
-            actor_role=actor_role,
-            summary=f"案件「{name}」を削除",
-        )
-        self._commit()
-        return True
+        return False  # Historical evidence is retained. Archive through update_venture.
 
     # ─────────────────────────────────────────────
     # 工程タスク台帳
@@ -656,26 +640,24 @@ class PostgresVentureRepository:
         query = select(VentureTaskModel).where(
             VentureTaskModel.tenant_id == tenant_id, VentureTaskModel.venture_id == venture_id
         )
-        if phase_id:
-            query = query.where(VentureTaskModel.phase_id == phase_id)
-        if applicability:
-            query = query.where(VentureTaskModel.applicability == applicability)
-        if status:
-            query = query.where(VentureTaskModel.status == status)
-        if assignee_user_id:
-            query = query.where(VentureTaskModel.assignee_user_id == assignee_user_id)
         models = self._db.execute(query).scalars().all()
         master = load_master()
         names = self._user_names(tenant_id)
         rows = [self._task_row(model, master, names) for model in models]
-        rows.sort(key=lambda row: row["taskId"])
-        return rows
+        venture = self._db.get(VentureModel, venture_id)
+        checked = task_checks(rows, self.list_members(tenant_id, venture_id),
+                              as_of({"asOfDate": venture.as_of_date})[0],
+                              self._ledger_values(tenant_id, venture_id, "gate_run"))
+        for row in rows:
+            row.update(checked[row["taskId"]])
+        rows = [r for r in rows if (not phase_id or r["phaseId"] == phase_id)
+                and (not applicability or r["applicability"] == applicability)
+                and (not status or r["status"] == status)
+                and (not assignee_user_id or r["assigneeUserId"] == assignee_user_id)]
+        return sorted(rows, key=lambda row: row["taskId"])
 
     def get_task(self, tenant_id: str, venture_id: str, task_row_id: str) -> dict | None:
-        model = self._db.get(VentureTaskModel, task_row_id)
-        if model is None or model.tenant_id != tenant_id or model.venture_id != venture_id:
-            return None
-        return self._task_row(model, load_master(), self._user_names(tenant_id))
+        return next((r for r in self.list_tasks(tenant_id, venture_id) if r["id"] == task_row_id), None)
 
     def update_task(
         self,
@@ -690,6 +672,11 @@ class PostgresVentureRepository:
         if model is None or model.tenant_id != tenant_id or model.venture_id != venture_id:
             return None
 
+        before = self._task_row(model, load_master(), self._user_names(tenant_id))
+        important = {"status", "evidenceUri", "assigneeUserId", "roleId", "actualStart", "actualEnd", "dependsOn", "applicability", "applicabilityReason"}
+        if any(key in payload and payload[key] != before.get(key) for key in important):
+            model.completion_approved_by = None
+            model.completion_approved_at = None
         if "applicability" in payload and payload["applicability"]:
             model.applicability = payload["applicability"]
             model.applicability_decided_by = actor_user_id
@@ -752,9 +739,11 @@ class PostgresVentureRepository:
                 },
             )
 
+        self._write_audit(tenant_id=tenant_id, event_type="venture.task.change", resource_type="venture_task",
+            resource_id=task_row_id, action="update", actor_user_id=actor_user_id, actor_role=actor_role,
+            summary=f"{model.task_id} を更新", metadata={"before": json.dumps(before, ensure_ascii=False), "patch": json.dumps(payload, ensure_ascii=False)})
         self._commit()
-        master = load_master()
-        return self._task_row(model, master, self._user_names(tenant_id))
+        return self.get_task(tenant_id, venture_id, task_row_id)
 
     def bulk_decide_applicability(
         self, tenant_id: str, venture_id: str, task_row_ids: list[str], applicability: str, reason: str, actor_user_id: str
@@ -771,10 +760,17 @@ class PostgresVentureRepository:
             .all()
         )
         for model in models:
+            before = {"applicability": model.applicability, "reason": model.applicability_reason}
+            model.completion_approved_by = None
+            model.completion_approved_at = None
             model.applicability = applicability
             model.applicability_reason = reason
             model.applicability_decided_by = actor_user_id
             model.applicability_decided_at = _now()
+            self._write_audit(tenant_id=tenant_id, actor_user_id=actor_user_id, action="update",
+                event_type="venture.task.applicability", resource_type="venture_task", actor_role="project_member",
+                resource_id=model.id, summary=f"{model.task_id} の適用判定を更新",
+                metadata={"before": json.dumps(before, ensure_ascii=False), "after": json.dumps({"applicability": applicability, "reason": reason}, ensure_ascii=False)})
         self._commit()
         return len(models)
 
@@ -782,130 +778,38 @@ class PostgresVentureRepository:
     # ゲート
     # ─────────────────────────────────────────────
     def list_gates(self, tenant_id: str, venture_id: str) -> list[dict]:
-        models = (
-            self._db.execute(
-                select(VentureGateModel).where(
-                    VentureGateModel.tenant_id == tenant_id, VentureGateModel.venture_id == venture_id
-                )
-            )
-            .scalars()
-            .all()
-        )
         master = load_master()
-        names = self._user_names(tenant_id)
-        # ゲートごとの進捗はタスク台帳から数える。1回だけ読み込む。
-        all_tasks = (
-            self._db.execute(
-                select(VentureTaskModel).where(
-                    VentureTaskModel.tenant_id == tenant_id, VentureTaskModel.venture_id == venture_id
-                )
-            )
-            .scalars()
-            .all()
-        )
+        tasks = self.list_tasks(tenant_id, venture_id)
+        result = self.list_ledger_entries(tenant_id, venture_id, "gate_run") or {"items": []}
+        runs = result["items"]
         rows = []
-        for model in sorted(models, key=lambda m: m.gate_id):
-            gate = master.gate_by_id.get(model.gate_id, {})
-            standard_task_id = gate.get("standard_task_id", "")
-            gate_tasks = [
-                task
-                for task in all_tasks
-                if task.gate_id == model.gate_id and task.applicability == APPLICABILITY_APPLIED
-            ]
-            rows.append(
-                {
-                    "id": model.id,
-                    "gateId": model.gate_id,
-                    "subject": gate.get("subject", ""),
-                    "standardTaskId": standard_task_id,
-                    "approverRoleId": gate.get("approver_role_id", ""),
-                    "requiredEvidence": gate.get("required_evidence", ""),
-                    "allowedDecisions": gate.get("allowed_decisions", []),
-                    "decision": model.decision,
-                    "scope": model.scope,
-                    "evidencePackageUri": model.evidence_package_uri,
-                    "conditions": model.conditions,
-                    "conditionDue": model.condition_due,
-                    "decidedBy": model.decided_by,
-                    # 承認者の実名は入力された値が正。操作した人は別項目で返す。
-                    # （原本 29 の「A実名」は、プラットフォームに口座を持たない
-                    #  役員などを記録するための欄で、記録係の名前ではない）
-                    "decidedByName": model.decided_by_name or names.get(model.decided_by or "", ""),
-                    "recordedByName": names.get(model.decided_by or "", ""),
-                    "decidedAt": _iso(model.decided_at),
-                    "nextAction": model.next_action,
-                    "reviewTrigger": model.review_trigger,
-                    "appliedTaskCount": len(gate_tasks),
-                    "completedTaskCount": sum(1 for t in gate_tasks if t.status == "完了"),
-                    "unapprovedTaskCount": sum(1 for t in gate_tasks if t.completion_approved_at is None),
-                    "updatedAt": _iso(model.updated_at),
-                }
-            )
+        for gate in master.gates:
+            candidates = [r for r in runs if r["values"].get("Gate") == gate["gate_id"]]
+            candidates.sort(key=lambda r: (r.get("createdAt") or "", r["rowKey"]), reverse=True)
+            run = candidates[0] if candidates else None
+            values = run["values"] if run else {}
+            derived = run["derived"] if run else {}
+            effective = derived.get("有効性点検") == "整合済・正本決裁要確認"
+            gate_tasks = [t for t in tasks if t["gateId"] == gate["gate_id"] and t["applicability"] == "適用"]
+            rows.append({"id": run["id"] if run else gate["gate_id"], "gateId": gate["gate_id"],
+                "subject": gate["subject"], "standardTaskId": gate["standard_task_id"],
+                "approverRoleId": gate["approver_role_id"], "requiredEvidence": gate["required_evidence"],
+                "allowedDecisions": gate["allowed_decisions"],
+                "decision": values.get("判断結果", "未審査") if effective else "未審査",
+                "recordedDecision": values.get("判断結果", "未審査"), "effective": effective,
+                "validity": derived.get("有効性点検", "判断記録なし"), "gateRunId": run["rowKey"] if run else "",
+                "scope": values.get("対象範囲/版", ""), "evidencePackageUri": values.get("証拠パッケージURI", ""),
+                "conditions": values.get("条件・制約", ""), "conditionDue": values.get("条件期限", ""),
+                "decidedBy": values.get("承認者PersonID"), "decidedByName": values.get("A実名", ""),
+                "recordedByName": run["updatedByName"] if run else "", "decidedAt": values.get("判断日") or None,
+                "nextAction": values.get("次Gate/Issue", ""), "reviewTrigger": values.get("再審査トリガー", ""),
+                "appliedTaskCount": len(gate_tasks), "completedTaskCount": sum(t["completionValid"] for t in gate_tasks),
+                "unapprovedTaskCount": sum(not t["completionValid"] for t in gate_tasks),
+                "updatedAt": run["updatedAt"] if run else None})
         return rows
 
-    def update_gate(
-        self,
-        tenant_id: str,
-        venture_id: str,
-        gate_row_id: str,
-        payload: dict,
-        actor_user_id: str,
-        actor_role: str = "",
-    ) -> dict | None:
-        model = self._db.get(VentureGateModel, gate_row_id)
-        if model is None or model.tenant_id != tenant_id or model.venture_id != venture_id:
-            return None
-        simple = {
-            "scope": "scope",
-            "evidencePackageUri": "evidence_package_uri",
-            "conditions": "conditions",
-            "conditionDue": "condition_due",
-            "nextAction": "next_action",
-            "reviewTrigger": "review_trigger",
-            "decidedByName": "decided_by_name",
-        }
-        for key, attribute in simple.items():
-            if key in payload and payload[key] is not None:
-                setattr(model, attribute, payload[key])
-        if payload.get("decision"):
-            previous_decision = model.decision
-            previous_by = model.decided_by
-            previous_at = _iso(model.decided_at)
-            # 取り消しで消える値も、消す前に監査ログ用に控える。
-            decided_by_name = model.decided_by_name or ""
-            model.decision = payload["decision"]
-            if payload["decision"] == "未審査":
-                model.decided_by = None
-                model.decided_at = None
-                # 判断を取り消したら承認者の実名も残さない（監査ログには残る）。
-                model.decided_by_name = ""
-            else:
-                model.decided_by = actor_user_id
-                model.decided_at = _now()
-            # ゲート行は最新の判断しか持たない。「未審査」に戻すと承認の事実が
-            # 行から消えるので、判断の変更は必ず監査ログに追記する。
-            self._write_audit(
-                tenant_id=tenant_id,
-                event_type="venture.gate.decision",
-                resource_type="venture_gate",
-                resource_id=gate_row_id,
-                action=payload["decision"],
-                actor_user_id=actor_user_id,
-                actor_role=actor_role,
-                summary=f"{model.gate_id} の判断を {previous_decision} から {payload['decision']} に変更",
-                metadata={
-                    "ventureId": venture_id,
-                    "gateId": model.gate_id,
-                    "previousDecision": previous_decision,
-                    "previousDecidedBy": previous_by or "",
-                    "previousDecidedAt": previous_at or "",
-                    "decidedByName": decided_by_name,
-                    "evidencePackageUri": model.evidence_package_uri or "",
-                },
-            )
-        self._commit()
-        rows = self.list_gates(tenant_id, venture_id)
-        return next((row for row in rows if row["id"] == gate_row_id), None)
+    def update_gate(self, *args, **kwargs):
+        raise ValueError("GateRun台帳から判断を記録してください")
 
     # ─────────────────────────────────────────────
     # 要員
@@ -1001,7 +905,10 @@ class PostgresVentureRepository:
         values: dict[str, dict] = {}
         for row in rows:
             item = dict(row.values_json or {})
-            if id_column:
+            if ledger_key == "eval_plan":
+                if row.is_master_row:
+                    item.setdefault("EvalType", row.row_key)
+            elif id_column:
                 item.setdefault(id_column, row.row_key)
             values[row.row_key] = item
         return values
@@ -1026,18 +933,10 @@ class PostgresVentureRepository:
                 plans[key] = values
         runs = dict(related.get("eval_run", {}))
 
-        gate_ids: set[str] = set()
-        if ledger_key in ("hypothesis", "condition"):
-            gate_ids = set(
-                self._db.execute(
-                    select(VentureGateModel.id).where(
-                        VentureGateModel.tenant_id == tenant_id,
-                        VentureGateModel.venture_id == venture_id,
-                    )
-                ).scalars()
-            )
+        gate_ids = set(self._ledger_values(tenant_id, venture_id, "gate_run"))
 
         assessments: dict[str, dict[str, int]] = {}
+        assessment_records = {}
         if ledger_key == "assignment":
             for record in self._db.execute(
                 select(VentureSkillAssessmentModel).where(
@@ -1046,6 +945,8 @@ class PostgresVentureRepository:
                 )
             ).scalars():
                 assessments.setdefault(record.skill_id, {})[record.user_id] = record.assessed_level
+                assessment_records[record.id] = {"skillId": record.skill_id, "userId": record.user_id,
+                    "level": record.assessed_level, "evidenceUri": record.evidence_uri, "assessedBy": record.assessed_by}
 
         return CheckContext(
             as_of=basis,
@@ -1063,6 +964,10 @@ class PostgresVentureRepository:
                 "role_ids": set(master.role_by_id),
             },
             assessments=assessments,
+            assessment_records=assessment_records,
+            member_roles={(m["userId"], m["roleId"]) for m in self.list_members(tenant_id, venture_id)} if ledger_key == "assignment" else set(),
+            venture=self._venture_row(venture, {}) if venture else {},
+            tasks={t["taskId"]: t for t in self.list_tasks(tenant_id, venture_id)} if ledger_key in ("gate_run", "release") else {},
         )
 
     def list_ledger_entries(self, tenant_id: str, venture_id: str, ledger_key: str) -> dict | None:
@@ -1085,6 +990,7 @@ class PostgresVentureRepository:
         input_columns = set(ledger["input_columns"])
         names = self._user_names(tenant_id)
         all_values = {model.row_key: dict(model.values_json or {}) for model in models}
+        base_context = self.check_context(tenant_id, venture_id, ledger_key, "", all_values)
         entries = []
         for model in models:
             entries.append(
@@ -1102,21 +1008,21 @@ class PostgresVentureRepository:
                         if column in input_columns
                     },
                     "updatedBy": model.updated_by,
+                    "createdAt": _iso(model.created_at),
                     "derived": evaluate(
                         ledger_key,
-                        {**(model.values_json or {}), ledger["id_column"]: model.row_key},
-                        self.check_context(
-                            tenant_id,
-                            venture_id,
-                            ledger_key,
-                            model.row_key,
-                            {k: v for k, v in all_values.items() if k != model.row_key},
-                        ),
+                        {**(model.values_json or {}), **({"EvalType": (model.values_json or {}).get("EvalType", model.row_key if model.is_master_row else "")} if ledger_key == "eval_plan" else {ledger["id_column"]: model.row_key})},
+                        replace(base_context, row_key=model.row_key,
+                            siblings={k: v for k, v in all_values.items() if k != model.row_key}),
                     ),
                     "updatedByName": names.get(model.updated_by or "", ""),
                     "updatedAt": _iso(model.updated_at),
                 }
             )
+        for entry in entries:
+            if ledger_key == "eval_plan" and entry["isMasterRow"]:
+                entry["values"].setdefault("EvalType", entry["rowKey"])
+            entry["checks"] = check_statuses(entry["derived"])
         entries.sort(key=lambda entry: (not entry["isMasterRow"], entry["rowKey"]))
         return {
             "ledger": {
@@ -1183,9 +1089,11 @@ class PostgresVentureRepository:
                 row_key=row_key,
                 is_master_row=False,
                 values_json={},
+                created_at=_now(),
             )
             self._db.add(model)
 
+        before = dict(model.values_json or {})
         if payload.get("status"):
             model.status = payload["status"]
         incoming = payload.get("values") or {}
@@ -1196,6 +1104,17 @@ class PostgresVentureRepository:
                 values[key] = value
         model.values_json = values
         model.updated_by = actor_user_id
+        if values != before and ledger_key in {"data", "dependency", "privacy", "feature_decision", "risk_screening", "adr"}:
+            venture = self._db.get(VentureModel, venture_id)
+            governance = dict(venture.governance or {})
+            governance.update(riskConfirmed=False, riskState="再判定待ち",
+                riskLedgerRevision=governance.get("riskLedgerRevision", 0) + 1,
+                riskRecheckReason=f"{ledger_key} / {model.row_key} の変更")
+            venture.governance = governance
+        self._write_audit(tenant_id=tenant_id, event_type="venture.ledger.change", resource_type="venture_ledger",
+            resource_id=model.id, action="update" if entry_id else "create", actor_user_id=actor_user_id, actor_role="",
+            summary=f"{ledger_key} / {model.row_key}", metadata={"before": json.dumps(before, ensure_ascii=False),
+            "after": json.dumps(values, ensure_ascii=False), "ventureId": venture_id})
         self._commit()
 
         result = self.list_ledger_entries(tenant_id, venture_id, ledger_key)
@@ -1204,24 +1123,10 @@ class PostgresVentureRepository:
         return next((item for item in result["items"] if item["id"] == model.id), None)
 
     def delete_ledger_entry(self, tenant_id: str, venture_id: str, ledger_key: str, entry_id: str) -> str:
-        """行を削除する。結果は deleted / not_found / master_row のいずれか。
-
-        ledger_key を照合しないと、ある台帳のURLで別台帳の行を消せてしまう。
-        """
         model = self._db.get(VentureLedgerEntryModel, entry_id)
-        if (
-            model is None
-            or model.tenant_id != tenant_id
-            or model.venture_id != venture_id
-            or model.ledger_key != ledger_key
-        ):
+        if model is None or model.tenant_id != tenant_id or model.venture_id != venture_id or model.ledger_key != ledger_key:
             return "not_found"
-        if model.is_master_row:
-            # 点検行はマスタ由来。削除ではなく「対象外」の記録で残す。
-            return "master_row"
-        self._db.delete(model)
-        self._commit()
-        return "deleted"
+        return "protected"
 
     # ─────────────────────────────────────────────
     # スキル需要とギャップ
@@ -1255,18 +1160,66 @@ class PostgresVentureRepository:
         for assessment in assessments:
             by_skill.setdefault(assessment.skill_id, []).append(assessment)
 
+        assignments = self._ledger_values(tenant_id, venture_id, "assignment")
+        members = {(m["userId"], m["roleId"]) for m in self.list_members(tenant_id, venture_id)}
+        staffing = self._ledger_values(tenant_id, venture_id, "role_staffing")
+        basis = as_of(self.get_venture(tenant_id, venture_id) or {})[0]
+        def has_capacity(person):
+            active = []
+            for row in staffing.values():
+                if row.get("PersonID") != person:
+                    continue
+                start, end = parse_date(row.get("配置開始")), parse_date(row.get("配置終了"))
+                try:
+                    amount = float(row.get("割当FTE（入力）", ""))
+                    cap = float(row.get("当人の当日上限FTE", ""))
+                except ValueError:
+                    continue
+                if start and end and start <= basis <= end:
+                    active.append((amount, cap))
+            return bool(active) and 0 < sum(x[0] for x in active) <= min(x[1] for x in active)
         names = self._user_names(tenant_id)
         course_titles = {course.slug: course.title for course in default_courses()}
         items = []
         for entry in demand:
             skill_id = entry["skillId"]
             records = by_skill.get(skill_id, [])
-            best = max((record.assessed_level for record in records), default=0)
+            allocation_checks = []
+            for task_id in entry["taskIds"]:
+                standard = next(x for x in master.skills_for_task(task_id) if x["skill_id"] == skill_id)
+                for required_role in standard["exec_role_ids"]:
+                    candidates = [x for x in assignments.values() if x.get("Task ID") == task_id and x.get("Skill ID") == skill_id and x.get("Role ID") == required_role]
+                    best_for_task = 0
+                    for allocation in candidates:
+                        approved_on = parse_date(allocation.get("承認日"))
+                        if not all(allocation.get(k) for k in ("割当承認者", "対象期間", "必要性・担当範囲")) or not approved_on or approved_on > basis:
+                            continue
+                        person, role = allocation.get("PersonID", ""), allocation.get("Role ID", "")
+                        if (person, role) not in members or role not in standard["exec_role_ids"]:
+                            continue
+                        if allocation.get("役割区分") in ("独立評価", "品質決裁") and person == allocation.get("当該実装PersonID"):
+                            continue
+                        if not has_capacity(person):
+                            continue
+                        assessment = next((r for r in records if r.user_id == person and r.id == allocation.get("能力評価記録ID") and r.evidence_uri and r.assessed_by != person and (not r.due_date or (parse_date(r.due_date) and parse_date(r.due_date) >= basis))), None)
+                        if assessment:
+                            best_for_task = max(best_for_task, assessment.assessed_level)
+                        supporter = allocation.get("支援者PersonID")
+                        if allocation.get("支援方法") and allocation.get("支援証拠URI") and supporter and has_capacity(supporter) and (supporter, role) in members:
+                            support = next((r for r in records if r.user_id == supporter and r.evidence_uri and r.assessed_by != supporter), None)
+                            if support and allocation.get("役割区分") not in ("独立評価", "品質決裁"):
+                                best_for_task = max(best_for_task, support.assessed_level)
+                    required = standard["required_level"]
+                    allocation_checks.append({"taskId": task_id, "roleId": required_role, "requiredLevel": required, "coveredLevel": best_for_task,
+                                              "gap": max(0, required - best_for_task)})
+            gap = max((r["gap"] for r in allocation_checks), default=entry["requiredLevel"])
+            best = max(0, entry["requiredLevel"] - gap)
             items.append(
                 {
                     **entry,
                     "coveredLevel": best,
-                    "gap": max(0, entry["requiredLevel"] - best),
+                    "gap": gap,
+                    "assignments": allocation_checks,
                     # 学習へ戻す導線。対応が無いスキルは空配列を返し、画面はリンクを出さない。
                     "courses": [
                         {
@@ -1372,7 +1325,7 @@ class PostgresVentureRepository:
                     "applied": len(applied),
                     "undecided": sum(1 for t in phase_tasks if t["applicability"] == APPLICABILITY_UNDECIDED),
                     "excluded": sum(1 for t in phase_tasks if t["applicability"] == APPLICABILITY_EXCLUDED),
-                    "completed": sum(1 for t in applied if t["status"] == "完了"),
+                    "completed": sum(t["completionValid"] for t in applied),
                     "inProgress": sum(1 for t in applied if t["status"] == "進行中"),
                     "blocked": sum(1 for t in applied if t["blocker"]),
                 }
@@ -1390,8 +1343,35 @@ class PostgresVentureRepository:
                     "filled": sum(1 for item in items if item["values"]),
                 }
             )
+        panels = {}
+        for key in ("hypothesis", "kpi", "condition", "cash_plan", "task_run"):
+            data = self.list_ledger_entries(tenant_id, venture_id, key) or {"items": []}
+            panels[key] = [{"id": r["rowKey"], "values": r["values"], "checks": r["derived"]}
+                           for r in data["items"] if r["values"]]
+        decisions = {"hypotheses": panels["hypothesis"], "kpis": panels["kpi"],
+                     "conditions": panels["condition"], "cashPlans": panels["cash_plan"], "runs": panels["task_run"],
+                     "riskState": venture.get("governance", {}).get("riskState", "未確認")}
+        basis = as_of(venture)[0]
+        actions = []
+        for key, deadline in (("hypothesis", "再判断日"), ("condition", "期限"), ("task_run", "次回期限")):
+            for row in panels[key]:
+                if key == "condition" and row["checks"].get("条件点検") == "解消確認済":
+                    continue
+                values = row["values"]
+                due = parse_date(values.get(deadline))
+                actions.append({"ledgerKey": key, "rowId": row["id"], "dueDate": due.isoformat() if due else "",
+                    "overdue": bool(due and due < basis),
+                    "action": values.get("次の実験") or values.get("失効時処置") or values.get("Task ID") or "必要証拠と次の判断を設定",
+                    "owner": values.get("Owner") or values.get("Owner PersonID") or "未割当"})
+                if key == "hypothesis":
+                    from infrastructure.venture_ledger_checks import _number, _fmt
+                    cap, spent = _number(values, "追加投資上限（円）"), _number(values, "追加投資実績（円）")
+                    row["checks"]["追加投資残額（円）"] = _fmt(cap - spent) if cap is not None and spent is not None and values.get("投資実績根拠URI") else "未計測"
+        actions.sort(key=lambda a: (not a["overdue"], a["dueDate"] or "9999-12-31", a["rowId"]))
+        decisions["nextActions"] = actions
         return {
             "venture": venture,
+            "decisions": decisions,
             "phases": phases,
             "gates": self.list_gates(tenant_id, venture_id),
             "skillGapCount": gaps["gapCount"],

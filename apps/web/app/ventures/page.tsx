@@ -34,7 +34,7 @@ export default function VenturesPage() {
   const [offeringType, setOfferingType] = useState("社内事業");
   const [industry, setIndustry] = useState("");
   const [scale, setScale] = useState("S");
-  const [riskTier, setRiskTier] = useState("T1");
+  const [riskTier, setRiskTier] = useState("未判定");
   const [conditions, setConditions] = useState<Record<string, VentureApplicability>>({});
 
   const refresh = () => {
@@ -171,6 +171,7 @@ export default function VenturesPage() {
               <label className={styles.field}>
                 Risk Tier
                 <select value={riskTier} onChange={(event) => setRiskTier(event.target.value)}>
+                  <option value="未判定">未判定</option>
                   {(master?.riskTiers ?? []).map((tier) => (
                     <option key={tier.tierId} value={tier.tierId}>
                       {tier.tierId} {tier.name}

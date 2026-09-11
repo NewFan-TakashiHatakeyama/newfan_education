@@ -14,10 +14,11 @@ Excelの数式は移せないので、同じ節順をここに書き写す。
 from __future__ import annotations
 
 import re
+import math
 from dataclasses import dataclass, field
 from datetime import date
 
-from infrastructure.venture_rules import parse_date
+from infrastructure.venture_rules import parse_date, parse_timestamp
 
 # 台帳ごとの点検列名（原本の見出し）
 CHECK_COLUMNS: dict[str, list[str]] = {
@@ -89,6 +90,8 @@ class CheckContext:
     eval_runs: dict[str, dict[str, str]] = field(default_factory=dict)
     #: 案件のゲート判断行のID集合。仮説の承認記録IDの解決に使う。
     gate_row_ids: set[str] = field(default_factory=set)
+    assessment_records: dict[str, dict] = field(default_factory=dict)
+    member_roles: set[tuple[str, str]] = field(default_factory=set)
     #: マスタの評価分類ID（E01〜E18）。
     eval_type_ids: set[str] = field(default_factory=set)
     #: 他の台帳の行（台帳キー -> 行キー -> 値）。台帳間の参照整合に使う。
@@ -97,6 +100,8 @@ class CheckContext:
     master_ids: dict[str, set[str]] = field(default_factory=dict)
     #: 案件のスキル評価（skill_id -> user_id -> 到達Lv）。
     assessments: dict[str, dict[str, int]] = field(default_factory=dict)
+    venture: dict = field(default_factory=dict)
+    tasks: dict[str, dict] = field(default_factory=dict)
 
     def rows(self, ledger_key: str) -> dict[str, dict[str, str]]:
         return self.related.get(ledger_key, {})
@@ -125,6 +130,9 @@ def _unreadable(values: dict[str, str], *columns: str) -> bool:
 
 
 def _both(values: dict[str, str], first: str, second: str) -> tuple[date, date] | None:
+    if "T" in (values.get(first) or "") or "T" in (values.get(second) or ""):
+        a, b = parse_timestamp(values.get(first)), parse_timestamp(values.get(second))
+        return (a, b) if a is not None and b is not None else None
     a = parse_date(values.get(first))
     b = parse_date(values.get(second))
     return (a, b) if a is not None and b is not None else None
@@ -159,14 +167,18 @@ def _check_eval_plan(values: dict[str, str], context: CheckContext) -> dict[str,
     ):
         return {"計画記録点検": "PlanKey不足・重複"}
     state = (values.get("状態") or "").strip()
+    if values.get("取消理由"):
+        return {"計画記録点検": "取消済み計画"}
     if state in ("", "未設定", "設計中", "改訂中"):
         return {"計画記録点検": "計画未確定"}
     if state not in ("承認", "対象外承認"):
         return {"計画記録点検": "状態不正"}
+    if not eval_type:
+        return {"計画記録点検": "EvalType不足"}
     if _blank(values, "対象機能／業務", "対象ManifestHash", "計画承認URI"):
         return {"計画記録点検": "計画対象・承認不足"}
     if state == "対象外承認":
-        if _blank(values, "母集団/分母（入力）"):
+        if _blank(values, "対象外理由") and _blank(values, "母集団/分母（入力）"):
             return {"計画記録点検": "対象外理由不足"}
         return {"計画記録点検": "対象外計画記録"}
     if _blank(
@@ -210,8 +222,10 @@ def _check_eval_run(values: dict[str, str], context: CheckContext) -> dict[str, 
         return {**match, "記録点検": "Run ID重複"}
     if match["凍結計画Key照合"] != "計画・構成一致":
         return {**match, "記録点検": match["凍結計画Key照合"]}
-    if not _blank(values, "無効化・取消理由"):
+    if not _blank(values, "無効化・取消理由") or values.get("取消理由"):
         return {**match, "記録点検": "無効化Run"}
+    if any(values.get(col) and parse_timestamp(values[col]) is None for col in ("日時", "承認日")):
+        return {**match, "記録点検": "時差付き日時で再確認要"}
     if _blank(
         values,
         "対象Release/Issue",
@@ -264,12 +278,12 @@ def _check_release(values: dict[str, str], context: CheckContext) -> dict[str, s
         ) is None:
             timing = "緊急根拠不足"
         else:
-            published = parse_date(values.get("公開日時"))
-            used = parse_date(values.get("緊急権限行使日時"))
-            review_due = parse_date(values.get("事後審査期限"))
+            published = parse_timestamp(values.get("公開日時"))
+            used = parse_timestamp(values.get("緊急権限行使日時"))
+            review_due = parse_timestamp(values.get("事後審査期限"))
             if published and ((used and used > published) or (review_due and review_due < published)):
                 timing = "緊急時刻不正"
-            elif review_due and review_due < context.as_of and _blank(values, "事後審査URI"):
+            elif review_due and review_due.date() < context.as_of and _blank(values, "事後審査URI"):
                 timing = "事後審査期限超過"
             else:
                 timing = "緊急経路・正本審査要"
@@ -338,6 +352,7 @@ def _check_release(values: dict[str, str], context: CheckContext) -> dict[str, s
             as_of=context.as_of, row_key=gate_run_id, related=context.related,
             master_ids=context.master_ids, eval_type_ids=context.eval_type_ids,
             eval_plans=context.eval_plans, eval_runs=context.eval_runs,
+            venture=context.venture, tasks=context.tasks,
         ))
         effective = gate_derived["有効性点検"]
         if effective == "取消・置換済":
@@ -347,7 +362,7 @@ def _check_release(values: dict[str, str], context: CheckContext) -> dict[str, s
             != (values.get("公開ManifestHash") or "").strip()
         ):
             approval = "決裁対象・版不一致"
-        elif effective != "整合済・正本決裁要確認":
+        elif effective != "整合済・正本決裁要確認" or gate_run.get("Gate") != "G3" or gate_run.get("判断結果") not in ("承認", "条件付承認"):
             approval = "決裁整合未充足"
         else:
             approval = "決裁・構成一致"
@@ -453,7 +468,7 @@ def _check_hypothesis(values: dict[str, str], context: CheckContext) -> dict[str
     approval = (values.get("承認記録ID") or "").strip()
     if not approval:
         return {"仮説記録点検": "Gate未接続"}
-    if context.gate_row_ids and approval not in context.gate_row_ids:
+    if approval not in context.gate_row_ids:
         return {"仮説記録点検": "GateRun不正"}
     if _blank(
         values,
@@ -499,7 +514,8 @@ def _number(values: dict[str, str], column: str) -> float | None:
     if not raw:
         return None
     try:
-        return float(raw)
+        number = float(raw)
+        return number if math.isfinite(number) else None
     except ValueError:
         return None
 
@@ -510,7 +526,8 @@ def _bad_number(values: dict[str, str], *columns: str) -> bool:
         raw = (values.get(column) or "").strip()
         if raw:
             try:
-                float(raw)
+                if not math.isfinite(float(raw)):
+                    return True
             except ValueError:
                 return True
     return False
@@ -529,7 +546,7 @@ def _sum(values: dict[str, str], *columns: str) -> float:
 
 
 def _fmt(number: float | None) -> str:
-    if number is None:
+    if number is None or not math.isfinite(number):
         return ""
     if number == int(number):
         return str(int(number))
@@ -589,12 +606,28 @@ def _check_required_eval(values: dict[str, str], context: CheckContext) -> dict[
         return result("対象版不足")
     if plan is None:
         return result("PlanKey不正")
+    if values.get("取消理由"):
+        return result("取消済み集合")
+    if _blank(values, "集合承認URI", "承認者", "集合版／正本ID") or parse_date(values.get("承認日")) is None:
+        return result("集合承認不足")
+    if _future(values, context, "承認日"):
+        return result("集合承認日不正")
+    plan_context = CheckContext(as_of=context.as_of, row_key=key, eval_type_ids=context.eval_type_ids)
+    if _check_eval_plan(plan, plan_context)["計画記録点検"] not in ("計画記録あり", "対象外計画記録"):
+        return result("計画未承認・不足")
     if (values.get("ManifestHash") or "").strip() != (plan.get("対象ManifestHash") or "").strip():
         return result("評価対象不一致")
     applied = (values.get("適用") or "").strip()
     if applied == "必須":
         if not run_id or run is None:
             return result("評価Run不足・不正")
+        if any((run.get(run_col) or "").strip() != (values.get(set_col) or "").strip()
+               for run_col, set_col in (("ManifestHash", "ManifestHash"), ("EvalPlanKey", "EvalPlanKey"), ("対象Release/Issue", "Release ID"))):
+            return result("評価対象不一致")
+        run_context = CheckContext(as_of=context.as_of, row_key=run_id, eval_plans=context.eval_plans,
+                                   eval_type_ids=context.eval_type_ids)
+        if _check_eval_run(run, run_context)["記録点検"] != "記録あり・内容審査別":
+            return result("評価記録未充足")
         if verdict != "合格":
             # 原本30 R002「単一の平均点で欠落を代替しない」
             return result("必要評価不合格・未確定")
@@ -770,12 +803,14 @@ def _check_gate_run(values: dict[str, str], context: CheckContext) -> dict[str, 
         record = "未承認"
     elif _future(values, context, "判断日") or _unreadable(values, "判断日"):
         record = "実績日時不正"
-    elif _blank(values, "対象範囲/版", "証拠パッケージURI", "A実名", "承認者PersonID") or (
+    elif _blank(values, "対象範囲/版", "証拠パッケージURI", "A実名", "承認者PersonID", "正本決裁URI", "事業Risk受容/予算") or (
         parse_date(values.get("判断日")) is None
     ):
         record = "決裁記録不足"
     else:
         record = "記録あり"
+    if record == "記録あり" and (_blank(values, "正本確認者PersonID", "正本確認日時") or parse_timestamp(values.get("正本確認日時")) is None):
+        record = "正本決裁未確認"
 
     # 判定整合（原本29!AA）。事業判断で品質・法令の不合格を上書きしない。
     allowed = set(gate.get("allowed_decisions", []))
@@ -792,9 +827,14 @@ def _check_gate_run(values: dict[str, str], context: CheckContext) -> dict[str, 
     elif gate_id == "G4" and decision in ("Scale", "Continue"):
         expanded = [
             row
-            for row in context.rows("hypothesis").values()
+            for hypothesis_id, row in context.rows("hypothesis").items()
             if (row.get("事業拡大判定") or "").strip() == "拡大可能"
+            and hypothesis_id == values.get("仮説ID")
+            and _check_hypothesis(row, context)["仮説記録点検"] == "仮説記録あり"
             and (row.get("必要証拠の充足判定") or "").strip() == "充足"
+            and row.get("対象範囲/版") == values.get("対象範囲/版")
+            and row.get("対象期間") == values.get("対象期間")
+            and row.get("対象期間")
         ]
         consistency = "判定整合" if expanded else "拡大の行動証拠不足"
     else:
@@ -806,14 +846,35 @@ def _check_gate_run(values: dict[str, str], context: CheckContext) -> dict[str, 
             row
             for row in context.rows("required_eval").values()
             if (row.get("Release ID") or "").strip() == (values.get("Release ID") or "").strip()
+            and (row.get("ManifestHash") or "").strip() == (values.get("ManifestHash") or "").strip()
+            and row.get("集合版／正本ID") == values.get("集合版／正本ID")
         ]
-        if not entries:
-            prerequisites = "必須評価セット未充足"
+        types = [(context.eval_plans.get(row.get("EvalPlanKey", "")) or {}).get("EvalType") for row in entries]
+        conditions = context.venture.get("conditions", {})
+        governance = context.venture.get("governance", {})
+        if not governance.get("riskConfirmed") or values.get("前提版") != governance.get("riskFingerprint"):
+            prerequisites = "リスク・前提再確認要"
+        elif any(conditions.get(key) not in ("適用", "対象外") for key in ("RAG", "Agent")):
+            prerequisites = "RAG・Agent適用未確定"
+        elif set(types) != context.eval_type_ids or len(types) != len(set(types)):
+            prerequisites = "必須分類・集合不足"
+        elif _blank(values, "Release ID", "ManifestHash", "必須評価集合URI", "集合承認者", "集合版／正本ID"):
+            prerequisites = "公開対象・集合不足"
+        elif any(
+            (conditions.get(feature) == "適用" and (
+                not context.tasks.get(task_id, {}).get("completionValid") or
+                any(not any(row.get("適用") == "必須" and (context.eval_plans.get(row.get("EvalPlanKey", "")) or {}).get("EvalType") == et for row in entries) for et in eval_types)))
+            or (conditions.get(feature) == "対象外" and context.tasks.get(task_id, {}).get("completionCheck") != "除外記録済")
+            for feature, task_id, eval_types in (("RAG", "B4-03", ("E03", "E04")), ("Agent", "B4-04", ("E05",)))
+        ):
+            prerequisites = "機能別評価・対象外未完"
         else:
             unsatisfied = [
                 row
                 for row in entries
                 if _check_required_eval(row, context)["充足フラグ"] != "1"
+                or row.get("集合承認URI") != values.get("必須評価集合URI")
+                or row.get("承認者") != values.get("集合承認者")
             ]
             prerequisites = "必須評価セット未充足" if unsatisfied else "必須評価セット充足"
     elif gate_id == "G5":
@@ -864,7 +925,7 @@ def _check_gate_run(values: dict[str, str], context: CheckContext) -> dict[str, 
         effective = record
     elif consistency != "判定整合":
         effective = consistency
-    elif not _blank(values, "取消／置換Run ID"):
+    elif not _blank(values, "取消／置換Run ID") or values.get("取消理由"):
         # 取り消された判断は、後から公開の根拠に再利用しない。
         effective = "取消・置換済"
     else:
@@ -873,14 +934,15 @@ def _check_gate_run(values: dict[str, str], context: CheckContext) -> dict[str, 
             effective = "決裁期限切れ"
         elif condition_check != "条件整合":
             effective = condition_check
-        elif prerequisites in ("必須評価セット未充足", "終了残件あり・資産台帳確認",
-                               "仮説・持越し確認不足"):
+        elif prerequisites not in ("必須評価セット充足", "資産処理決定充足", "G0仮説記録接続", "対象Gate証拠を正本審査"):
             effective = prerequisites
         else:
             effective = "整合済・正本決裁要確認"
 
     return {
         **definition,
+        **({"未登録の評価分類": ", ".join(sorted(context.eval_type_ids - set(types))),
+            "重複した評価分類": ", ".join(sorted(t for t in set(types) if t and types.count(t) > 1))} if gate_id == "G3" else {}),
         "記録点検": record,
         "判定整合": consistency,
         "必須評価・前提点検": prerequisites,
@@ -911,7 +973,7 @@ def _check_task_run(values: dict[str, str], context: CheckContext) -> dict[str, 
         return result("事故・レビュー参照不足")
     if trigger == "早期Stop":
         gate_run = context.rows("gate_run").get(origin)
-        if gate_run is None or (gate_run.get("判断結果") or "").strip() != "Stop":
+        if gate_run is None or (gate_run.get("判断結果") or "").strip() != "Stop" or not gate_run.get("正本確認日時") or any(gate_run.get(k) for k in ("取消理由", "取消／置換Run ID")):
             return result("Stop判断参照不足")
     if _future(values, context, "実完了日時", "確認日") or _unreadable(values, "実完了日時", "確認日"):
         return result("Run実績日不正")
@@ -939,7 +1001,8 @@ def _check_assignment(values: dict[str, str], context: CheckContext) -> dict[str
     skills = context.master_ids.get("skills_by_id") or {}
     roles = context.master_ids.get("role_ids") or set()
     required = _number(values, "必要Lv")
-    achieved = context.assessments.get(skill_id, {}).get(person)
+    record = context.assessment_records.get(values.get("能力評価記録ID", ""), {})
+    achieved = record.get("level") if record.get("skillId") == skill_id and record.get("userId") == person and record.get("evidenceUri") and record.get("assessedBy") != person else None
 
     def result(check: str) -> dict[str, str]:
         gap = ""
@@ -957,14 +1020,17 @@ def _check_assignment(values: dict[str, str], context: CheckContext) -> dict[str
         return result("ID不正")
     if not person or required is None:
         return result("割当記録不足")
-    if achieved is None or _blank(values, "能力評価記録ID"):
-        # 原本28は第三者評価を求める。自己申告だけで配置しない。
-        return result("能力の第三者確認不足")
     if (values.get("役割区分") or "").strip() in ("独立評価", "品質決裁") and (
         (values.get("当該実装PersonID") or "").strip() == person
     ):
         # Role名が違っても、同じPersonなら独立していない。
         return result("実装との独立性不足")
+    if achieved is None:
+        return result("能力の第三者確認不足")
+    if (person, role_id) not in context.member_roles:
+        return result("実施ロール未割当")
+    if _blank(values, "割当承認者", "必要性・担当範囲", "対象期間") or parse_date(values.get("承認日")) is None:
+        return result("割当承認不足")
     if required > float(achieved):
         return result("能力不足・育成又は支援要")
     return result("割当記録あり")
@@ -1027,7 +1093,33 @@ def evaluate(ledger_key: str, values: dict[str, str], context: CheckContext) -> 
     checker = _CHECKERS.get(ledger_key)
     if checker is None:
         return {}
-    return checker(values, context)
+    result = checker(values, context)
+    if ledger_key in ("unit_economics", "cash_plan", "effect"):
+        required = {
+            "unit_economics": ("課金単位数", "単価（円）", "その他売上", "返金/値引", "全試行回数（retry含む）", "一意の成功業務数", *VARIABLE_COST_COLUMNS, "期間固定費"),
+            "cash_plan": ("期首現金", "確定調達/投資受入", "期間入金", "期間支出", "最低確保現金"),
+            "effect": (*AI_HOUR_COLUMNS, *COST_COLUMNS, "Baseline人時間", "Baseline経過時間", "AI経過時間", "回避できた現金支出", "増分粗利（重複除外）"),
+        }[ledger_key]
+        if values.get("測定区分") in ("対象外", "未計測") or any(_number(values, column) is None for column in required):
+            for key, value in list(result.items()):
+                try:
+                    float(value)
+                    result[key] = ""
+                except ValueError:
+                    pass
+            result["測定点検"] = ("対象外" if values.get("対象外理由") else "対象外理由不足") if values.get("測定区分") == "対象外" else "未計測・必要入力不足"
+            for key in ("入力点検", "点検", "見積採用点検"):
+                if key in result:
+                    result[key] = result["測定点検"]
+    from infrastructure.venture_governance import EVENT_COLUMNS
+    invalid = [col for col in EVENT_COLUMNS.get(ledger_key, set()) if values.get(col) and parse_timestamp(values[col]) is None]
+    if invalid:
+        result["日時精度点検"] = "時差付き日時で再確認要"
+        if "記録点検" in result:
+            result["記録点検"] = "時差付き日時で再確認要"
+        if ledger_key == "release":
+            result["公開準備点検"] = "時差付き日時で再確認要"
+    return result
 
 
 def blocking(ledger_key: str, derived: dict[str, str]) -> str | None:

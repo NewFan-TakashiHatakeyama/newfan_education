@@ -2,13 +2,12 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+
 
 import type { VentureApplicability, VentureMaster, VentureSummary } from "@newfan/contracts";
 
 import {
   addVentureMember,
-  deleteVenture,
   fetchVentureMaster,
   fetchVentureSummary,
   getLearners,
@@ -24,9 +23,10 @@ import { EmptyState } from "@/app/components/ui/EmptyState";
 import { GateDecisionPill, VentureNav } from "../VentureNav";
 import { useVentureRole } from "../useVentureRole";
 import styles from "../ventures.module.css";
+import { DecisionPanel } from "../DecisionPanel";
 
 const APPLICABILITY: VentureApplicability[] = ["未判定", "適用", "対象外"];
-const VENTURE_STATUS = ["計画中", "進行中", "停止", "終了"];
+const VENTURE_STATUS = ["計画中", "進行中", "停止", "終了", "アーカイブ"];
 
 export default function VentureOverviewPage({
   params
@@ -34,18 +34,17 @@ export default function VentureOverviewPage({
   params: Promise<{ ventureId: string }>;
 }) {
   const { ventureId } = use(params);
-  const router = useRouter();
   const [summary, setSummary] = useState<VentureSummary | null>(null);
   const [master, setMaster] = useState<VentureMaster | null>(null);
   const [learners, setLearners] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const { canManage } = useVentureRole();
+  const { canManage } = useVentureRole(ventureId);
 
   const [memberUserId, setMemberUserId] = useState("");
   const [memberRoleId, setMemberRoleId] = useState("");
   const [memberNote, setMemberNote] = useState("");
-  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [riskEvidence, setRiskEvidence] = useState("");
 
   const refresh = useCallback(() => {
     fetchVentureSummary(ventureId)
@@ -169,6 +168,7 @@ export default function VentureOverviewPage({
               disabled={saving || !canManage}
               onChange={(event) => patchVenture({ riskTier: event.target.value })}
             >
+              <option value="未判定">未判定</option>
               {(master?.riskTiers ?? []).map((tier) => (
                 <option key={tier.tierId} value={tier.tierId}>
                   {tier.tierId} {tier.name}
@@ -178,6 +178,14 @@ export default function VentureOverviewPage({
           </label>
         </div>
 
+        <p>リスク確認：{venture.governance?.riskState || "未確認"}</p>
+        <label className={styles.field}>リスク判定の根拠
+          <textarea defaultValue={venture.riskTierRationale} disabled={!canManage || saving}
+            onBlur={e => patchVenture({ riskTierRationale: e.target.value })} />
+        </label>
+        <label className={styles.field}>リスク判定の正本URI<input value={riskEvidence} onChange={e => setRiskEvidence(e.target.value)} /></label>
+        <button disabled={saving || !venture.capabilities?.roleIds.includes("R19") || !riskEvidence}
+          onClick={() => patchVenture({ confirmRisk: true, riskEvidenceUri: riskEvidence })}>現在の前提をR19として確認</button>
         {master && master.conditionKeys.length > 0 ? (
           <div style={{ marginTop: 16 }}>
             <p className={styles.muted} style={{ marginBottom: 8 }}>
@@ -209,6 +217,7 @@ export default function VentureOverviewPage({
         ) : null}
       </Section>
 
+      <DecisionPanel ventureId={ventureId} decisions={summary.decisions} />
       <Section
         title="工程の進捗"
         meta="七工程は反復・並行できます。適用判定が済んでいないタスクは進捗に数えません。"
@@ -280,7 +289,7 @@ export default function VentureOverviewPage({
                   <td className={styles.taskId}>{gate.gateId}</td>
                   <td>{gate.subject}</td>
                   <td>
-                    <GateDecisionPill value={gate.decision} />
+                    <GateDecisionPill value={gate.effective ? gate.decision : "未審査"} /><small>{gate.validity}</small>
                   </td>
                   <td>{gate.appliedTaskCount}</td>
                   <td>{gate.completedTaskCount}</td>
@@ -475,42 +484,9 @@ export default function VentureOverviewPage({
         </Section>
       ) : null}
 
-      {canManage ? (
-        <Section
-          title="危険操作"
-          meta="案件と、その工程タスク・ゲート判断・要員・台帳の記録を全て削除します。取り消せません。"
-          theme="company"
-        >
-          <div className={styles.dangerZone}>
-            <label className={styles.field} style={{ flex: "1 1 240px" }}>
-              事業・サービス名を入力して確認
-              <input
-                value={deleteConfirmName}
-                onChange={(event) => setDeleteConfirmName(event.target.value)}
-                placeholder={venture.name}
-              />
-            </label>
-            <button
-              type="button"
-              className="ghost-button"
-              disabled={saving || deleteConfirmName !== venture.name}
-              onClick={async () => {
-                setSaving(true);
-                setError(null);
-                try {
-                  await deleteVenture(ventureId);
-                  router.push("/ventures");
-                } catch (err: unknown) {
-                  setError(err instanceof Error ? err.message : "案件を削除できませんでした。");
-                  setSaving(false);
-                }
-              }}
-            >
-              この案件を完全に削除する
-            </button>
-          </div>
-        </Section>
-      ) : null}
+      {canManage ? <Section title="案件の保管" meta="アーカイブ後も承認・評価・保全記録を保持します。" theme="company">
+        <button disabled={saving} onClick={() => patchVenture({ status: "アーカイブ" })}>案件をアーカイブする</button>
+      </Section> : null}
     </>
   );
 }

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
+import secrets
 from uuid import uuid4
 
 from sqlalchemy import and_, select
@@ -34,6 +36,18 @@ from infrastructure.sql_models import (
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _seed_password(role: str, development_password: str) -> str:
+    if os.getenv("APP_ENV") != "production":
+        return development_password
+    if role == "admin":
+        password = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "")
+        if len(password) < 24:
+            raise RuntimeError("Production bootstrap requires BOOTSTRAP_ADMIN_PASSWORD of at least 24 characters")
+        return password
+    # Demo identities are referenced by sample records, but must not have public credentials.
+    return secrets.token_urlsafe(32)
 
 
 class PostgresB2BRepository:
@@ -79,7 +93,7 @@ class PostgresB2BRepository:
                 role="admin",
                 state="active",
                 tenant_id=tenant_id,
-                password_hash=hash_password("Admin123!"),
+                password_hash=hash_password(_seed_password("admin", "Admin123!")),
             ),
             UserModel(
                 user_id="recruiter-user",
@@ -88,7 +102,7 @@ class PostgresB2BRepository:
                 role="recruiter",
                 state="active",
                 tenant_id=tenant_id,
-                password_hash=hash_password("Recruiter123!"),
+                password_hash=hash_password(_seed_password("recruiter", "Recruiter123!")),
             ),
             UserModel(
                 user_id="demo-user",
@@ -97,7 +111,7 @@ class PostgresB2BRepository:
                 role="learner",
                 state="active",
                 tenant_id=tenant_id,
-                password_hash=hash_password("Learner123!"),
+                password_hash=hash_password(_seed_password("learner", "Learner123!")),
             ),
             UserModel(
                 user_id="mentor-user",
@@ -106,7 +120,7 @@ class PostgresB2BRepository:
                 role="mentor",
                 state="active",
                 tenant_id=tenant_id,
-                password_hash=hash_password("Mentor123!"),
+                password_hash=hash_password(_seed_password("mentor", "Mentor123!")),
             ),
         ]
         self._db.add_all(users)

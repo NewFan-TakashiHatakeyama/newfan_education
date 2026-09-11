@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from infrastructure.venture_governance import extend_master
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "venture_process_master.json"
 
@@ -26,7 +27,7 @@ APPLICABILITY_VALUES = (APPLICABILITY_UNDECIDED, APPLICABILITY_APPLIED, APPLICAB
 TASK_STATUS_VALUES = ("未着手", "進行中", "完了", "保留")
 
 # 案件の状態
-VENTURE_STATUS_VALUES = ("計画中", "進行中", "停止", "終了")
+VENTURE_STATUS_VALUES = ("計画中", "進行中", "停止", "終了", "アーカイブ")
 
 SCALE_VALUES = ("S", "M", "L")
 
@@ -245,4 +246,4 @@ def load_master() -> VentureProcessMaster:
             f"事業PJ工程マスタが見つかりません: {DATA_PATH}. "
             "`python tools/extract_venture_master.py` を実行してください。"
         )
-    return VentureProcessMaster(raw=json.loads(DATA_PATH.read_text(encoding="utf-8")))
+    return VentureProcessMaster(raw=extend_master(json.loads(DATA_PATH.read_text(encoding="utf-8"))))

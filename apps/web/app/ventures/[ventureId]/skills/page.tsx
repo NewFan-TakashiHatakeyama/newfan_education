@@ -42,7 +42,8 @@ export default function VentureSkillsPage({
   const [assessUserId, setAssessUserId] = useState("");
   const [assessLevel, setAssessLevel] = useState(0);
   const [assessPlan, setAssessPlan] = useState("");
-  const { userId: selfUserId, canAssess } = useVentureRole();
+  const [assessEvidence, setAssessEvidence] = useState("");
+  const { userId: selfUserId, canAssess } = useVentureRole(ventureId);
 
   const refresh = useCallback(() => {
     fetchVentureSkillGap(ventureId)
@@ -85,12 +86,18 @@ export default function VentureSkillsPage({
     setDetail(item);
     setAssessUserId(first);
     setAssessLevel(first ? levelOf(item, first) : 0);
-    setAssessPlan("");
+    setAssessPlan(item.assessments.find(a => a.userId === first)?.developmentPlan ?? "");
+    setAssessEvidence(item.assessments.find(a => a.userId === first)?.evidenceUri ?? "");
   };
 
   const changeAssessUser = (userId: string) => {
     setAssessUserId(userId);
-    if (detail) setAssessLevel(levelOf(detail, userId));
+    if (detail) {
+      setAssessLevel(levelOf(detail, userId));
+      const current = detail.assessments.find(a => a.userId === userId);
+      setAssessEvidence(current?.evidenceUri ?? "");
+      setAssessPlan(current?.developmentPlan ?? "");
+    }
   };
 
   return (
@@ -229,14 +236,14 @@ export default function VentureSkillsPage({
                     <tr>
                       <th>担当者</th>
                       <th>到達Lv</th>
-                      <th>育成計画</th>
+                      <th>評価記録ID / 証拠</th><th>育成計画</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detail.assessments.map((assessment) => (
                       <tr key={assessment.id}>
                         <td>{assessment.userName}</td>
-                        <td>{assessment.assessedLevel}</td>
+                        <td>{assessment.assessedLevel}</td><td>{assessment.id}<br />{assessment.evidenceUri || "証拠未記録"}</td>
                         <td className={styles.muted}>{assessment.developmentPlan || "—"}</td>
                       </tr>
                     ))}
@@ -246,10 +253,12 @@ export default function VentureSkillsPage({
             ) : null}
 
             <p className={styles.note}>
-              到達Lvを記録すると不足が更新されます。不足が残る場合は、学習コースで埋めてから
-              担当を割り当ててください。評価は第三者が行います（自分自身は選べません）。
+              到達Lvの証拠に加えて、工程・ロールへの割当と配置期間内の稼働余力を確認します。評価は第三者が行います（自分自身は選べません）。
             </p>
 
+            <p><Link href={`/ventures/${ventureId}/ledgers/assignment`}>工程別スキル割当</Link> / <Link href={`/ventures/${ventureId}/ledgers/role_staffing`}>配置・稼働計画</Link></p>
+            <ul>{detail.assignments?.map(a => <li key={`${a.taskId}/${a.roleId}`}>{a.taskId} / {a.roleId}: 必要Lv{a.requiredLevel} / 有効な配置Lv{a.coveredLevel} / 不足{a.gap}</li>)}</ul>
+            <label className={styles.field}>評価証拠URI<input value={assessEvidence} disabled={!canAssess} onChange={e => setAssessEvidence(e.target.value)} /></label>
             <div className={styles.formGrid}>
               <label className={styles.field}>
                 担当者
@@ -303,7 +312,8 @@ export default function VentureSkillsPage({
                       skillId: detail.skillId,
                       userId: assessUserId,
                       assessedLevel: assessLevel,
-                      developmentPlan: assessPlan
+                      developmentPlan: assessPlan,
+                      evidenceUri: assessEvidence
                     });
                     setDetail(null);
                     refresh();

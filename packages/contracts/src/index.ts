@@ -528,7 +528,7 @@ export type VentureApplicability = "未判定" | "適用" | "対象外";
 export type VentureTaskStatus = "未着手" | "進行中" | "完了" | "保留";
 
 /** 案件そのものの状態。 */
-export type VentureStatus = "計画中" | "進行中" | "停止" | "終了";
+export type VentureStatus = "計画中" | "進行中" | "停止" | "終了" | "アーカイブ";
 
 /** 規模区分。テーラリングの基準。 */
 export type VentureScale = "S" | "M" | "L";
@@ -572,7 +572,7 @@ export interface VentureRole {
 
 /** 原本の入力規則。統制語彙・日付・数値の制約を画面とAPIで守る。 */
 export interface VentureColumnRule {
-  type: "select" | "date" | "number";
+  type: "select" | "date" | "datetime" | "number";
   options: string[];
   min?: number | null;
   source?: string;
@@ -752,6 +752,8 @@ export interface VentureStandards {
 }
 
 export interface Venture {
+  governance?: { riskState?: string; riskConfirmed?: boolean; riskFingerprint?: string };
+  capabilities?: { canManage: boolean; canEdit: boolean; canAssess: boolean; canVerify: boolean; roleIds: string[] };
   id: string;
   name: string;
   summary: string;
@@ -795,10 +797,14 @@ export interface VentureCreatePayload {
 }
 
 export type VentureUpdatePayload = Partial<VentureCreatePayload> & {
+  confirmRisk?: boolean;
+  riskEvidenceUri?: string;
   status?: VentureStatus;
 };
 
 export interface VentureTask {
+  completionValid?: boolean;
+  completionCheck?: string;
   id: string;
   ventureId: string;
   taskId: string;
@@ -876,6 +882,10 @@ export interface VentureTaskUpdatePayload {
 }
 
 export interface VentureGate {
+  recordedDecision?: string;
+  effective?: boolean;
+  validity?: string;
+  gateRunId?: string;
   id: string;
   gateId: string;
   subject: string;
@@ -932,6 +942,7 @@ export interface VentureMembersSummary {
 }
 
 export interface VentureLedgerEntry {
+  checks?: Record<string, { code: string; severity: string; label: string }>;
   id: string;
   rowKey: string;
   /** マスタ由来の点検行。削除できず、状態と入力で管理する。 */
@@ -952,6 +963,7 @@ export interface VentureLedgerSummary {
 }
 
 export interface VentureLedgerEntryPayload {
+  verifyRecord?: boolean;
   id?: string;
   rowKey?: string;
   status?: string;
@@ -978,6 +990,7 @@ export interface VentureSkillCourse {
 }
 
 export interface VentureSkillGapItem {
+  assignments?: { taskId: string; roleId: string; requiredLevel: number; coveredLevel: number; gap: number }[];
   skillId: string;
   name: string;
   axis: string;
@@ -986,7 +999,7 @@ export interface VentureSkillGapItem {
   /** 適用タスクが要求する必要Lvの最大値。 */
   requiredLevel: number;
   taskIds: string[];
-  /** 案件メンバーの到達Lvの最大値。 */
+  /** 工程・ロール別の不足の最大値を必要Lvから差し引いた保守的な到達Lv。 */
   coveredLevel: number;
   gap: number;
   courses: VentureSkillCourse[];
@@ -1030,6 +1043,7 @@ export interface VentureLedgerProgress {
 }
 
 export interface VentureSummary {
+  decisions?: { riskState: string; hypotheses: VentureDecisionRow[]; kpis: VentureDecisionRow[]; conditions: VentureDecisionRow[]; cashPlans: VentureDecisionRow[]; runs: VentureDecisionRow[]; nextActions?: { ledgerKey: string; rowId: string; dueDate: string; overdue: boolean; action: string; owner: string }[] };
   venture: Venture;
   phases: VenturePhaseProgress[];
   gates: VentureGate[];
@@ -1037,4 +1051,10 @@ export interface VentureSummary {
   topSkillGaps: VentureSkillGapItem[];
   ledgers: VentureLedgerProgress[];
   members: VentureMember[];
+}
+
+export interface VentureDecisionRow {
+  id: string;
+  values: Record<string, string>;
+  checks: Record<string, string>;
 }

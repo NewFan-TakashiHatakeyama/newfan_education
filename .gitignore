@@ -22,6 +22,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 docs/*.md
+!docs/venture-governance-design.md
+!docs/venture-review-remediation.md
+!docs/b2b-domain-scope.md
 docs/*.zip
 
 # Local runtime databases (recreate via alembic upgrade head)

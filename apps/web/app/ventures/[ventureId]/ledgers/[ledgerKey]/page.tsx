@@ -5,7 +5,6 @@ import { use, useCallback, useEffect, useState } from "react";
 import type { VentureLedgerEntry, VentureLedgerSummary } from "@newfan/contracts";
 
 import {
-  deleteVentureLedgerEntry,
   fetchVentureLedger,
   saveVentureLedgerEntry
 } from "@/lib/api";
@@ -17,12 +16,12 @@ import { EmptyState } from "@/app/components/ui/EmptyState";
 
 import { VentureNav } from "../../../VentureNav";
 import { useVentureRole } from "../../../useVentureRole";
+import { EvaluationCoverage } from "../../../EvaluationCoverage";
 import styles from "../../../ventures.module.css";
 
-/** 点検値が「揃っている」側かどうか。原本の語をそのまま見て判定する。 */
-function isSettled(verdict: string): boolean {
-  return /記録あり|整合|充足|一致|確認済|継続|記法OK|標準依存|記録済/.test(verdict);
-}
+const SERVER_COLUMNS = new Set(["正本確認者PersonID", "正本確認日時", "前提版"]);
+const CANCELLATION_COLUMNS = new Set(["取消理由", "取消／置換Run ID", "無効化・取消理由"]);
+const editableValues = (values: Record<string, string>) => Object.fromEntries(Object.entries(values).filter(([k]) => !SERVER_COLUMNS.has(k)));
 
 const ENTRY_STATUS = ["未着手", "確認中", "対応中", "完了", "対象外"];
 
@@ -38,7 +37,8 @@ export default function VentureLedgerPage({
   const [detail, setDetail] = useState<VentureLedgerEntry | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [newRowKey, setNewRowKey] = useState("");
-  const { canEdit } = useVentureRole();
+  const [page, setPage] = useState(0);
+  const { canEdit, canVerify } = useVentureRole(ventureId);
 
   const refresh = useCallback(() => {
     fetchVentureLedger(ventureId, ledgerKey)
@@ -63,7 +63,8 @@ export default function VentureLedgerPage({
     setSaving(true);
     setError(null);
     try {
-      await saveVentureLedgerEntry(ventureId, ledgerKey, { id: entry.id, values });
+      const updated = await saveVentureLedgerEntry(ventureId, ledgerKey, { id: entry.id, values: editableValues(values) });
+      setDetail(updated); setDraft({ ...updated.values });
       refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "保存できませんでした。");
@@ -75,7 +76,6 @@ export default function VentureLedgerPage({
   const save = async () => {
     if (!detail) return;
     const target = detail;
-    setDetail(null);
     await saveEntry(target, draft);
   };
 
@@ -86,7 +86,7 @@ export default function VentureLedgerPage({
   const previewInput = (ledger?.inputColumns ?? []).slice(0, 3);
   // 原本の点検列。最後の1つ（総合点検）を一覧に出す。
   const checkColumns = ledger?.checkColumns ?? [];
-  const checkColumn = checkColumns.length > 0 ? checkColumns[checkColumns.length - 1] : "";
+  const checkColumn = ["有効性点検", "公開準備点検", "接続点検", "割当点検", "稼働点検"].find(column => checkColumns.includes(column)) ?? checkColumns[checkColumns.length - 1] ?? "";
 
   return (
     <>
@@ -97,7 +97,7 @@ export default function VentureLedgerPage({
         meta={ledger ? `${ledger.summary}（原本: ${ledger.sourceSheet}）` : undefined}
         theme="company"
         actions={
-          ledger && !ledger.seeded && canEdit ? (
+          ledger && canEdit ? (
             <div className={styles.toolbar} style={{ margin: 0 }}>
               <label className={styles.field}>
                 行のID
@@ -135,6 +135,7 @@ export default function VentureLedgerPage({
         }
       >
         {error ? <p className={styles.error}>{error}</p> : null}
+        {ledgerKey === "required_eval" ? <EvaluationCoverage entries={items} /> : null}
 
         {ledger && ledger.notes.length > 0 ? (
           <div className={styles.note}>
@@ -173,7 +174,7 @@ export default function VentureLedgerPage({
                 </tr>
               </thead>
               <tbody>
-                {items.map((entry) => (
+                {items.slice(page * 25, (page + 1) * 25).map((entry) => (
                   <tr key={entry.id}>
                     <td className={styles.taskId}>
                       <button
@@ -197,7 +198,7 @@ export default function VentureLedgerPage({
                         {entry.derived[checkColumn] ? (
                           <span
                             className={`${styles.pill} ${
-                              isSettled(entry.derived[checkColumn])
+                              entry.checks?.[checkColumn]?.severity === "success"
                                 ? styles.pillDone
                                 : styles.pillProgress
                             }`}
@@ -225,17 +226,15 @@ export default function VentureLedgerPage({
         )}
       </Section>
 
+      <div className={styles.actionRow}>
+        <button disabled={page === 0} onClick={() => setPage(p => p - 1)}>前の25件</button>
+        <span>{items.length}件中 {Math.min(page * 25 + 1, items.length)}〜{Math.min((page + 1) * 25, items.length)}件</span>
+        <button disabled={(page + 1) * 25 >= items.length} onClick={() => setPage(p => p + 1)}>次の25件</button>
+      </div>
       <Drawer
         open={detail !== null}
         title={detail ? `${ledger?.name ?? ""} ${detail.rowKey}` : ""}
-        onClose={async () => {
-          // 書きかけを黙って捨てない。閉じる前に保存する。
-          const pending = detail;
-          setDetail(null);
-          if (pending && canEdit && JSON.stringify(pending.values) !== JSON.stringify(draft)) {
-            await saveEntry(pending, draft);
-          }
-        }}
+        onClose={() => setDetail(null)}
       >
         {detail && ledger ? (
           <div>
@@ -293,6 +292,11 @@ export default function VentureLedgerPage({
             {ledger.inputColumns.map((column) => {
               // 原本の入力規則がある列は、自由記述ではなく候補・日付・数値で入力させる。
               const rule = ledger.columnRules[column];
+              const final = !!detail.values["正本確認日時"] || (ledgerKey === "eval_plan" && ["承認", "対象外承認"].includes(detail.values["状態"])) ||
+                (ledgerKey === "eval_run" && ["合格", "不合格"].includes(detail.values["人の合否"])) ||
+                (ledgerKey === "gate_run" && !!detail.values["判断結果"] && detail.values["判断結果"] !== "未審査") ||
+                (ledgerKey === "required_eval" && !!detail.values["正本確認日時"]);
+              const readOnly = SERVER_COLUMNS.has(column) || (final && !CANCELLATION_COLUMNS.has(column));
               const value = draft[column] ?? "";
               const onChange = (next: string) =>
                 setDraft((current) => ({ ...current, [column]: next }));
@@ -302,7 +306,7 @@ export default function VentureLedgerPage({
                   {rule?.type === "select" && rule.options.length > 0 ? (
                     <select
                       value={value}
-                      disabled={saving || !canEdit}
+                      disabled={saving || !canEdit || readOnly}
                       onChange={(event) => onChange(event.target.value)}
                     >
                       <option value="">未入力</option>
@@ -316,21 +320,24 @@ export default function VentureLedgerPage({
                     <input
                       type="date"
                       value={value}
-                      disabled={saving || !canEdit}
+                      disabled={saving || !canEdit || readOnly}
                       onChange={(event) => onChange(event.target.value)}
                     />
+                  ) : rule?.type === "datetime" ? (
+                    <input value={value} disabled={saving || !canEdit || readOnly}
+                      placeholder="2026-09-11T09:00:00+09:00" onChange={event => onChange(event.target.value)} />
                   ) : rule?.type === "number" ? (
                     <input
                       type="number"
                       value={value}
                       min={rule.min ?? undefined}
-                      disabled={saving || !canEdit}
+                      disabled={saving || !canEdit || readOnly}
                       onChange={(event) => onChange(event.target.value)}
                     />
                   ) : (
                     <textarea
                       value={value}
-                      disabled={saving || !canEdit}
+                      disabled={saving || !canEdit || readOnly}
                       onChange={(event) => onChange(event.target.value)}
                     />
                   )}
@@ -346,31 +353,16 @@ export default function VentureLedgerPage({
               ) : (
                 <span className={styles.muted}>台帳の記入は事業責任者・PdM・編集担当が行います。</span>
               )}
-              {canEdit && !detail.isMasterRow ? (
-                <button
-                  type="button"
-                  className="ghost-button"
-                  disabled={saving}
-                  onClick={async () => {
-                    setSaving(true);
-                    try {
-                      await deleteVentureLedgerEntry(ventureId, ledgerKey, detail.id);
-                      setDetail(null);
-                      refresh();
-                    } catch (err: unknown) {
-                      setError(err instanceof Error ? err.message : "削除できませんでした。");
-                    } finally {
-                      setSaving(false);
-                    }
-                  }}
-                >
-                  この行を削除
-                </button>
-              ) : (
-                <span className={styles.muted}>
-                  点検行はマスタ由来のため削除できません。対象外にする場合は状態で記録します。
-                </span>
-              )}
+              {canVerify && ["eval_plan", "eval_run", "gate_run", "required_eval"].includes(ledgerKey) && !detail.values["正本確認日時"] ? (
+                <button type="button" className="ghost-button" disabled={saving || JSON.stringify(draft) !== JSON.stringify(detail.values)} onClick={async () => {
+                  setSaving(true);
+                  try {
+                    const updated = await saveVentureLedgerEntry(ventureId, ledgerKey, { id: detail.id, verifyRecord: true });
+                    setDetail(updated); setDraft({ ...updated.values }); refresh();
+                  } catch (e) { setError(String(e)); } finally { setSaving(false); }
+                }}>保存済みの正本を確認したことを記録</button>
+              ) : null}
+              <span className={styles.muted}>確定済み記録は新しい版・Runを作成します。取消理由は履歴に残ります。</span>
             </div>
           </div>
         ) : null}

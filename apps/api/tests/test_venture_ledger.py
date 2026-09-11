@@ -33,7 +33,10 @@ def create_venture(client: TestClient, headers: dict[str, str], **overrides) -> 
     payload.update(overrides)
     res = client.post("/api/v1/ventures", json=payload, headers=headers)
     assert res.status_code == 200, res.text
+    for role in ("R01", "R18", "R19"):
+        assert client.post(f"/api/v1/ventures/{res.json()['id']}/members", json={"userId": "admin-user", "roleId": role}, headers=headers).status_code == 200
     return res.json()
+
 
 
 def test_master_exposes_process_definition() -> None:
@@ -175,7 +178,7 @@ def test_learner_can_only_update_own_assigned_task() -> None:
     )
     added = client.post(
         f"/api/v1/ventures/{venture_id}/members",
-        json={"userId": "demo-user", "roleId": "R02"},
+        json={"userId": "demo-user", "roleId": "R06"},
         headers=admin,
     )
     assert added.status_code == 200
@@ -211,36 +214,21 @@ def test_learner_can_only_update_own_assigned_task() -> None:
     assert rejected.status_code == 403
 
 
+
 def test_gate_decision_is_restricted_to_allowed_values() -> None:
+    from test_acceptance_sheet33 import put, GATE_RUN_BASE
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
-    venture = create_venture(client, admin)
-    venture_id = venture["id"]
-
-    gates = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"]
-    g3 = next(gate for gate in gates if gate["gateId"] == "G3")
-
-    # G3 に Pivot は定義されていない
-    invalid = client.patch(
-        f"/api/v1/ventures/{venture_id}/gates/{g3['id']}", json={"decision": "Pivot"}, headers=admin
-    )
-    assert invalid.status_code == 400
-
-    approved = client.patch(
-        f"/api/v1/ventures/{venture_id}/gates/{g3['id']}",
-        json={
-            "decision": "条件付承認",
-            "conditions": "重大リスクの残件を2週間で解消",
-            "conditionDue": "2026-10-15",
-            "evidencePackageUri": "https://example.test/gate/g3",
-        },
-        headers=admin,
-    )
-    assert approved.status_code == 200
-    body = approved.json()
-    assert body["decision"] == "条件付承認"
-    assert body["decidedBy"] == "admin-user"
-    assert body["decidedAt"]
+    vid = create_venture(client, admin)["id"]
+    row = put(client, admin, vid, "gate_run", {**GATE_RUN_BASE, "A実名": "外部決裁者の実名"}, row_key="GR")
+    assert row.status_code == 200, row.text
+    gate = next(g for g in client.get(f"/api/v1/ventures/{vid}/gates", headers=admin).json()["items"] if g["gateId"] == "G3")
+    assert gate["decidedByName"] == "外部決裁者の実名"
+    assert gate["recordedDecision"] == "承認" and not gate["effective"]
+    assert gate["decision"] == "未審査"
+    from test_acceptance_sheet33 import GATE_RUN_BASE
+    invalid = put(client, admin, vid, "gate_run", {**GATE_RUN_BASE, "判断結果": "Scale"}, row_key="INVALID")
+    assert invalid.json()["derived"]["判定整合"] == "Gate判断不適合"
 
 
 def test_ledger_entries_seed_master_rows_and_accept_input() -> None:
@@ -300,7 +288,8 @@ def test_ledger_entries_seed_master_rows_and_accept_input() -> None:
     removed = client.delete(
         f"/api/v1/ventures/{venture_id}/ledgers/data/entries/{entry_id}", headers=admin
     )
-    assert removed.status_code == 200
+    assert removed.status_code == 400
+
 
 
 def test_unknown_ledger_columns_are_rejected() -> None:
@@ -377,9 +366,11 @@ def test_skill_gap_reflects_applied_tasks_and_assessments() -> None:
 
     after = client.get(f"/api/v1/ventures/{venture_id}/skill-gap", headers=admin).json()
     updated = next(item for item in after["items"] if item["skillId"] == target["skillId"])
-    assert updated["coveredLevel"] == target["requiredLevel"]
-    assert updated["gap"] == 0
+    assert updated["coveredLevel"] == 0
+    assert updated["gap"] == target["requiredLevel"]
     assert updated["assessments"][0]["userName"]
+
+
 
 
 def test_summary_aggregates_phases_gates_and_ledgers() -> None:
@@ -533,13 +524,14 @@ def test_ledger_key_must_match_the_row_on_write_and_delete() -> None:
     assert any(item["id"] == created["id"] for item in
                client.get(f"/api/v1/ventures/{venture_id}/ledgers/data", headers=admin).json()["items"])
 
-    # 自分の台帳からは消せる
+    # 自分の台帳でも物理削除はしない
     assert (
         client.delete(
             f"/api/v1/ventures/{venture_id}/ledgers/data/entries/{created['id']}", headers=admin
         ).status_code
-        == 200
+        == 400
     )
+
 
 
 def test_venture_is_hidden_from_users_who_are_not_assigned() -> None:
@@ -576,7 +568,7 @@ def test_other_members_skill_assessments_are_hidden_from_learners() -> None:
     for user_id in ("demo-user", "mentor-user"):
         client.post(
             f"/api/v1/ventures/{venture_id}/members",
-            json={"userId": user_id, "roleId": "R02"},
+            json={"userId": user_id, "roleId": "R06"},
             headers=admin,
         )
 
@@ -597,51 +589,27 @@ def test_other_members_skill_assessments_are_hidden_from_learners() -> None:
     row = next(item for item in as_learner["items"] if item["skillId"] == skill_id)
     assert row["assessments"] == []
     # 集計そのものは見える
-    assert row["coveredLevel"] == 3
+    assert row["coveredLevel"] == 0
 
     as_admin = client.get(f"/api/v1/ventures/{venture_id}/skill-gap", headers=admin).json()
     row = next(item for item in as_admin["items"] if item["skillId"] == skill_id)
     assert [item["userId"] for item in row["assessments"]] == ["mentor-user"]
 
 
+
 def test_gate_decision_history_survives_a_revert() -> None:
-    """「未審査」に戻しても、誰がいつ承認したかが監査ログに残る。"""
+    from test_acceptance_sheet33 import put, GATE_RUN_BASE
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
-    venture_id = create_venture(client, admin)["id"]
-    gates = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"]
-    g3 = next(gate for gate in gates if gate["gateId"] == "G3")
-
-    approved = client.patch(
-        f"/api/v1/ventures/{venture_id}/gates/{g3['id']}",
-        json={"decision": "承認", "decidedByName": "山田太郎"},
-        headers=admin,
-    )
-    assert approved.status_code == 200
-    reverted = client.patch(
-        f"/api/v1/ventures/{venture_id}/gates/{g3['id']}", json={"decision": "未審査"}, headers=admin
-    )
-    assert reverted.status_code == 200
-    assert reverted.json()["decidedAt"] is None
-
+    vid = create_venture(client, admin)["id"]
+    assert client.post(f"/api/v1/ventures/{vid}/members", headers=admin, json={"userId": "admin-user", "roleId": "R18"}).status_code == 200
+    row = put(client, admin, vid, "gate_run", GATE_RUN_BASE, row_key="GR").json()
+    assert put(client, admin, vid, "gate_run", {"判断結果": "未審査"}, entry_id=row["id"]).status_code == 400
+    assert put(client, admin, vid, "gate_run", {"取消理由": "再審査"}, entry_id=row["id"]).status_code == 200
     ScopedSession.remove()
-    logs = (
-        ScopedSession.execute(
-            select(AuditLogModel)
-            .where(AuditLogModel.resource_id == g3["id"])
-            .order_by(AuditLogModel.occurred_at)
-        )
-        .scalars()
-        .all()
-    )
-    actions = [log.action for log in logs]
-    assert "承認" in actions and "未審査" in actions
-    approval = next(log for log in logs if log.action == "承認")
-    assert approval.actor_user_id == "admin-user"
-    assert approval.event_type == "venture.gate.decision"
-    revert = next(log for log in logs if log.action == "未審査")
-    assert revert.metadata_json["previousDecision"] == "承認"
-    assert revert.metadata_json["previousDecidedBy"] == "admin-user"
+    logs = ScopedSession.execute(select(AuditLogModel).where(AuditLogModel.resource_id == row["id"])).scalars().all()
+    assert len(logs) == 2 and logs[-1].metadata_json["before"]
+    assert all(log.actor_user_id == "admin-user" for log in logs)
     ScopedSession.remove()
 
 
@@ -650,7 +618,8 @@ def test_completion_approval_is_recorded_in_the_audit_log() -> None:
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = create_venture(client, admin)["id"]
-    task = client.get(f"/api/v1/ventures/{venture_id}/tasks", headers=admin).json()["items"][0]
+    from test_venture_governance import prepare_task
+    task = prepare_task(client, admin, venture_id)
 
     approved = client.patch(
         f"/api/v1/ventures/{venture_id}/tasks/{task['id']}",
@@ -676,8 +645,9 @@ def test_completion_approval_is_recorded_in_the_audit_log() -> None:
         .scalars()
         .all()
     )
-    assert {log.action for log in logs} == {"approve", "revoke"}
+    assert {"approve", "revoke"} <= {log.action for log in logs}
     ScopedSession.remove()
+
 
 
 def test_values_longer_than_the_column_are_rejected() -> None:
@@ -786,7 +756,8 @@ def test_completion_approval_requires_evidence_and_completed_status() -> None:
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
     venture_id = create_venture(client, admin)["id"]
-    task = client.get(f"/api/v1/ventures/{venture_id}/tasks", headers=admin).json()["items"][0]
+    from test_venture_governance import prepare_task
+    task = prepare_task(client, admin, venture_id)
     path = f"/api/v1/ventures/{venture_id}/tasks/{task['id']}"
 
     no_evidence = client.patch(path, json={"approveCompletion": True}, headers=admin)
@@ -814,6 +785,7 @@ def test_completion_approval_requires_evidence_and_completed_status() -> None:
     assert ok.json()["completionApprovedAt"] is not None
 
 
+
 def test_independent_approval_cannot_be_self_approved() -> None:
     """原本06 R19「実装責任者と分離」。担当者本人は完了承認できない。"""
     client = TestClient(app)
@@ -821,6 +793,13 @@ def test_independent_approval_cannot_be_self_approved() -> None:
     venture_id = create_venture(client, admin)["id"]
     tasks = client.get(f"/api/v1/ventures/{venture_id}/tasks", headers=admin).json()["items"]
     task = next(item for item in tasks if item["approverRoleId"] == "R19")
+    from test_venture_governance import prepare_task
+    task = prepare_task(client, admin, venture_id, task["taskId"], person="admin-user")
+    deps = [r["id"] for r in tasks if r["taskId"] in task["dependsOn"]]
+    if deps:
+        assert client.post(f"/api/v1/ventures/{venture_id}/tasks/applicability", headers=admin,
+            json={"taskRowIds": deps, "applicability": "対象外", "reason": "独立性テストの対象範囲で除外承認"}).status_code == 200
+    assert client.post(f"/api/v1/ventures/{venture_id}/members", headers=admin, json={"userId": "demo-user", "roleId": task["roleId"]}).status_code == 200
     path = f"/api/v1/ventures/{venture_id}/tasks/{task['id']}"
 
     client.post(
@@ -854,6 +833,7 @@ def test_independent_approval_cannot_be_self_approved() -> None:
         headers=admin,
     )
     assert approved.status_code == 200
+
 
 
 def test_exclusion_requires_a_reason() -> None:
@@ -891,32 +871,16 @@ def test_exclusion_requires_a_reason() -> None:
 
 
 def test_gate_keeps_the_entered_approver_name() -> None:
-    """原本29の「A実名」は入力された承認者。操作者名で上書きしない。"""
+    from test_acceptance_sheet33 import put, GATE_RUN_BASE
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
-    venture_id = create_venture(client, admin)["id"]
-    gates = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"]
-    g3 = next(gate for gate in gates if gate["gateId"] == "G3")
-
-    res = client.patch(
-        f"/api/v1/ventures/{venture_id}/gates/{g3['id']}",
-        json={"decision": "承認", "decidedByName": "山田太郎", "scope": "全社"},
-        headers=admin,
-    )
-    assert res.status_code == 200
-    body = res.json()
-    assert body["decidedByName"] == "山田太郎"
-    assert body["recordedByName"] == "Platform Admin"
-
-    again = client.get(f"/api/v1/ventures/{venture_id}/gates", headers=admin).json()["items"]
-    stored = next(gate for gate in again if gate["id"] == g3["id"])
-    assert stored["decidedByName"] == "山田太郎"
-
-    # 未審査に戻したら承認者名も残さない（監査ログには残る）
-    reverted = client.patch(
-        f"/api/v1/ventures/{venture_id}/gates/{g3['id']}", json={"decision": "未審査"}, headers=admin
-    )
-    assert reverted.json()["decidedByName"] == ""
+    vid = create_venture(client, admin)["id"]
+    row = put(client, admin, vid, "gate_run", {**GATE_RUN_BASE, "A実名": "外部決裁者の実名"}, row_key="GR")
+    assert row.status_code == 200, row.text
+    gate = next(g for g in client.get(f"/api/v1/ventures/{vid}/gates", headers=admin).json()["items"] if g["gateId"] == "G3")
+    assert gate["decidedByName"] == "外部決裁者の実名"
+    assert gate["recordedDecision"] == "承認" and not gate["effective"]
+    assert gate["decision"] == "未審査"
 
 
 def test_feature_is_limited_to_enabled_tenants(monkeypatch) -> None:
@@ -1114,7 +1078,7 @@ def test_manager_only_mutations_reject_non_managers() -> None:
             client.patch(
                 f"/api/v1/ventures/{venture_id}", json={"summary": "書き換え"}, headers=headers
             ).status_code
-            == 403
+            == 404
         )
         assert (
             client.patch(
@@ -1122,7 +1086,7 @@ def test_manager_only_mutations_reject_non_managers() -> None:
                 json={"conditionDue": "2026-12-01"},
                 headers=headers,
             ).status_code
-            == 403
+            == 404
         )
         assert (
             client.post(
@@ -1130,8 +1094,9 @@ def test_manager_only_mutations_reject_non_managers() -> None:
                 json={"userId": "demo-user", "roleId": "R02"},
                 headers=headers,
             ).status_code
-            == 403
+            == 404
         )
+
 
 
 def test_editor_only_mutations_reject_non_editors() -> None:
@@ -1156,7 +1121,7 @@ def test_editor_only_mutations_reject_non_editors() -> None:
                 json={"taskRowIds": [task_row_id], "applicability": "対象外", "reason": "対象外"},
                 headers=headers,
             ).status_code
-            == 403
+            == 404
         )
         assert (
             client.post(
@@ -1164,14 +1129,15 @@ def test_editor_only_mutations_reject_non_editors() -> None:
                 json={"rowKey": "D-100", "values": {}},
                 headers=headers,
             ).status_code
-            == 403
+            == 404
         )
         assert (
             client.delete(
                 f"/api/v1/ventures/{venture_id}/ledgers/risk/entries/{risk_entry_id}", headers=headers
             ).status_code
-            == 403
+            == 404
         )
+
 
 
 def test_assessor_only_mutation_rejects_non_assessors() -> None:
@@ -1189,7 +1155,8 @@ def test_assessor_only_mutation_rejects_non_assessors() -> None:
         json={"skillId": skill_id, "userId": "mentor-user", "assessedLevel": 2},
         headers=learner,
     )
-    assert denied.status_code == 403
+    assert denied.status_code == 404
+
 
 
 def test_remove_member_endpoint() -> None:
@@ -1200,7 +1167,7 @@ def test_remove_member_endpoint() -> None:
     venture_id = create_venture(client, admin)["id"]
     member = client.post(
         f"/api/v1/ventures/{venture_id}/members",
-        json={"userId": "demo-user", "roleId": "R02"},
+        json={"userId": "demo-user", "roleId": "R06"},
         headers=admin,
     ).json()
 
@@ -1222,6 +1189,7 @@ def test_remove_member_endpoint() -> None:
     assert member["id"] not in remaining
 
 
+
 def test_planned_end_before_planned_start_is_rejected() -> None:
     """原本17!W の予定日逆転チェック（「予定日不正」分岐）。"""
     client = TestClient(app)
@@ -1238,42 +1206,14 @@ def test_planned_end_before_planned_start_is_rejected() -> None:
     assert "予定日不正" in rejected.json()["detail"]
 
 
-def test_delete_venture_removes_it_and_its_children() -> None:
-    """案件を削除すると、要員・台帳の行も消え、監査ログにだけ痕跡が残る。"""
+def test_archive_preserves_venture_and_its_children() -> None:
     client = TestClient(app)
     admin = sign_in(client, "admin@example.com", "Admin123!")
-    venture_id = create_venture(client, admin)["id"]
-    client.post(
-        f"/api/v1/ventures/{venture_id}/members",
-        json={"userId": "demo-user", "roleId": "R02"},
-        headers=admin,
-    )
-    client.post(
-        f"/api/v1/ventures/{venture_id}/ledgers/data/entries",
-        json={"rowKey": "D-900", "values": {"名称・種類": "削除テスト"}},
-        headers=admin,
-    )
-
-    removed = client.delete(f"/api/v1/ventures/{venture_id}", headers=admin)
-    assert removed.status_code == 200
-    assert removed.json()["removed"] is True
-
-    assert client.get(f"/api/v1/ventures/{venture_id}", headers=admin).status_code == 404
-    listed = [item["id"] for item in client.get("/api/v1/ventures", headers=admin).json()["items"]]
-    assert venture_id not in listed
-
-    ScopedSession.remove()
-    logs = (
-        ScopedSession.execute(
-            select(AuditLogModel).where(
-                AuditLogModel.resource_id == venture_id, AuditLogModel.event_type == "venture.delete"
-            )
-        )
-        .scalars()
-        .all()
-    )
-    assert len(logs) == 1
-    assert logs[0].action == "delete"
+    vid = create_venture(client, admin)["id"]
+    assert client.delete(f"/api/v1/ventures/{vid}", headers=admin).status_code == 400
+    assert client.patch(f"/api/v1/ventures/{vid}", headers=admin, json={"status": "アーカイブ"}).status_code == 200
+    assert len(client.get(f"/api/v1/ventures/{vid}/tasks", headers=admin).json()["items"]) == 132
+    assert client.get(f"/api/v1/ventures/{vid}/ledgers/risk", headers=admin).status_code == 200
 
 
 def test_delete_venture_requires_manager_role() -> None:
@@ -1283,8 +1223,9 @@ def test_delete_venture_requires_manager_role() -> None:
     venture_id = create_venture(client, admin)["id"]
 
     denied = client.delete(f"/api/v1/ventures/{venture_id}", headers=learner)
-    assert denied.status_code == 403
+    assert denied.status_code == 404
     assert client.get(f"/api/v1/ventures/{venture_id}", headers=admin).status_code == 200
+
 
 
 def test_delete_venture_unknown_id_is_not_found() -> None:

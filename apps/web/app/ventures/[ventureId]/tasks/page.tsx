@@ -57,7 +57,7 @@ export default function VentureTasksPage({
   // ドロワーの自由入力は下書きに溜めて明示的に保存する。onBlur だけに頼ると
   // Escape で閉じたときに入力が捨てられる。
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const { canEdit, userId } = useVentureRole();
+  const { canManage: canEdit, roleIds, userId } = useVentureRole(ventureId);
 
   const refresh = useCallback(() => {
     fetchVentureTasks(ventureId, {
@@ -186,15 +186,14 @@ export default function VentureTasksPage({
 
   const saveDraft = async (task: VentureTask | null) => {
     const changed = draftChanges(task);
-    if (!task || Object.keys(changed).length === 0) return;
-    await patchTask(task.id, changed);
+    if (!task || Object.keys(changed).length === 0) return true;
+    return await patchTask(task.id, changed);
   };
 
   const closeDetail = async () => {
     // 閉じる前に書きかけを保存する。黙って捨てない。
     const current = detail;
-    setDetail(null);
-    await saveDraft(current);
+    if (await saveDraft(current)) setDetail(null);
   };
 
   const patchTask = async (taskRowId: string, payload: Parameters<typeof updateVentureTask>[2]) => {
@@ -206,8 +205,10 @@ export default function VentureTasksPage({
         current ? current.map((task) => (task.id === updated.id ? updated : task)) : current
       );
       setDetail((current) => (current && current.id === updated.id ? updated : current));
+      return true;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "更新できませんでした。");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -346,12 +347,12 @@ export default function VentureTasksPage({
                     <td className={styles.muted}>{task.assigneeName || "—"}</td>
                     <td className={styles.taskId}>{task.gateId}</td>
                     <td>
-                      {task.completionApprovedAt ? (
-                        <span className={`${styles.pill} ${styles.pillDone}`}>承認済</span>
+                      {task.completionValid ? (
+                        <span className={`${styles.pill} ${styles.pillDone}`}>完了条件充足</span>
                       ) : task.evidenceUri ? (
                         <span className={`${styles.pill} ${styles.pillProgress}`}>記録あり</span>
                       ) : (
-                        <span className={styles.muted}>—</span>
+                        <span className={styles.muted}>{task.completionCheck || "未確認"}</span>
                       )}
                     </td>
                   </tr>
@@ -594,8 +595,8 @@ export default function VentureTasksPage({
             <div className={styles.actionRow}>
               {detail.completionApprovedAt ? (
                 <>
-                  <span className={`${styles.pill} ${styles.pillDone}`}>
-                    完了承認済 / {detail.completionApprovedByName || detail.completionApprovedBy}
+                  <span className={`${styles.pill} ${detail.completionValid ? styles.pillDone : styles.pillProgress}`}>
+                    {detail.completionValid ? "完了条件充足" : `承認記録あり・${detail.completionCheck}`} / {detail.completionApprovedByName || detail.completionApprovedBy}
                   </span>
                   {canEdit ? (
                     <button
@@ -612,14 +613,13 @@ export default function VentureTasksPage({
                 <button
                   type="button"
                   className="primary-button"
-                  disabled={saving || !canEdit || !detail.evidenceUri || detail.status !== "完了"}
+                  disabled={saving || dirty || !roleIds.includes(detail.approverRoleId) || !detail.evidenceUri || detail.status !== "完了"}
                   onClick={async () => {
-                    await saveDraft(detail);
                     await patchTask(detail.id, { approveCompletion: true });
                   }}
                   title={
-                    !canEdit
-                      ? "完了承認は事業責任者・PdMが行います"
+                    !roleIds.includes(detail.approverRoleId)
+                      ? `完了承認には ${detail.approverRoleId} の案件割当が必要です`
                       : !detail.evidenceUri
                         ? "先に完了証拠のURIを記録してください"
                         : detail.status !== "完了"

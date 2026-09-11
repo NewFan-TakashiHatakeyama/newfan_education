@@ -1,6 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, useEffect, useState } from "react";
+import { fetchVenture } from "@/lib/api";
+import type { Venture } from "@newfan/contracts";
 
 import type { Role } from "@newfan/contracts";
 
@@ -15,12 +17,14 @@ export type VentureCapabilities = {
   role: Role | null;
   /** サインイン中の利用者ID。自己申告の評価を弾くなどに使う。 */
   userId: string;
-  /** 案件の作成・前提の更新・ゲート判断・要員の増減（admin / recruiter） */
+  /** 案件前提・要員管理：管理者または案件の R01 / R02 / R18。 */
   canManage: boolean;
-  /** 台帳の記入・適用判定・担当割当・完了承認（admin / recruiter / content_editor） */
+  /** 案件台帳の記入。完了承認・正本確認には別途責任ロールが必要。 */
   canEdit: boolean;
-  /** 到達Lvの記録（admin / recruiter / mentor） */
+  /** 到達Lvの記録：管理者または案件の R02 / R19。 */
   canAssess: boolean;
+  canVerify: boolean;
+  roleIds: string[];
 };
 
 function subscribeAuthSession(onChange: () => void) {
@@ -32,7 +36,8 @@ function subscribeAuthSession(onChange: () => void) {
   };
 }
 
-export function useVentureRole(): VentureCapabilities {
+export function useVentureRole(ventureId?: string): VentureCapabilities {
+  const [permissions, setPermissions] = useState<Venture["capabilities"]>();
   // 文字列を返すこと。オブジェクトを返すと毎レンダーで参照が変わって再描画が止まらない。
   const role = useSyncExternalStore(
     subscribeAuthSession,
@@ -44,11 +49,22 @@ export function useVentureRole(): VentureCapabilities {
     () => getDemoAuthSession().userId,
     () => ""
   );
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      if (ventureId) fetchVenture(ventureId).then(v => { if (active) setPermissions(v.capabilities); }).catch(() => { if (active) setPermissions(undefined); });
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => { active = false; window.removeEventListener("focus", refresh); };
+  }, [ventureId, userId, role]);
   return {
     role,
     userId,
-    canManage: role === "admin" || role === "recruiter",
-    canEdit: role === "admin" || role === "recruiter" || role === "content_editor",
-    canAssess: role === "admin" || role === "recruiter" || role === "mentor"
+    canManage: ventureId ? !!permissions?.canManage : role === "admin" || role === "recruiter",
+    canEdit: ventureId ? !!permissions?.canEdit : false,
+    canAssess: ventureId ? !!permissions?.canAssess : false,
+    canVerify: !!permissions?.canVerify,
+    roleIds: permissions?.roleIds ?? []
   };
 }
