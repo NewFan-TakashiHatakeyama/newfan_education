@@ -43,3 +43,4 @@
 .outcomeScene>span{position:static;grid-column:1;grid-row:1;background:transparent;border:0;font-size:25px;line-height:1.8;padding:30px;font-weight:600;letter-spacing:-.5px}
 @media(max-width:900px){.outcomeScene>span{font-size:21px;padding:24px}}
 @media(max-width:540px){.valueArt{height:145px}.outcomeScene{grid-template-columns:1fr}.outcomeScene img{grid-column:1;grid-row:1;width:100%;max-width:100%;margin:0;height:auto}.outcomeScene>span{grid-column:1;grid-row:2;font-size:20px;padding:22px}.businessArt figcaption strong{font-size:22px}}
+.businessArt{background:#f4f7f3}.businessArt img{mix-blend-mode:multiply}
