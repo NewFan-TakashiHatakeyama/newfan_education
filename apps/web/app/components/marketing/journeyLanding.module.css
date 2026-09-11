@@ -30,3 +30,16 @@
 @media(max-width:900px){.valueArt{height:190px}.businessArt{grid-template-columns:1.2fr 1fr}.businessArt figcaption{padding:25px 20px}.businessArt figcaption strong{font-size:20px}.businessArt .eyebrow{font-size:8px!important}.outcomeScene{height:210px}}
 @media(max-width:540px){.values{grid-template-columns:1fr;gap:20px}.values article{display:block;padding:0;border:0}.valueArt{height:180px;margin-bottom:12px}.values article h3,.values article p{padding-inline:5px}.values article p{margin-top:6px}.workshopArt{margin-bottom:22px;border-radius:8px}.workshopArt figcaption{font-size:9px;padding:12px 4px;letter-spacing:0}.businessArt{grid-template-columns:1fr}.businessArt figcaption{padding:20px 22px 26px}.businessArt figcaption strong{font-size:21px}.businessArt .eyebrow{margin-bottom:10px!important}.businessArt figcaption>span:last-child{margin-top:12px;font-size:10px}.outcomeScene{height:190px}.outcomeScene img{object-fit:cover;object-position:right;width:190%;max-width:none;margin-left:-90%}.outcomeScene>span{left:12px;bottom:12px;font-size:10px;padding:8px 10px}}
 .businessArt figcaption strong{text-wrap:balance}
+/* Distinct visual vocabulary: symbols, paper sculpture, glass and tactile deliverables. */
+.valueArt{position:relative;display:flex;align-items:center;justify-content:center;height:165px;background:#f0f4ed;isolation:isolate}
+.valueArt>svg{display:block!important;color:#116e63;z-index:1;margin:0!important}
+.valueArt>span{position:absolute;width:100px;height:100px;border:1px solid #aacbbb;border-radius:50%;transform:translate(-25px,8px)}
+.valueArt>span:last-child{width:75px;height:75px;transform:translate(28px,-12px);background:#dae8dd;z-index:-1}
+.valueSymbol1{background:#f0f2f5}.valueSymbol1>span{border-radius:12px;transform:translate(-20px,8px) rotate(-20deg);border-color:#aec3cc}.valueSymbol1>span:last-child{border-radius:12px;transform:translate(28px,-12px) rotate(16deg);background:#dae6e9}
+.valueSymbol2{background:#f7f0e8}.valueSymbol2>span{border-radius:50% 50% 8px 8px;border-color:#d6baa3;transform:translate(-20px,5px) rotate(-15deg)}.valueSymbol2>span:last-child{border-radius:50%;background:#efdece;transform:translate(26px,-10px)}
+.workshopArt,.businessArt{background:#f4eee4}.workshopArt img,.businessArt img{mix-blend-mode:normal}
+.outcomeScene{display:grid;grid-template-columns:.8fr 1.4fr;align-items:center;height:auto;background:#f1e9dc}
+.outcomeScene img{grid-column:2;grid-row:1;width:100%;max-width:100%;height:auto;object-fit:contain;margin:0;mix-blend-mode:normal}
+.outcomeScene>span{position:static;grid-column:1;grid-row:1;background:transparent;border:0;font-size:25px;line-height:1.8;padding:30px;font-weight:600;letter-spacing:-.5px}
+@media(max-width:900px){.outcomeScene>span{font-size:21px;padding:24px}}
+@media(max-width:540px){.valueArt{height:145px}.outcomeScene{grid-template-columns:1fr}.outcomeScene img{grid-column:1;grid-row:1;width:100%;max-width:100%;margin:0;height:auto}.outcomeScene>span{grid-column:1;grid-row:2;font-size:20px;padding:22px}.businessArt figcaption strong{font-size:22px}}
