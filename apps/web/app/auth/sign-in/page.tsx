@@ -28,10 +28,12 @@ const DEMO_ACCOUNTS = [
   }
 ] as const;
 
+const SHOW_DEMO_ACCOUNTS = process.env.NODE_ENV !== "production";
+
 export default function SignInPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("learner@example.com");
-  const [password, setPassword] = useState("Learner123!");
+  const [email, setEmail] = useState(SHOW_DEMO_ACCOUNTS ? "learner@example.com" : "");
+  const [password, setPassword] = useState(SHOW_DEMO_ACCOUNTS ? "Learner123!" : "");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -58,7 +60,7 @@ export default function SignInPage() {
         </p>
       </header>
       {error ? <p className="error">{error}</p> : null}
-      <section aria-label="デモアカウント">
+      {SHOW_DEMO_ACCOUNTS && <section aria-label="デモアカウント">
         <p className="muted" style={{ marginTop: 0 }}>
           まずは学習者で操作感を確認できます。企業向け画面は企業担当でサインインしてください。
         </p>
@@ -78,7 +80,7 @@ export default function SignInPage() {
             </button>
           ))}
         </div>
-      </section>
+      </section>}
       <section>
         <label htmlFor="sign-in-email">メールアドレス</label>
         <input
