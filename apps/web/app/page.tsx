@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { AIFieldReadyLanding } from "@/app/components/marketing/AIFieldReadyLanding";
 import { StructuredData } from "@/app/components/marketing/StructuredData";
-import { LP_SEO } from "@/app/components/marketing/lpContent";
+import { journeySeo as LP_SEO } from "@/app/components/marketing/journeyContent";
 
 export const metadata: Metadata = {
   title: LP_SEO.title,

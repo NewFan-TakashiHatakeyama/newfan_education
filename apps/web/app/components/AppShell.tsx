@@ -223,9 +223,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAuthenticated = isDemoAuthenticated(authSession);
   const isPublicAuthRoute = isPublicAuthPath(pathname);
   const isRootRoute = pathname === "/";
-  const shouldRedirectToSignIn = isAuthResolved && !isAuthenticated && !isPublicAuthRoute && !isRootRoute;
+  const isPublicMarketingRoute = isRootRoute || pathname === "/business/sign-up";
+  const shouldRedirectToSignIn = isAuthResolved && !isAuthenticated && !isPublicAuthRoute && !isPublicMarketingRoute;
   const shouldRedirectToHome = isAuthResolved && isAuthenticated && isPublicAuthRoute;
-  const shouldRenderShellChrome = isAuthResolved && isAuthenticated && !isPublicAuthRoute && !isRootRoute;
+  const shouldRenderShellChrome = isAuthResolved && isAuthenticated && !isPublicAuthRoute && !isPublicMarketingRoute;
 
   useEffect(() => {
     if (!shouldRedirectToHome) {
@@ -308,7 +309,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isAuthResolved && !isRootRoute && !isPublicAuthRoute) {
+  if (!isAuthResolved && !isPublicMarketingRoute && !isPublicAuthRoute) {
     return (
       <div className="content-area" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
         <p className="muted">読み込み中...</p>
@@ -317,7 +318,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   if (!shouldRenderShellChrome) {
-    return <div className="content-area">{children}</div>;
+    return <div className={isRootRoute ? undefined : "content-area"}>{children}</div>;
   }
 
   return (

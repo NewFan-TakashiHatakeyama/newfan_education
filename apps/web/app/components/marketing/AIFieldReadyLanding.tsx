@@ -1,272 +1,36 @@
 "use client";
-
+import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-
-import { AppIcon, IconText } from "@/app/components/ui";
-import { Section } from "@/app/components/ui/Section";
-import uiStyles from "@/app/components/ui/ui.module.css";
-
+import { useState } from "react";
+import { ArrowRight, ArrowUpRight, BookOpen, Check, CheckCheck, Code2, FileText, GraduationCap, Layers3, MessageSquare, Search, ShieldCheck, Target, Users, Workflow } from "lucide-react";
 import { trackLpEvent } from "@/lib/lp-analytics";
-
-import styles from "./aiFieldReadyLanding.module.css";
-import { CurriculumTimeline } from "./CurriculumTimeline";
-import { DeliverablesPreview } from "./DeliverablesPreview";
-import { FaqSection } from "./FaqSection";
-import { HeroMock } from "./HeroMock";
-import {
-  LP_BRAND,
-  LP_CHALLENGE_SECTION,
-  LP_CTA,
-  LP_CURRICULUM_TIMELINE,
-  LP_DELIVERABLES_SECTION,
-  LP_FINAL_CTA,
-  LP_HEADER_NAV,
-  LP_HERO,
-  LP_PRICING,
-  LP_PRODUCT_DEMO,
-  LP_SOLUTION_SECTION
-} from "./lpContent";
-import { PricingPackages } from "./PricingPackages";
-import { ProductDemoTabs } from "./ProductDemoTabs";
-import { StickyCtaBar } from "./StickyCtaBar";
-
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia === "undefined") return;
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduced(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-  return reduced;
-}
-
-function useRevealSections(reducedMotion: boolean) {
-  useEffect(() => {
-    const nodes = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal='section']"));
-    if (nodes.length === 0) return;
-    if (reducedMotion || typeof IntersectionObserver === "undefined") {
-      nodes.forEach((node) => node.classList.add(styles.revealVisible));
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add(styles.revealVisible);
-            observer.unobserve(entry.target);
-          }
-        }
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
-    );
-    nodes.forEach((node) => observer.observe(node));
-    return () => observer.disconnect();
-  }, [reducedMotion]);
-}
-
+import { journeyFaqs } from "./journeyContent";
+import s from "./journeyLanding.module.css";
+const steps = [
+ {title:'学ぶ',en:'LEARN',icon:BookOpen,text:'AIの基礎と、役割に必要なスキルを習得。',output:'演習・スキル確認'},
+ {title:'課題を定める',en:'DEFINE',icon:Target,text:'現場の困りごとから、取り組むテーマを選ぶ。',output:'業務課題・目標'},
+ {title:'つくる',en:'BUILD',icon:Code2,text:'学んだ技術を使い、チームでAIシステムを開発。',output:'動くプロトタイプ'},
+ {title:'確かめる',en:'VERIFY',icon:ShieldCheck,text:'実際の業務に照らして、品質と安全性を検証。',output:'評価結果・改善記録'},
+ {title:'活用する',en:'OPERATE',icon:Workflow,text:'利用範囲と運用体制を決め、現場で改善を重ねる。',output:'運用手順・改善計画'}
+];
+const examples = [
+ {title:'問い合わせ回答支援',icon:MessageSquare,issue:'回答を探す時間を、顧客に向き合う時間へ。',text:'FAQやマニュアルから、根拠付きの回答案を作成。担当者が確認して送信します。',source:'FAQ・製品マニュアル',action:'根拠付きの回答案',final:'担当者が確認・送信',question:'製品の設定方法を教えてください。',answer:'関連する操作手順を見つけました。回答案と参照元を確認できます。',tag:'参照元：操作マニュアル'},
+ {title:'社内ナレッジ検索',icon:Search,issue:'散らばった社内情報を、必要な人の手元へ。',text:'社内資料を横断して検索。閲覧権限を踏まえ、回答と参照先を提示します。',source:'社内規程・業務資料',action:'回答と参照資料',final:'社員が根拠を確認',question:'出張の申請手順を知りたいです。',answer:'申請に必要な書類と承認の流れを整理しました。最新の規程を確認できます。',tag:'参照元：出張申請ガイド'},
+ {title:'書類の読み取り・確認',icon:FileText,issue:'繰り返す転記作業を、確認する仕事へ。',text:'書類から必要な項目を抽出。読み取り結果を人が確認し、後続の業務につなげます。',source:'項目定義・確認ルール',action:'項目の抽出・整理',final:'担当者が確認・登録',question:'この請求書の内容を整理してください。',answer:'取引先・請求日・金額を抽出しました。原本と照合して確定してください。',tag:'確認対象：抽出項目と原本'}
+];
 export function AIFieldReadyLanding() {
-  const reducedMotion = usePrefersReducedMotion();
-  useRevealSections(reducedMotion);
-
-  const heroLines = LP_HERO.heading.split("\n");
-
-  return (
-    <main className={`${uiStyles.marketingPage} ${styles.page}`}>
-      <header className={`${uiStyles.lpHeader} ${styles.lpHeader}`}>
-        <Link href="/" className={`${uiStyles.lpHeaderBrand} ${styles.headerBrand}`}>
-          <span className={uiStyles.lpHeaderBrandMark} aria-hidden>
-            ▲
-          </span>
-          <span className={styles.headerBrandText}>
-            <strong>{LP_BRAND.name}</strong>
-            <small>{LP_BRAND.tagline}</small>
-          </span>
-        </Link>
-
-        <nav className={styles.headerNav} aria-label="セクションナビゲーション">
-          {LP_HEADER_NAV.map((item) => (
-            <Link key={item.href} href={item.href} className={styles.headerNavLink}>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className={`${uiStyles.lpHeaderActions} ${styles.headerActions}`}>
-          <Link
-            href="/business/sign-up"
-            className={uiStyles.actionPrimary}
-            onClick={() => trackLpEvent("hero_primary_cta_clicked", { source: "header" })}
-          >
-            <IconText icon="rocket">診断を相談</IconText>
-          </Link>
-          <Link href="/auth/sign-in" className={styles.loginLink}>
-            ログイン（学習者・企業）
-          </Link>
-        </div>
-      </header>
-
-      <section
-        className={`${uiStyles.hero} ${uiStyles.heroMarketing} ${styles.hero} ${styles.heroSplit}`}
-        data-reveal="section"
-      >
-        <div className={styles.heroContent}>
-          <p className={styles.heroBrand}>{LP_BRAND.name}</p>
-          <h1 className={`${uiStyles.heroTitle} ${styles.heroTitle}`}>
-            {heroLines.map((line, i) => (
-              <span key={line}>
-                {line}
-                {i < heroLines.length - 1 ? <br /> : null}
-              </span>
-            ))}
-          </h1>
-          <p className={styles.heroLead}>{LP_HERO.subcopy}</p>
-
-          <div className={styles.heroActions}>
-            <Link
-              href="/business/sign-up"
-              className={uiStyles.actionPrimary}
-              onClick={() => trackLpEvent("hero_primary_cta_clicked", { source: "hero" })}
-            >
-              <IconText icon="rocket">{LP_CTA.primary}</IconText>
-            </Link>
-            <Link
-              href="#curriculum-download"
-              className={uiStyles.actionGhost}
-              onClick={() => trackLpEvent("curriculum_download_clicked", { source: "hero" })}
-            >
-              <IconText icon="notebookText">{LP_CTA.secondary}</IconText>
-            </Link>
-          </div>
-        </div>
-
-        <div className={styles.heroVisual}>
-          <HeroMock reducedMotion={reducedMotion} />
-        </div>
-      </section>
-
-      <div id="challenges" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
-        <Section title={LP_CHALLENGE_SECTION.title} meta={LP_CHALLENGE_SECTION.meta}>
-          <ol className={styles.challengeList}>
-            {LP_CHALLENGE_SECTION.items.map((challenge, index) => (
-              <li key={challenge.title} className={styles.challengeItem}>
-                <span className={styles.challengeIndex}>0{index + 1}</span>
-                <div>
-                  <h3>{challenge.title}</h3>
-                  <p>{challenge.body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-          <p className={styles.challengeBridge}>
-            <span className={styles.challengeBridgeLabel}>Before</span>
-            {LP_CHALLENGE_SECTION.beforeAfter.before}
-            <span className={styles.challengeBridgeArrow} aria-hidden>
-              →
-            </span>
-            <span className={styles.challengeBridgeLabel}>After</span>
-            {LP_CHALLENGE_SECTION.beforeAfter.after}
-          </p>
-        </Section>
-      </div>
-
-      <div id="solution" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
-        <Section title={LP_SOLUTION_SECTION.title} meta={LP_SOLUTION_SECTION.meta}>
-          <ol className={styles.valueList}>
-            {LP_SOLUTION_SECTION.values.map((prop, index) => (
-              <li key={prop.id} className={styles.valueListItem}>
-                <span className={styles.valueListIndex} aria-hidden>
-                  0{index + 1}
-                </span>
-                <span className={styles.valueIconBadge}>
-                  <AppIcon name={prop.icon} size={16} />
-                </span>
-                <div>
-                  <h3>{prop.title}</h3>
-                  <p>{prop.body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Section>
-      </div>
-
-      <div id="product-demo" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
-        <Section title={LP_PRODUCT_DEMO.title} meta={LP_PRODUCT_DEMO.meta}>
-          <ProductDemoTabs reducedMotion={reducedMotion} compact />
-        </Section>
-      </div>
-
-      <div id="curriculum" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone4}`}>
-        <Section title={LP_CURRICULUM_TIMELINE.title} meta={LP_CURRICULUM_TIMELINE.meta}>
-          <CurriculumTimeline reducedMotion={reducedMotion} />
-          <div className={styles.roleChipRow} aria-label="育成ロール">
-            <p className={styles.roleChipLabel}>育成ロール例</p>
-            <ul className={styles.roleChips}>
-              {LP_CURRICULUM_TIMELINE.roleLabels.map((role) => (
-                <li key={role}>{role}</li>
-              ))}
-            </ul>
-          </div>
-        </Section>
-      </div>
-
-      <div id="deliverables" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone3}`}>
-        <Section title={LP_DELIVERABLES_SECTION.title} meta={LP_DELIVERABLES_SECTION.meta}>
-          <div id="sample-deliverables">
-            <DeliverablesPreview />
-          </div>
-        </Section>
-      </div>
-
-      <div id="pricing" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone1}`}>
-        <Section title={LP_PRICING.title} meta={LP_PRICING.meta}>
-          <PricingPackages />
-        </Section>
-      </div>
-
-      <div id="faq" data-reveal="section" className={`${styles.revealSection} ${styles.sectionTone2}`}>
-        <Section title="FAQ" meta="導入検討時のよくある質問です。">
-          <FaqSection />
-        </Section>
-      </div>
-
-      <section id="final-cta" className={styles.finalCta} data-reveal="section">
-        <p className={styles.finalCtaLabel}>{LP_FINAL_CTA.eyebrow}</p>
-        <h2>{LP_FINAL_CTA.title}</h2>
-        <p>{LP_FINAL_CTA.body}</p>
-        <div className={styles.finalCtaActions}>
-          <Link
-            href="/business/sign-up"
-            className={uiStyles.actionPrimary}
-            onClick={() => {
-              trackLpEvent("hero_primary_cta_clicked", { source: "final_cta" });
-              trackLpEvent("final_cta_clicked", { cta: "diagnosis" });
-            }}
-          >
-            <IconText icon="rocket">{LP_FINAL_CTA.primaryCta}</IconText>
-          </Link>
-          <Link
-            href="#curriculum-download"
-            className={uiStyles.actionGhost}
-            onClick={() => {
-              trackLpEvent("curriculum_download_clicked", { source: "final_cta" });
-              trackLpEvent("final_cta_clicked", { cta: "curriculum" });
-            }}
-          >
-            {LP_FINAL_CTA.secondaryCta}
-          </Link>
-        </div>
-      </section>
-
-      <div id="curriculum-download" className={styles.srOnly} aria-hidden>
-        カリキュラム資料請求フォーム（導入相談へ接続）
-      </div>
-
-      <StickyCtaBar />
-    </main>
-  );
+ const [example,setExample]=useState(0); const current=examples[example];
+ return <main className={s.page}>
+ <a className={s.skip} href="#main-content">本文へ移動</a>
+ <header className={s.header}><Link href="/" className={s.brand} aria-label="AI Field Ready Enterprise ホーム"><span className={s.brandMark}><Layers3 size={22}/></span><span>AI Field Ready<small>ENTERPRISE</small></span></Link><nav aria-label="セクションナビゲーション"><a href="#journey">実践の流れ</a><a href="#examples">開発例</a><a href="#platform">プラットフォーム</a><a href="#faq">FAQ</a></nav><div className={s.headerActions}><Link href="/auth/sign-in" className={s.login}>ログイン</Link><Link href="/business/sign-up" className={s.smallCta}>法人利用を始める <ArrowUpRight size={16}/></Link></div></header>
+ <section id="main-content" className={`${s.wrap} ${s.hero}`}><div><p className={s.eyebrow}><span/> AI TRAINING → REAL BUSINESS</p><h1>AIを学び、つくり、<br/><em>事業の課題を<br className={s.mobileBreak}/>解決する。</em></h1><p className={s.lead}>AI研修で身につけたスキルを、実際の企業課題へ。<br/>学習から開発・検証・運用まで、<br/>AIシステムをつくる実践をつなぎます。</p><div className={s.actions}><Link href="/business/sign-up" className={s.primary} onClick={()=>trackLpEvent('hero_primary_cta_clicked')}>法人利用を始める <ArrowUpRight size={18}/></Link><a href="#examples" className={s.secondary}>活用イメージを見る <ArrowRight size={18}/></a></div><p className={s.heroNote}>人材育成と業務改善を、一つの取り組みに。</p></div><div className={s.heroVisual}><div className={s.visualTop}><span>FROM LEARNING TO IMPACT</span><span>● 実践でつながる</span></div><Image src="/images/learning-to-building.png" alt="AIを学ぶ受講者、共同開発するチーム、完成したシステムを業務で使う社員がつながるイラスト" width={1536} height={1024} priority sizes="(max-width: 900px) 100vw, 55vw"/><div className={s.visualLabels}><span><b>01</b> 研修</span><ArrowRight/><span><b>02</b> 実装</span><ArrowRight/><span><b>03</b> 業務活用</span></div></div></section>
+ <section className={`${s.wrap} ${s.valueSection}`}><div><p className={s.eyebrow}>THE VALUE</p><h2>身につく力。<br/>現場に残る仕組み。</h2></div><div className={s.values}>{[{icon:Target,title:'課題を見つける力',text:'業務を理解し、AIで解決するテーマと目標を定める。'},{icon:Code2,title:'AIを実装する力',text:'学んだ技術を組み合わせ、動くシステムをつくる。'},{icon:Workflow,title:'業務で使える仕組み',text:'品質を確かめ、現場で使い続けるための運用を整える。'}].map(v=><article key={v.title}><v.icon size={27} strokeWidth={1.5}/><h3>{v.title}</h3><p>{v.text}</p></article>)}</div></section>
+ <section id="journey" className={s.journey}><div className={s.wrap}><div className={s.sectionHeading}><div><p className={s.eyebrow}>LEARNING JOURNEY</p><h2>研修から、現場で使うまで。</h2></div><p>学んだことを、そのまま次の実践へ。<br/>チームの成長と開発を、段階ごとに進めます。</p></div><ol className={s.steps}>{steps.map((step,i)=><li key={step.en}><div className={s.stepTop}><span>0{i+1} / {step.en}</span><step.icon size={23}/></div><h3>{step.title}</h3><p>{step.text}</p><div className={s.stepOutput}><Check size={15}/>{step.output}</div></li>)}</ol><details className={s.curriculum}><summary>研修で学ぶ内容を見る <span>＋</span></summary><div><p>AIの基礎・活用判断 ／ プロンプト設計 ／ データの扱い方 ／ 検索と回答生成（RAG） ／ AIアプリ開発 ／ 品質評価・安全性・運用</p><p>担当する役割とスキルに合わせて、教材と演習を組み合わせます。</p></div></details></div></section>
+ <section id="examples" className={`${s.wrap} ${s.examples}`}><div className={s.sectionHeading}><div><p className={s.eyebrow}>WHAT YOU CAN BUILD</p><h2>こんな業務を、AIで変えていく。</h2></div><p>身近な課題から、小さくつくる。<br/>受講者が取り組む開発テーマの例です。</p></div><div className={s.exampleTabs} role="group" aria-label="開発例を選択">{examples.map((item,i)=><button type="button" key={item.title} aria-pressed={example===i} onClick={()=>{setExample(i);trackLpEvent('program_demo_tab_changed',{topic:item.title});}}><item.icon size={19}/>{item.title}<ArrowUpRight size={17}/></button>)}</div><div className={s.examplePanel} aria-live="polite"><div className={s.exampleCopy}><span className={s.tag}>開発例 0{example+1}</span><h3>{current.issue}</h3><p>{current.text}</p><div className={s.dataSource}><FileText size={19}/><div><small>利用するデータ</small><strong>{current.source}</strong></div></div><div className={s.miniFlow}><span>入力</span><ArrowRight size={15}/><span>AIの処理</span><ArrowRight size={15}/><span>人が確認</span></div></div><div className={s.mock}><div className={s.mockBar}><span><current.icon size={17}/> {current.title}</span><small>完成イメージ</small></div><div className={s.mockBody}><p className={s.question}>{current.question}</p><div className={s.answer}><span className={s.answerTitle}><Layers3 size={18}/> {current.action}</span><p>{current.answer}</p><span className={s.source}><FileText size={13}/>{current.tag}</span></div><div className={s.humanCheck}><CheckCheck size={18}/>{current.final}</div></div></div></div></section>
+ <section id="platform" className={s.platform}><div className={`${s.wrap} ${s.platformGrid}`}><div><p className={s.eyebrow}>ONE CONNECTED PLATFORM</p><h2>学習と開発を、<br/>一つの流れで。</h2><p className={s.platformLead}>誰が何を学び、開発はどこまで進んだか。<br/>必要なスキルと次の作業を、チームで共有できます。</p><ul className={s.featureList}>{[{icon:GraduationCap,title:'学習・スキルを把握',text:'教材、演習、評価を実践につなげる。'},{icon:Users,title:'担当と工程を共有',text:'役割と進捗を整理し、次の作業を明確に。'},{icon:ShieldCheck,title:'品質と判断を記録',text:'評価結果と承認を残し、次の工程へ進む。'}].map(v=><li key={v.title}><v.icon/><div><h3>{v.title}</h3><p>{v.text}</p></div></li>)}</ul></div><div className={s.projectMock}><div className={s.projectHeader}><span><Layers3 size={18}/> AI Field Ready</span><small>管理画面の構成イメージ</small></div><div className={s.projectBody}><div className={s.projectTitle}><span>PROJECT / 開発プロジェクト</span><h3>問い合わせ回答支援AI</h3><p>企画から運用まで、チームで進める。</p></div><div className={s.projectMetrics}><div><small>現在の工程</small><strong>実装</strong></div><div><small>次のアクション</small><strong>品質を検証</strong></div></div><div className={s.projectPhases}>{['企画','要件','設計','実装','評価','運用'].map((x,i)=><span key={x} className={i===3?s.activePhase:undefined}>{i<3?<Check size={12}/>:null}{x}</span>)}</div><div className={s.taskRows}>{[['回答の根拠を表示する','実装'],['テスト用の質問を準備する','評価'],['利用者の確認手順を決める','運用']].map(([a,b])=><div key={a}><span className={s.taskCheck}/><span>{a}</span><small>{b}</small></div>)}</div><div className={s.skillStrip}><BookOpen size={17}/><span>必要なスキルを確認し、学習へつなぐ</span><ArrowUpRight size={16}/></div></div></div></div></section>
+ <section className={`${s.wrap} ${s.outcomes}`}><div className={s.sectionHeading}><div><p className={s.eyebrow}>YOUR NEXT ASSETS</p><h2>成果として残るもの。</h2></div><p>つくったシステムも、積み重ねた経験も。<br/>次の課題に取り組むための資産になります。</p></div><div className={s.outcomeGrid}>{[{icon:Code2,title:'AIシステム',text:'課題をもとに開発したアプリと実装内容。'},{icon:CheckCheck,title:'評価結果',text:'精度・使いやすさ・リスクを確かめた記録。'},{icon:FileText,title:'運用手順',text:'利用範囲、確認方法、改善の進め方。'},{icon:Users,title:'実践できる人材',text:'学びを実装につなげた、チームの経験。'}].map((v,i)=><article key={v.title}><span className={s.outcomeNumber}>0{i+1}</span><v.icon size={30} strokeWidth={1.4}/><h3>{v.title}</h3><p>{v.text}</p></article>)}</div></section>
+ <section id="faq" className={`${s.wrap} ${s.faq}`}><div><p className={s.eyebrow}>QUESTIONS & ANSWERS</p><h2>よくあるご質問</h2></div><div>{journeyFaqs.map(f=><details key={f.q}><summary>{f.q}<span>＋</span></summary><p>{f.a}</p></details>)}</div></section>
+ <section className={`${s.wrap} ${s.finalCta}`}><div><p className={s.eyebrow}>START WITH ONE CHALLENGE</p><h2>一つの業務課題から、<br/>次の可能性をつくろう。</h2><p>学ぶ人と、解決したい課題をつなぐ。<br/>人材育成とAI開発を、ここから始めましょう。</p></div><div className={s.finalAction}><ol><li><b>01</b>担当者アカウントを作成</li><li><b>02</b>企業情報と業務課題を整理</li><li><b>03</b>学習と実践をスタート</li></ol><Link href="/business/sign-up" className={s.primary} onClick={()=>trackLpEvent('final_cta_clicked')}>法人利用を始める <ArrowUpRight size={19}/></Link></div></section>
+ <footer className={`${s.wrap} ${s.footer}`}><span>AI Field Ready <small>Enterprise</small></span><p>学びを、事業を動かす力に。</p><Link href="/auth/sign-in">ログイン <ArrowUpRight size={14}/></Link></footer>
+ </main>;
 }
