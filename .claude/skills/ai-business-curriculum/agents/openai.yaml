@@ -1,0 +1,6 @@
+interface:
+  display_name: "AI事業カリキュラム作成"
+  short_description: "S001〜S106のLv別教材・演習・評価を共通基準で設計し検証する"
+  default_prompt: "$ai-business-curriculum を使って、指定スキルのLv1〜3のカリキュラム・演習・評価基準を作成してください。"
+policy:
+  allow_implicit_invocation: true

@@ -36,3 +36,8 @@ docs/*.zip
 
 # Stray agent worktrees left under .claude/
 .claude/worktrees/
+
+# Curricula are managed locally, never committed (S001-S106 deliverables, ledger, handoff)
+docs/curricula/
+.claude/skills/ai-business-curriculum/assets/reference-S001/
+.claude/skills/ai-business-curriculum/assets/catalog.json

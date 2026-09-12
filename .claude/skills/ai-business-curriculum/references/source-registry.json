@@ -1,0 +1,535 @@
+{
+ "_about": "一次資料の確認台帳。entry ごとに facts（一次資料で確認した事実の要約）、cards（教材に転記できる抜粋カード本文。S002で確認済み）、scope（このentryが覆う範囲）、not_covered（覆わない範囲。教材で必要なら urls を fetch --grep で読むか「未確認」と書く）、events（到来したら要再確認の期日）、unverified（二次資料由来。確定事実として書かない）、origin（原典24シートの記載。「原典との差」を書くための比較元）を持つ。stale＝checked_at から max_age_days 超過、または events の期日到来。stale でも制作は止めず、確認日付きで転記して 01 §2 と台帳に再確認予定を書く。保守（全 entry の一括再確認）は制作とは別に行い maintained_at を更新する。access: urllib / powershell / browser（WAF。ブラウザ表示から本文抽出）/ api。",
+ "max_age_days": 120,
+ "topics": {
+  "ai-guidelines-jp": [
+   "AI事業者ガイドライン",
+   "共通の指針",
+   "ソフトロー",
+   "AIガバナンス"
+  ],
+  "ai-act-jp": [
+   "AI法",
+   "AI推進法",
+   "人工知能基本計画",
+   "人工知能戦略本部",
+   "第13条指針"
+  ],
+  "appi-breach": [
+   "個人情報保護法",
+   "個人情報保護委員会",
+   "漏えい等",
+   "漏えい",
+   "本人通知",
+   "当局報告",
+   "個人データ"
+  ],
+  "iso-42001": [
+   "ISO/IEC 42001",
+   "42001",
+   "AIマネジメントシステム",
+   "AIMS"
+  ],
+  "nist-ai-rmf": [
+   "NIST",
+   "AI RMF",
+   "600-1"
+  ],
+  "eu-ai-act": [
+   "EU AI Act",
+   "AI Act",
+   "AI規則",
+   "高リスクAI",
+   "高リスク",
+   "Omnibus",
+   "Annex III"
+  ],
+  "gdpr": [
+   "GDPR",
+   "個人データ侵害",
+   "72時間",
+   "越境移転",
+   "域外適用",
+   "EU域内",
+   "欧州"
+  ],
+  "oecd-incident": [
+   "AIインシデント",
+   "OECD"
+  ],
+  "singapore": [
+   "シンガポール",
+   "PDPA",
+   "Model AI Governance"
+  ],
+  "us-state": [
+   "米国州法",
+   "州法",
+   "Colorado",
+   "コロラド"
+  ]
+ },
+ "entries": [
+  {
+   "id": "ai-guidelines-jp",
+   "title": "AI事業者ガイドライン 第1.2版（総務省・経済産業省）",
+   "checked_at": "2026-09-12",
+   "access": "powershell+pdftotext",
+   "urls": [
+    "https://www.soumu.go.jp/main_sosiki/kenkyu/ai_network/02ryutsu20_04000019.html",
+    "https://www.soumu.go.jp/main_content/001064279.pdf"
+   ],
+   "facts": [
+    "最新版は第1.2版（2026-03-31）。版履歴 1.0(2024-04-19)/1.01(2024-11-22)/1.1(2025-03-28)/1.2(2026-03-31)。1.3版は未公表",
+    "本編に「非拘束的なソフトロー」と明記。主体はAI開発者/AI提供者/AI利用者",
+    "共通の指針（第2部C p.14〜23）：1)人間中心 2)安全性 3)公平性 4)プライバシー保護 5)セキュリティ確保 6)透明性 7)アカウンタビリティ 8)教育・リテラシー 9)公正競争確保 10)イノベーション。1〜7は各主体、8〜10は社会と連携",
+    "7)アカウンタビリティの細目：①トレーサビリティ ②共通の指針の対応状況の説明 ③責任者の明示 ④責任の分配 ⑤ステークホルダーへの具体的対応 ⑥文書化。脚注44で透明性（情報開示）と区別",
+    "8)教育・リテラシー：主体内のAIに関わる者への教育とステークホルダーへの教育が期待される",
+    "「AIインシデント」の形式的定義はない。別添 行動目標3-4-2でインシデント発生時対応の事前検討",
+    "1.2版の追加：AI法・第13条指針への言及、AIエージェント/フィジカルAI/学習/推論の定義、活用の手引き（案）、チャットボット"
+   ],
+   "notes": [
+    "経産省ページ 20260331_report.html は取得結果が割れる。総務省PDFを正とする"
+   ],
+   "cards": [
+    {
+     "id": "K01",
+     "title": "AI事業者ガイドライン（総務省・経済産業省）",
+     "body": "- 版：第1.2版（令和8年3月31日）。版履歴：1.0版 2024-04-19、1.01版 2024-11-22、1.1版 2025-03-28、1.2版 2026-03-31。2026-09-12時点で1.3版は未公表。\n- URL：総務省 https://www.soumu.go.jp/main_sosiki/kenkyu/ai_network/02ryutsu20_04000019.html ／本編PDF https://www.soumu.go.jp/main_content/001064279.pdf ／経済産業省 https://www.meti.go.jp/shingikai/mono_info_service/ai_shakai_jisso/20260331_report.html （経産省サイトは取得結果が割れたため、総務省ページと本編PDFを正として併用）\n- 位置づけ：本編は「関係者による自主的な取組を促し、非拘束的なソフトローによって目的達成に導くゴールベースの考え方」と明記。関連法令（個人情報保護法等）の遵守は前提。Living Documentとして更新される。\n- 主体：AI開発者、AI提供者、AI利用者（事業活動においてAIシステム・サービスを利用する事業者）。\n- 共通の指針（本編第2部C、p.14〜23）：1) 人間中心、2) 安全性、3) 公平性、4) プライバシー保護、5) セキュリティ確保、6) 透明性、7) アカウンタビリティ、8) 教育・リテラシー、9) 公正競争確保、10) イノベーション。1)〜7)は各主体が取り組む事項、8)〜10)は社会と連携した取組が期待される事項。\n- 6) 透明性：検証可能性を確保しながら、必要かつ技術的に可能な範囲でステークホルダーに合理的な範囲で情報を提供する。7) アカウンタビリティ（p.21〜22）：①トレーサビリティの向上、②「共通の指針」の対応状況の説明、③責任者の明示、④関係者間の責任の分配、⑤ステークホルダーへの具体的な対応、⑥文書化（情報を文書化して一定期間保管し参照可能な状態とする）。脚注44「情報開示は透明性で対応することとし、アカウンタビリティとはAIに関する事実上・法律上の責任を負うこと及びその責任を負うための前提条件の整備に関する概念」。8) 教育・リテラシー（p.22）：各主体は主体内のAIに関わる者に必要な教育を行うことが期待され、ステークホルダーに対しても教育を行うことが期待される。\n- 第2部D：広島AIプロセス「全てのAI関係者向けの広島プロセス国際指針」（12項目）。第2部E：AIガバナンスの構築。\n- 付属資料：別添（付属資料）、チェックリスト・ワークシート（別添7）、主体横断的な仮想事例（別添8、第1.0版のまま）、海外ガイドライン等の参照先（別添9）、「活用の手引き（案）」（2026-03、案の段階）、チャットボット。\n- インシデント：本編・別添に「AIインシデント」の形式的定義はない。別添の行動目標3-4-2「インシデント発生時の対応の事前検討」で、説明・影響範囲・損害の特定・法的関係の整理・被害救済・拡大防止・再発防止の事前検討を求める。\n- 1.2版の主な追加：AI法と第13条指針への言及、AIエージェント・フィジカルAIの定義、学習・推論の定義、AI開発者の役割に事後学習を追記。\n- 原典との差：版・日付・「自主的指針」の位置づけは差なし。原典URLは検討会の索引ページであり、第1.2版本体は上記サブページ。「活用の手引き（案）」とチャットボットは原典に未記載。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "版・拘束力（ソフトロー）・共通の指針10項目・7)の細目・8)教育・インシデント定義の有無・1.2版の追加点",
+   "not_covered": "各主体別の行動目標の詳細、別添チェックリスト本文、活用の手引き（案）の内容",
+   "events": [],
+   "origin": [
+    {
+     "w": "W01",
+     "version": "2026-03-31",
+     "org": "総務省・経済産業省",
+     "title": "AI事業者ガイドライン 第1.2版",
+     "adopted": "第1.2版の公開と開発・提供・利用の役割整理",
+     "limits": "自主的指針と個別法の義務を区別。公式掲載ページ確認",
+     "url": "https://www.meti.go.jp/shingikai/mono_info_service/ai_shakai_jisso/",
+     "legal_items": [
+      "L02"
+     ]
+    }
+   ],
+   "unverified": []
+  },
+  {
+   "id": "ai-act-jp",
+   "title": "人工知能関連技術の研究開発及び活用の推進に関する法律（令和7年法律第53号）・指針・基本計画",
+   "checked_at": "2026-09-12",
+   "access": "api",
+   "urls": [
+    "https://laws.e-gov.go.jp/law/507AC0000000053",
+    "https://laws.e-gov.go.jp/api/2/law_data/507AC0000000053?response_format=json",
+    "https://www8.cao.go.jp/cstp/ai/ai_guideline/ai_guideline.html",
+    "https://www8.cao.go.jp/cstp/ai/ai_plan/ai_plan.html"
+   ],
+   "facts": [
+    "2025-05-28成立、2025-06-04公布・一部施行、2025-09-01全面施行。全28条、罰則章なし",
+    "第7条 活用事業者の責務＝努力義務＋施策への協力義務。届出・報告義務なし。海外事業者も含む",
+    "第13条の指針「人工知能関連技術の研究開発及び活用の適正性確保に関する指針」は2025-12-19 人工知能戦略本部決定（内閣府ではない）",
+    "人工知能基本計画：初版2025-12-23閣議決定、第Ⅱ期2026-07-14閣議決定（現行）",
+    "第19条 本部設置、第22条 本部長＝内閣総理大臣"
+   ],
+   "notes": [],
+   "cards": [
+    {
+     "id": "K02",
+     "title": "AI法・指針・基本計画（日本）",
+     "body": "- 法律：人工知能関連技術の研究開発及び活用の推進に関する法律（令和7年法律第53号。e-Gov略称「AI法」）。2025-05-28成立、2025-06-04公布・一部施行、2025-09-01全面施行。URL https://laws.e-gov.go.jp/law/507AC0000000053\n- 第7条（活用事業者の責務）：活用による効率化等に「努める」とともに、国・地方公共団体の施策に「協力しなければならない」。罰則・届出・報告義務はない（全28条、罰則章なし）。活用事業者は海外事業者も含む（指針脚注）。\n- 第13条：国は国際的な規範の趣旨に即した指針を整備。第16条：国は権利利益侵害事案の調査研究を行い、指導・助言・情報提供等の措置を講ずる（命令・処分ではない）。第19条：内閣に人工知能戦略本部を設置。第22条：本部長は内閣総理大臣。\n- 指針：「人工知能関連技術の研究開発及び活用の適正性確保に関する指針」（2025-12-19 人工知能戦略本部決定）。自主的かつ能動的な取組を促す文書。URL https://www8.cao.go.jp/cstp/ai/ai_guideline/ai_guideline.html\n- 基本計画：人工知能基本計画。初版2025-12-23閣議決定、第Ⅱ期計画2026-07-14閣議決定（現行）。URL https://www8.cao.go.jp/cstp/ai/ai_plan/ai_plan.html\n- 原典との差：原典12シートL02の「AI法・内閣府指針は適用確認対象」は妥当だが、指針の決定主体は内閣府ではなく人工知能戦略本部。AI法は事業者向け拘束的規制を含まない。基本計画は原典作成後に第Ⅱ期へ改定。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "成立・施行日、罰則なし、第7条の責務、第13条指針の決定主体、基本計画の版",
+   "not_covered": "第8〜12条の国の施策の内容、第13条指針本文の各項目",
+   "events": [],
+   "origin": [],
+   "unverified": []
+  },
+  {
+   "id": "appi-breach",
+   "title": "個人情報保護法 第26条 漏えい等報告・本人通知、令和8年改正法",
+   "checked_at": "2026-09-12",
+   "access": "api+powershell",
+   "urls": [
+    "https://laws.e-gov.go.jp/law/415AC0000000057",
+    "https://laws.e-gov.go.jp/api/2/law_data/415AC0000000057?response_format=json",
+    "https://www.ppc.go.jp/personalinfo/legal/guidelines_tsusoku/",
+    "https://www.ppc.go.jp/personalinfo/legal/leakAction/",
+    "https://www.ppc.go.jp/personalinfo/legal/r8kaiseihogohou/"
+   ],
+   "facts": [
+    "報告対象4類型（規則7条、おそれを含む）：要配慮個人情報／財産的被害のおそれ／不正目的／本人数1,000人超。高度な暗号化は除外",
+    "速報：知った後速やかに（目安3〜5日）。確報：30日以内（不正目的は60日以内）。速報で全項目報告なら1回で可",
+    "本人通知（26条2項・規則10条）：状況に応じ速やかに。困難時は代替措置（公表・窓口）",
+    "委託（26条1項ただし書・規則9条）：委託先が委託元に通知すれば委託先の報告・本人通知義務は免除",
+    "拘束力：第148条 勧告・命令、第178条 命令違反は1年以下の拘禁刑又は100万円以下の罰金",
+    "通則編最新版「平成28年11月（令和8年6月一部改正）」。仮名加工・匿名加工編は令和8年4月改正",
+    "令和8年改正法（法律第56号）2026-07-10成立・07-17公布、主要規定は公布から2年以内の政令で定める日に施行（未施行。PPC見込み2028年春〜7月）。改正後26条2項に本人通知の代替措置拡大"
+   ],
+   "notes": [
+    "令和7年10月1日からランサムウェア事案は関係省庁共通様式で報告可"
+   ],
+   "cards": [
+    {
+     "id": "K03",
+     "title": "個人情報保護法 漏えい等報告・本人通知（日本）",
+     "body": "- 根拠：個人情報の保護に関する法律 第26条、施行規則第7条〜第10条。ガイドライン（通則編）最新版「平成28年11月（令和8年6月一部改正）」3-5。URL https://laws.e-gov.go.jp/law/415AC0000000057 ／ https://www.ppc.go.jp/personalinfo/legal/guidelines_tsusoku/ ／ https://www.ppc.go.jp/personalinfo/legal/leakAction/\n- 報告対象（規則第7条、おそれを含む）：(1) 要配慮個人情報を含む個人データの漏えい等、(2) 不正利用により財産的被害が生じるおそれ、(3) 不正の目的をもって行われたおそれがある行為による漏えい等、(4) 本人の数が1,000人を超える漏えい等。高度な暗号化等の措置を講じたものは除外。\n- 速報：報告対象事態を知った後「速やかに」（目安は概ね3〜5日以内）。確報：知った日から30日以内（(3)の類型は60日以内）。速報時点で全項目を報告できれば1回で兼ねられる。\n- 本人通知（第26条第2項、規則第10条）：状況に応じて速やかに、概要・項目・原因・二次被害・その他参考事項を通知。困難な場合は代替措置（事案の公表、問合せ窓口）。\n- 委託（第26条第1項ただし書、規則第9条）：委託先が委託元に通知（知った後速やかに）すれば委託先の報告義務・本人通知義務は免除され、委託元が報告する。委託先は協力する。当社が委託元・委託先のどちらかは、事案ごとにL03の整理で確認する。\n- 拘束力の根拠：第148条（委員会の勧告・命令。第26条違反を含む）、第178条（命令違反は1年以下の拘禁刑又は100万円以下の罰金）。\n- 令和8年改正法：個人情報の保護に関する法律等の一部を改正する法律（令和8年法律第56号）。2026-07-10成立、2026-07-17公布。主要規定は公布から2年以内の政令で定める日に施行（未施行。PPCの見込みは2028年春〜7月頃）。改正後第26条第2項ただし書は「本人への通知が行われなくても本人の権利利益の保護に欠けるおそれが少ない場合として規則で定める場合」の代替措置を認める。規則案は未公表。URL https://www.ppc.go.jp/personalinfo/legal/r8kaiseihogohou/\n- 原典との差：原典12シートL14の「漏えい等の通知条件」の骨子は差なし。令和8年改正法の成立・未施行は原典に未記載。通則編の最新版は「令和8年6月一部改正」（原典W02は仮名加工情報・匿名加工情報編の2026-04改正のみ記載）。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "第26条 漏えい等報告・本人通知、施行規則第7〜10条、委託時の扱い、第148条・第178条、令和8年改正法の成立・未施行",
+   "not_covered": "定義（第2条）、利用目的（第17〜21条）、第三者提供（第27条）、外国にある第三者への提供（第28条）、仮名加工・匿名加工情報（第41〜46条）、保有個人データの開示等（第32〜39条）。必要なら urls の e-Gov API を fetch --grep \"第二十七条\" のように条名で読む。読まない場合は「未確認」と書く",
+   "events": [
+    {
+     "date": "2028-07-17",
+     "what": "令和8年改正法の施行期限（公布から2年以内の政令で定める日）"
+    }
+   ],
+   "origin": [
+    {
+     "w": "W02",
+     "version": "2026-04改正",
+     "org": "個人情報保護委員会",
+     "title": "仮名加工情報・匿名加工情報編",
+     "adopted": "仮名加工情報の第三者提供禁止と委託等の区別",
+     "limits": "一般同意を万能な根拠にしない。具体適用は法務",
+     "url": "https://www.ppc.go.jp/personalinfo/legal/guidelines_anonymous/",
+     "legal_items": [
+      "L03",
+      "L04",
+      "L14"
+     ]
+    },
+    {
+     "w": "W03",
+     "version": "確認時点版",
+     "org": "個人情報保護委員会",
+     "title": "外国にある第三者への提供編",
+     "adopted": "外国提供の別判定、委託を含む提供条件の確認",
+     "limits": "国内委託の整理のみで越境送信を許可しない",
+     "url": "https://www.ppc.go.jp/personalinfo/legal/guidelines_offshore/",
+     "legal_items": [
+      "L03",
+      "L05",
+      "L14"
+     ]
+    }
+   ],
+   "unverified": []
+  },
+  {
+   "id": "iso-42001",
+   "title": "ISO/IEC 42001:2023 と関連規格",
+   "checked_at": "2026-09-12",
+   "access": "browser",
+   "urls": [
+    "https://www.iso.org/standard/42001"
+   ],
+   "facts": [
+    "Edition 1、2023-12発行、Published。追補・改訂プロジェクトなし（SC42カタログ）",
+    "任意のMSS。認証は任意で独立機関が実施、ISOは認証しない。「法規制を代替しない」と公式解説",
+    "関連：23894:2023（AIリスク管理指針）、42005:2025（影響評価）、42006:2025（審査・認証機関要求）。42003（実装ガイダンス）開発中",
+    "原典12シートL11の責任Role＝R14（組織方針決定時）"
+   ],
+   "notes": [],
+   "cards": [
+    {
+     "id": "K04",
+     "title": "ISO/IEC 42001と関連規格",
+     "body": "- ISO/IEC 42001:2023 Information technology — Artificial intelligence — Management system。Edition 1、2023-12発行、Published。2026-09-12時点で追補・改訂プロジェクトはISO公式ページ・SC 42カタログに掲載なし。URL https://www.iso.org/standard/42001\n- 位置づけ：AIマネジメントシステム規格（MSS）。認証は任意で、ISO自身は認証を行わず独立した認証機関が実施。ISO公式解説「規格は法規制を代替しない」。ISO規格は契約上・法律上の要求事項を含まない（Foreword補足情報）。原典12シートL11の責任RoleはR14（組織方針決定時）。\n- 関連：ISO/IEC 23894:2023（AIリスク管理の指針）、ISO/IEC 42005:2025（AIシステム影響評価）、ISO/IEC 42006:2025（AIMS審査・認証機関への要求事項）。ISO/IEC 42003（42001実装ガイダンス）は開発中。\n- 原典との差：原典W16・L11の「任意規格」「公開概要のみ確認」「認証済みと表記しない」は差なし。関連規格42005・42006の発行（2025年）は追記情報。原典のURL表記は https://www.iso.org/standard/42001 が現行。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "版・改訂状況、任意規格・認証の位置づけ、関連規格（23894/42005/42006/42003）",
+   "not_covered": "規格本文（有償）の条項内容、Annex A 管理策の内容",
+   "events": [],
+   "origin": [
+    {
+     "w": "W16",
+     "version": "2023",
+     "org": "ISO",
+     "title": "ISO/IEC 42001:2023",
+     "adopted": "AI管理システム規格の存在・概要",
+     "limits": "有償規格本文の条項単位審査は未実施。製品安全保証と同一視しない",
+     "url": "https://www.iso.org/standard/42001",
+     "legal_items": [
+      "L11"
+     ]
+    }
+   ],
+   "unverified": []
+  },
+  {
+   "id": "nist-ai-rmf",
+   "title": "NIST AI RMF 1.0（AI 100-1）／AI 600-1",
+   "checked_at": "2026-09-12",
+   "access": "urllib+pdftotext",
+   "urls": [
+    "https://www.nist.gov/itl/ai-risk-management-framework",
+    "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf",
+    "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf"
+   ],
+   "facts": [
+    "RMF 1.0は2023-01-26。4機能GOVERN/MAP/MEASURE/MANAGE。voluntary。NIST FAQ「利用は義務ではない」",
+    "600-1（2024-07-26）12リスク：2.1 CBRN Information or Capabilities/2.2 Confabulation/2.3 Dangerous, Violent, or Hateful Content/2.4 Data Privacy/2.5 Environmental Impacts/2.6 Harmful Bias and Homogenization/2.7 Human-AI Configuration/2.8 Information Integrity/2.9 Information Security/2.10 Intellectual Property/2.11 Obscene, Degrading, and/or Abusive Content/2.12 Value Chain and Component Integration",
+    "NIST公式「AI RMF 1.0はAI Action Plan（2025-07-23）に基づき改訂中」。改訂版は未公表。2026-04-07重要インフラ向けプロファイルのコンセプトノート",
+    "原典12シートL12の責任Role＝R13"
+   ],
+   "notes": [],
+   "cards": [
+    {
+     "id": "K05",
+     "title": "NIST AI RMF 1.0／AI 600-1",
+     "body": "- AI RMF 1.0（NIST AI 100-1、2023-01-26）。4機能 GOVERN／MAP／MEASURE／MANAGE。「intended to be voluntary」。NIST FAQ「利用は義務ではない」。URL https://www.nist.gov/itl/ai-risk-management-framework ／ https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf 。原典12シートL12の責任RoleはR13（設計・評価・変更時）。\n- AI 600-1 Generative AI Profile（2024-07-26）。生成AI固有の12リスク（本文2.1〜2.12、原文）：CBRN Information or Capabilities／Confabulation／Dangerous, Violent, or Hateful Content／Data Privacy／Environmental Impacts／Harmful Bias and Homogenization／Human-AI Configuration／Information Integrity／Information Security／Intellectual Property／Obscene, Degrading, and/or Abusive Content／Value Chain and Component Integration。URL https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf\n- 状況：NIST公式ページは「AI RMF 1.0はWhite House AI Action Plan（2025-07-23）に基づき改訂中」と記載。2026-09-12時点で改訂版・ドラフトは未公表。2026-04-07に重要インフラ向けプロファイルのコンセプトノート公表（本体未公表）。\n- 原典との差：原典W10の日付・任意性は差なし。改訂作業中である旨は原典に未記載。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "RMF 1.0 の4機能・任意性・改訂状況、600-1 の12リスク",
+   "not_covered": "Playbook の個別項目、各サブカテゴリの文言",
+   "events": [
+    {
+     "date": "2026-12-31",
+     "what": "AI RMF 改訂版の公表有無を再確認"
+    }
+   ],
+   "origin": [
+    {
+     "w": "W10",
+     "version": "2024-07-26",
+     "org": "NIST",
+     "title": "AI 600-1 Generative AI Profile",
+     "adopted": "AI RMFに対する生成AI向けプロファイル",
+     "limits": "法律や全案件の認証義務ではない。公開概要確認",
+     "url": "https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-generative-artificial-intelligence",
+     "legal_items": [
+      "L12"
+     ]
+    }
+   ],
+   "unverified": []
+  },
+  {
+   "id": "eu-ai-act",
+   "title": "EU AI Act Regulation (EU) 2024/1689（Regulation (EU) 2026/1744 Digital Omnibus on AIによる改正後）",
+   "checked_at": "2026-09-12",
+   "access": "browser",
+   "urls": [
+    "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02024R1689-20260727",
+    "https://eur-lex.europa.eu/eli/reg/2026/1744/oj",
+    "https://digital-strategy.ec.europa.eu/en/news/ai-omnibus-enters-force",
+    "https://ai-act-service-desk.ec.europa.eu/"
+   ],
+   "facts": [
+    "Omnibus：2026-07-08署名、OJ 2026-07-24、2026-07-27発効",
+    "Art.113改正後：全体2026-08-02。第I・II章2025-02-02（新禁止行為(ba)(bb)は2026-12-02）。第III章第1〜3節（Art.6分類・例外・6(4)文書化を含む）はAnnex III系2027-12-02、Annex I系2028-08-02。Art.49（第5節・登録）は例外に列挙されず文言上2026-08-02＝実務扱いは法務確認",
+    "Art.111(2)：適用日前に上市した高リスクAIは適用日以降に設計の重大な変更がある場合のみ対象（Art.5は除く。公的機関向け2030-08-02）。Art.111(4)：2026-08-02前上市の生成AIは50(2)を2026-12-02まで",
+    "Art.2(1)(a)(b)(c)：EU内上市の提供者（拠点不問）、EU内配備者、第三国の提供者・配備者で出力がEU内で使用",
+    "Art.3(1)AIシステム定義＋前文(12)（人が定めたルールのみのシステムは対象外、推論が主要特徴）。Art.3(49) serious incident 4類型。Art.3(52) profiling＝GDPR Art.4(4)",
+    "Art.5(1)(a)〜(h)＋(ba)(bb)。(f)職場・教育機関での感情推定禁止",
+    "Art.6(3)例外(a)〜(d)、プロファイリングは常に高リスク。6(4)文書化＋Art.49(2)登録。6(1a)〜(1c)はOmnibus追加。6(5)ガイドラインは2026-05-19草案（年内採択予定）",
+    "Annex III 3(a)〜(d)教育、4(a)(b)雇用",
+    "Art.4 AIリテラシー（第I章、改正後は「支援する措置」）。Art.26配備者義務(2)(5)(6)(7)(11)。Art.27 FRIA。Art.50(1)(2)透明性（2026-08-02適用。ガイドラインは2026-07-20内容承認C(2026) 5054、正式採択版未確認）",
+    "Art.73：発生加盟国の市場監視当局へ、原則15日、広範な侵害/重要インフラ2日、死亡10日。ガイダンス・様式は草案（2025-09-26）",
+    "Art.99：Art.5違反 3,500万€/7%、Art.16・26・50等 1,500万€/3%、虚偽情報 750万€/1%",
+    "禁止行為ガイドラインは2025-07-29正式採択"
+   ],
+   "notes": [
+    "EUR-LexはWAFで202を返す。ブラウザで開き document.body.innerText から条文を抽出"
+   ],
+   "cards": [
+    {
+     "id": "K06",
+     "title": "EU AI Act 適用範囲・定義・禁止・高リスク",
+     "body": "- 規則：Regulation (EU) 2024/1689（2024-08-01発効）。Regulation (EU) 2026/1744（Digital Omnibus on AI、2026-07-08署名、OJ L 2026-07-24、2026-07-27発効）により改正。本カードはEUR-Lex統合版（2026-07-27）で確認。URL https://eur-lex.europa.eu/eli/reg/2024/1689/oj ／統合版 https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02024R1689-20260727 ／改正規則 https://eur-lex.europa.eu/eli/reg/2026/1744/oj\n- Art.3(1) AIシステム：様々な自律性で動作するよう設計され、配備後に適応性を示すことがあり、明示的又は暗黙の目的のために、受け取った入力から予測・コンテンツ・推奨・決定等の出力をどう生成するかを推論する機械ベースのシステム。前文(12)は「自然人が定めたルールのみに基づき自動的に処理を実行するシステム」を対象外とし、推論する能力を主要な特徴とする。ルールと統計を組み合わせる機能が推論要素を持つかは事実で判断し、受講者は「対象外」と断定せず法務確認事項にする。\n- Art.2(1) 適用：(a) EU域内でAIシステムを上市・供用する提供者（EU内外の拠点を問わない）、(b) EU内に所在する配備者、(c) 第三国の提供者・配備者で、AIシステムの出力がEU域内で使用される場合、(d) 輸入者・流通業者、(e) 製品製造者、(f) 授権代理人、(g) EU内の影響を受ける者。\n- Art.3(3) provider：AIシステムを開発し又は開発させ、自己の名称・商標で上市・供用する者。Art.3(4) deployer：自己の権限の下でAIシステムを使用する者（個人的・非職業的活動を除く）。Art.3(49) serious incident：AIシステムのインシデント又は誤動作が直接・間接に、(a) 死亡・健康への重大な危害、(b) 重要インフラの重大かつ不可逆な混乱、(c) 基本権保護のEU法上の義務の侵害、(d) 財産・環境への重大な危害に至るもの。Art.3(52) profiling：GDPR Art.4(4)のプロファイリング（K08）。\n- Art.5(1) 禁止：(a) 操作的・欺瞞的技法、(b) 脆弱性の悪用、(c) 社会的スコアリング、(d) プロファイリングのみに基づく犯罪予測、(e) 無差別スクレイピングによる顔認識DB、(f) 職場・教育機関での感情推定（医療・安全目的を除く）、(g) 生体分類による属性推定、(h) 法執行目的のリアルタイム遠隔生体識別（例外あり）。改正で追加の(ba) 非同意の性的画像等の生成、(bb) 児童性的虐待素材の生成は2026-12-02から適用。\n- Art.6（第III章第1節）：(1) Annex I製品の安全コンポーネント等（改正で6(1a)〜(1c)を追加）。(2) Annex III記載のAIシステムは高リスク。(3) 例外：健康・安全・基本権への重大なリスクがなく（意思決定結果に実質的に影響しない場合を含む）、(a) 狭い手続的タスク、(b) 完了した人の活動の結果の改善、(c) 意思決定パターン・逸脱の検知で人の評価を代替・影響しない（適切な人のレビュー付き）、(d) 評価の準備的タスク、のいずれか。自然人のプロファイリングを行う場合は常に高リスク。(4) 非高リスクと判断する提供者は上市前に評価を文書化し、Art.49(2)の登録義務に服し、当局の求めに応じ提出。(5) 委員会ガイドライン（2026-02-02期限）は2026-05-19草案公表、2026年末までに採択予定（確定版未公表）。適用開始時期はK07。\n- Annex III（見出し）：1 生体、2 重要インフラ、3 教育・職業訓練、4 雇用・労働者管理・自営業へのアクセス、5 必須サービス・給付、6 法執行、7 移民・庇護・国境、8 司法・民主的プロセス。3：(a) 入学・アクセスの決定・割当、(b) 学習成果の評価（学習プロセスの誘導に使う場合を含む）、(c) 受けられる教育水準の評価、(d) 試験中の禁止行為の監視・検知。4：(a) 採用・選考（ターゲット求人広告、応募の分析・フィルタリング、候補者の評価）、(b) 労働条件・昇進・解雇に影響する決定、個人の行動・特性に基づくタスク配分、パフォーマンス・行動の監視・評価。\n- 原典との差：原典12シートL09・W15は条文を個別に記載しておらず矛盾なし。改正規則の番号・日付は原典に未記載。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    },
+    {
+     "id": "K07",
+     "title": "EU AI Act 義務・透明性・報告・適用日と委員会ガイダンス",
+     "body": "- Art.4 AIリテラシー（第I章、2025-02-02から適用。改正後）：提供者・配備者は職員等のAIリテラシー育成を支援する措置を講ずる（特定水準の保証は求めない）。\n- Art.26 配備者の義務（高リスク、第III章第3節）：使用説明書に従う措置、人による監督の割当（26(2)）、入力データの関連性（26(4)）、運用監視と、リスクを認めた場合の提供者・当局への通知と使用停止、serious incident発見時はまず提供者、次に輸入者・流通業者・市場監視当局へ即時通知（26(5)）、ログを少なくとも6か月保持（26(6)）、職場での使用前に労働者代表と労働者へ通知（26(7)）、自然人に関する決定への利用を本人に通知（26(11)）。\n- Art.27 基本権影響評価：公法上の団体、公共サービスを提供する民間事業者、Annex III 5(b)(c)の配備者。\n- Art.49(2) 登録（第III章第5節）：Art.6(3)により高リスクでないと結論した提供者はEUデータベースに登録。\n- Art.50 透明性：(1) 人と直接対話するAIはAIであることを知らせる（合理的に注意深い人にとって明白な場合を除く）。(2) 合成音声・画像・動画・テキストを生成するAIの提供者は出力を機械可読形式でマーキング（標準的編集の補助機能等は除外）。(4) ディープフェイクの開示。適用は2026-08-02から。改正で新設のArt.111(4)：2026-08-02前に上市した生成AIは50(2)を2026-12-02までに遵守。委員会の透明性ガイドラインは2026-07-20に内容承認（C(2026) 5054 final、英語版公表）。文書自身が「全言語版が揃った後に正式採択・適用」と記し、2026-09-12時点で正式採択版は未確認。URL https://digital-strategy.ec.europa.eu/en/library/guidelines-transparency-obligations-providers-and-deployers-ai-systems\n- Art.73 重大インシデント報告（高リスクAIの提供者）：(1) 発生した加盟国の市場監視当局へ。(2) 因果関係（又はその合理的可能性）を確定後直ちに、いかなる場合も認知後15日以内。(3) 広範な侵害又はArt.3(49)(b)は直ちに、遅くとも2日以内。(4) 死亡は直ちに、遅くとも10日以内。(5) 不完全な初期報告→完全報告可。(6) 報告後の調査・是正。委員会の報告ガイダンス・様式は2025-09-26に草案公表、確定版は未公表。\n- Art.99 制裁金：Art.5違反は最大3,500万ユーロ又は全世界売上高の7%、Art.16・26・50等の義務違反は最大1,500万ユーロ又は3%、当局への不正確な情報提供は最大750万ユーロ又は1%（いずれも高い方。SME等は低い方）。\n- Art.113 適用日（改正後）：全体2026-08-02。第I・II章（Art.4・Art.5を含む）2025-02-02（新禁止行為は2026-12-02）。GPAI等2025-08-02。第III章第1〜3節（Art.6の分類・例外・文書化、第2節の要件、第3節のArt.16〜27）はAnnex III系で2027-12-02、Annex I系で2028-08-02から。第III章第5節（Art.40〜49、登録を含む）は例外に列挙されておらず文言上は2026-08-02から適用と読めるが、Art.49(2)はArt.6(3)の判断を前提とするため、実務上の扱いは現地法務に確認する（未確認）。Art.111(2)：適用日前に上市・供用した高リスクAIは、適用日以降に設計の重大な変更がある場合のみ対象（公的機関向けは2030-08-02まで。Art.5の禁止は経過措置の対象外）。\n- 運用情報：AI Act Service Desk（https://ai-act-service-desk.ec.europa.eu/ ）にCompliance Checker（beta。「法的助言ではない」と免責）と加盟国当局一覧。禁止行為ガイドラインは2025-07-29正式採択。高リスク分類ガイドラインは草案。\n- 原典との差：原典W15「AI Omnibus enters into force 2026-07-27」は一次資料と一致。原典が高リスクの適用日を2026-08-02／2027-08-02と前提していれば、改正後は2027-12-02／2028-08-02に更新が必要。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "Omnibus 後の適用日・経過措置、適用範囲、定義、禁止行為、高リスク分類と例外、Annex III 3・4、Art.4/26/27/50/73/99、各ガイドラインの採択状況",
+   "not_covered": "Annex III 1・2・5〜8、汎用AI（第V章）、適合性評価（Art.43）、Annex IV 技術文書の項目、整合規格",
+   "events": [
+    {
+     "date": "2026-12-02",
+     "what": "新禁止行為(ba)(bb)の適用開始、Art.111(4) 生成AIのArt.50(2)猶予終了"
+    },
+    {
+     "date": "2026-12-31",
+     "what": "Art.6(5)高リスク分類ガイドラインの採択予定（年内）"
+    },
+    {
+     "date": "2027-12-02",
+     "what": "第III章第1〜3節（Annex III系高リスク）の適用開始"
+    },
+    {
+     "date": "2028-08-02",
+     "what": "Annex I 系高リスクの適用開始"
+    }
+   ],
+   "origin": [
+    {
+     "w": "W15",
+     "version": "2026-07-27",
+     "org": "European Commission",
+     "title": "AI Omnibus enters into force",
+     "adopted": "AI Omnibusの発効・適用時期更新を公式検索本文で確認",
+     "limits": "本ブックは法的適用日を自動計算しない。適用条文・役割・経過措置は案件法務確認",
+     "url": "https://digital-strategy.ec.europa.eu/en/news/ai-omnibus-enters-force",
+     "legal_items": [
+      "L01",
+      "L09"
+     ]
+    }
+   ],
+   "unverified": []
+  },
+  {
+   "id": "gdpr",
+   "title": "GDPR Regulation (EU) 2016/679",
+   "checked_at": "2026-09-12",
+   "access": "browser",
+   "urls": [
+    "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32016R0679",
+    "https://www.edpb.europa.eu/documents/guideline/guidelines-92022-on-personal-data-breach-notification-under-gdpr_en"
+   ],
+   "facts": [
+    "Art.3(2)域外適用（EU内データ主体への財・サービス提供、行動監視）",
+    "Art.4(4)プロファイリング、4(7)管理者（目的と手段を決定）、4(8)処理者、4(12)個人データ侵害",
+    "Art.22 自動処理のみに基づく決定の対象とされない権利（例外：契約・法律・明示的同意、人の介入）",
+    "Art.27 域外の管理者・処理者はEU内代理人を指定（(2)例外）。Art.28 処理者契約。第V章（Art.44〜）移転",
+    "Art.33(1)72時間（リスクなしは不要、遅延理由）、33(2)処理者→管理者不当な遅滞なく、33(3)-(5)。Art.34 高リスクなら本人へ、(3)例外",
+    "EDPB Guidelines 9/2022 v2.0（2023-03-28）：EU拠点のない管理者は影響データ主体の居住国ごとの監督機関へ",
+    "Digital Omnibus案（COM(2025)837）の96時間・高リスク閾値は未採択（2026-08-01時点）"
+   ],
+   "notes": [],
+   "cards": [
+    {
+     "id": "K08",
+     "title": "GDPR 域外適用・役割・個人データ侵害の通知",
+     "body": "- Regulation (EU) 2016/679。In force。第33条・第34条・第3条の本文は2016年公布時から改正なし。URL https://eur-lex.europa.eu/eli/reg/2016/679/oj\n- Art.3(2) 域外適用：EU域外の管理者・処理者による、EU域内のデータ主体への財・サービスの提供（有償無償を問わない）又は行動の監視に関連する処理。\n- Art.4(4) プロファイリング：自然人に関する特定の個人的側面（業務遂行、経済状況、健康、嗜好、関心、信頼性、行動、位置・移動等）を評価・分析・予測するための個人データの自動処理。Art.4(7) 管理者：処理の目的と手段を単独又は共同で決定する者。Art.4(8) 処理者：管理者のために個人データを処理する者。役割は事実（誰が目的と手段を決めるか）で決まり、契約はそれを反映する。Art.4(12) 個人データ侵害：偶発的又は違法な破壊・喪失・改変・無断開示・無断アクセスにつながるセキュリティ侵害。\n- Art.27：Art.3(2)が適用される域外の管理者・処理者はEU内に代理人を書面で指定（管理者だけでなく処理者にも適用。Art.27(2)の例外あり）。Art.28：処理者による処理は、処理の対象・期間・性質・目的・データの種類・管理者の義務と権利を定めた契約等に基づき、管理者の文書化された指示（第三国への移転を含む）に従う。第V章（Art.44〜）：EU域外への移転は本章の条件（十分性認定等）を満たす場合に限る（判定はS003・専門家）。\n- Art.22(1)：データ主体は、法的効果を生じ又は同様に重大な影響を及ぼす、プロファイリングを含む自動処理のみに基づく決定の対象とされない権利を持つ（Art.22(2)の例外：契約の履行に必要、法律の授権、明示的同意。(3) 人の介入を求める権利等の措置）。自動抽出等の機能では該当性を確認事項に入れる。\n- Art.33(1)：管理者は認識後、不当な遅滞なく、実行可能な場合は72時間以内に監督機関へ通知。権利・自由へのリスクをもたらすおそれがない場合は不要。72時間を超える場合は遅延理由を付す。Art.33(2)：処理者は管理者へ不当な遅滞なく通知（時間数の法定なし。EDPBは契約での早期通知を推奨）。Art.33(3)：性質・連絡先・結果・措置。Art.33(4)：段階的提供可。Art.33(5)：全侵害の文書化。\n- Art.34(1)：高リスクをもたらすおそれがある場合、不当な遅滞なく本人へ通知。Art.34(3)：暗号化等、事後措置、不均衡な労力（公表等で代替）の例外。\n- EDPB Guidelines 9/2022 v2.0（2023-03-28採択）。Art.3(2)の適用を受けるEU域外の管理者は、影響を受けるデータ主体が居住する各加盟国の監督機関へ通知（代理人の存在はワンストップショップを生じさせない）。\n- 改正動向：欧州委員会のDigital Omnibus規則案（COM(2025)837、2025-11-19）は通知期限72→96時間、閾値を高リスクへ引き上げる提案だが、2026-08-01時点の欧州議会Legislative Trainで未採択。現行は72時間。\n- 原典との差：原典に直接記載なし（追加情報）。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "域外適用、定義（4(4)(7)(8)(12)）、Art.22、Art.27 代理人、Art.28、第V章の存在、Art.33・34、EDPB 9/2022、Omnibus 案の状況",
+   "not_covered": "適法性根拠（Art.6）、DPIA（Art.35）、データ主体の権利（Art.15〜21）、移転の具体的手段（SCC・十分性）",
+   "events": [
+    {
+     "date": "2026-12-31",
+     "what": "Digital Omnibus 案（COM(2025)837）の審議状況を再確認"
+    }
+   ],
+   "origin": [],
+   "unverified": []
+  },
+  {
+   "id": "oecd-incident",
+   "title": "OECD Defining AI incidents and related terms（AI Papers No.16, 2024-05）",
+   "checked_at": "2026-09-12",
+   "access": "urllib+pdftotext",
+   "urls": [
+    "https://www.oecd.org/content/dam/oecd/en/publications/reports/2024/05/defining-ai-incidents-and-related-terms_88d089ec/d1a8d965-en.pdf",
+    "https://oecd.ai/en/incidents"
+   ],
+   "facts": [
+    "AI incident：開発・利用・誤動作が直接/間接に(a)負傷・健康(b)重要インフラ(c)人権侵害又は基本権・労働・知財を守る法令上の義務違反(d)財産・コミュニティ・環境への危害に至る事象。心理的危害は(a)、組織の評判・金銭は(d)",
+    "AI hazard＝至り得る事象（ニアミス含む）。serious AI incident/AI disasterも定義。区別基準は危害の実現か可能性か（技術障害かどうかではない）",
+    "公開日2024-05-06。No.34（2025-02、共通報告枠組み29基準）、No.53（2026-02）でも定義同一"
+   ],
+   "notes": [
+    "oecd.orgのHTMLは403。PDF直リンクは取得可"
+   ],
+   "cards": [
+    {
+     "id": "K09",
+     "title": "OECD AIインシデントの定義",
+     "body": "- OECD「Defining AI incidents and related terms」OECD Artificial Intelligence Papers No.16（2024年5月、OECD出版ページの公開日2024-05-06）。DOI 10.1787/d1a8d965-en。本文PDF https://www.oecd.org/content/dam/oecd/en/publications/reports/2024/05/defining-ai-incidents-and-related-terms_88d089ec/d1a8d965-en.pdf\n- AI incident（草案定義）：AIシステムの開発・利用・誤動作（development, use or malfunction）が直接又は間接に、(a) 人の負傷・健康への危害、(b) 重要インフラの管理・運用の混乱、(c) 人権の侵害、又は基本権・労働・知財を保護する法令上の義務の違反、(d) 財産・コミュニティ・環境への危害のいずれかに至る事象・状況・一連の事象。心理的危害は(a)に含む。組織の評判・金銭的損害は(d)に含む。開発段階の事象、意図外の使用・誤用、agentic AIを含む複数システムの相互作用も含む。\n- AI hazard：AIインシデントに至り得る（could plausibly lead to）事象・状況。ニアミスを含む。serious AI incident：死亡・深刻な健康被害等の深刻版。AI disaster：社会の対処能力を超える深刻なインシデント。\n- 技術障害との関係：文書は「技術障害」と直接対比していない。誤動作は契機に含まれ、区別の基準は危害の実現（incident）か可能性（hazard）か。\n- 関連：「Towards a common reporting framework for AI incidents」No.34（2025年2月、29基準、必須7）。OECD AI Incidents and Hazards Monitor（https://oecd.ai/en/incidents ）。2026年2月のNo.53でも定義は同一。\n- 原典との差：原典は「技術障害と区別したAIインシデントの定義」を求めるが出典名を挙げていない。教材ではOECD定義を出発点とし、「危害が実現したか」を区別基準にする。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "AI incident / AI hazard / serious AI incident の定義と区別基準",
+   "not_covered": "共通報告枠組み（No.34）の29基準の内容",
+   "events": [],
+   "origin": [],
+   "unverified": []
+  },
+  {
+   "id": "singapore",
+   "title": "シンガポール Model AI Governance Framework／PDPA Part 6A",
+   "checked_at": "2026-09-12",
+   "access": "browser",
+   "urls": [
+    "https://www.pdpc.gov.sg/-/media/files/pdpc/pdf-files/resource-for-organisation/ai/sgmodelaigovframework2.pdf",
+    "https://aiverifyfoundation.sg/resources/mgf-gen-ai/",
+    "https://www.imda.gov.sg/about-imda/emerging-technologies-and-research/artificial-intelligence",
+    "https://sso.agc.gov.sg/Act/PDPA2012?ProvIds=P16A-"
+   ],
+   "facts": [
+    "MGF第2版（2020-01-21）は本文でvoluntary。GenAI版（2024-05-30）は非拘束の提案（voluntaryの明記なし）。Agentic AI版v1.0 2026-01-22、v1.5 2026-05-20",
+    "PDPA Part 6A：通知対象＝重大な害のおそれ又は500人以上（Regulations 2021 reg4）。PDPCへ評価後3暦日以内（s26D(1)）。個人通知は重大な害類型（s26D(2)）。データ仲介者は委託元へ不当な遅滞なく（s26C(3)）",
+    "包括的AI法なし（2026-09-12時点の一次資料）。PDPC GenAI個人データ指針2026-07-20"
+   ],
+   "notes": [],
+   "cards": [
+    {
+     "id": "K10",
+     "title": "シンガポール（任意枠組みと個人データ侵害通知）",
+     "body": "- Model AI Governance Framework 第2版（PDPC・IMDA、2020-01-21）：本文で任意（voluntary）と明記。採用は法令遵守を免除しない。PDF https://www.pdpc.gov.sg/-/media/files/pdpc/pdf-files/resource-for-organisation/ai/sgmodelaigovframework2.pdf\n- Model AI Governance Framework for Generative AI（IMDA・AI Verify Foundation、最終版2024-05-30、9次元）：非拘束の提案として位置づけ（「voluntary」の明記はない）。https://aiverifyfoundation.sg/resources/mgf-gen-ai/\n- Model AI Governance Framework for Agentic AI（IMDA、v1.0 2026-01-22、v1.5 2026-05-20）：living documentの任意枠組み。https://www.imda.gov.sg/about-imda/emerging-technologies-and-research/artificial-intelligence\n- PDPC Advisory Guidelines on Use of Personal Data in Generative AI（2026-07-20）：System Deployerが主たるPDPA遵守責任。\n- PDPA Part 6A（s 26A〜26E、2021-02-01以降の侵害に適用）：通知対象は (a) 影響個人に重大な害を生じる・生じるおそれ、又は (b) 重大な規模（Regulations 2021 reg 4：500人以上）。PDPCへは通知対象と評価した日の後3暦日以内（s 26D(1)）。影響個人への通知は(a)類型で、PDPC通知と同時又はその後（s 26D(2)）。データ仲介者は委託元組織へ不当な遅滞なく通知（s 26C(3)）。評価は合理的かつ迅速に（s 26C(2)。PDPCガイドは30暦日以内を目安）。URL https://sso.agc.gov.sg/Act/PDPA2012?ProvIds=P16A-\n- 包括的AI法：2026-09-12時点の一次資料（MDDI議会回答2025-10-14、IMDA発表2026-01/05）に制定の記述なし。既存法＋セクター別ガイドライン＋任意枠組みのアプローチ。\n- 原典との差：原典に記載なし（架空ケースQのための追加情報）。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "MGF の版と任意性、PDPA Part 6A の通知要件、包括的AI法の不在",
+   "not_covered": "MGF 本文の各原則、PDPA の他の章",
+   "events": [],
+   "origin": [],
+   "unverified": []
+  },
+  {
+   "id": "us-state",
+   "title": "米国の概況（連邦・コロラド州）",
+   "checked_at": "2026-09-12",
+   "access": "urllib",
+   "urls": [
+    "https://leg.colorado.gov/bills/sb26-189",
+    "https://coag.gov/ai/",
+    "https://www.whitehouse.gov/presidential-actions/2025/12/eliminating-state-law-obstruction-of-national-artificial-intelligence-policy/"
+   ],
+   "facts": [],
+   "notes": [
+    "教材では個別州法の要件は教えず「州ごとに専門家確認」に留める",
+    "facts は二次資料（Fiscal Note、公表ページ）由来のため unverified に置く。教材では「未確認（二次資料）」と表記"
+   ],
+   "cards": [
+    {
+     "id": "K11",
+     "title": "米国（連邦・州）の概況",
+     "body": "- 連邦：2026-09-12時点で包括的な連邦AI規制法の成立は一次資料で確認できない。大統領令14365（2025-12-11）は州AI法への訴訟タスクフォース、州法評価、先占立法の提言を指示（大統領令は法律ではない）。2026-03-20の連邦AI立法フレームワークは議会への提言。FTCの2026-07-07政策声明案は提案段階。\n- コロラド州：SB24-205（2024-05-17署名、当初2026-02-01適用）はSB25B-004で2026-06-30に延期後、SB26-189（2026-05-14署名）で廃止・再制定され、自動意思決定技術（ADMT）の枠組みとして主要義務は2027-01-01から。2026-04-27に連邦地裁が州司法長官の執行開始を差し止め（X. AI LLC v. Weiser、州議会Fiscal Noteの記載による）。司法長官は2026-08-11に規則案を提出し意見募集中。URL https://leg.colorado.gov/bills/sb26-189 ／ https://coag.gov/ai/\n- 教材での扱い：「連邦包括AI法はなく州ごとに確認が必要。州法は短期間で改正・延期・差止されるので、現地専門家に確認日付きで確認する」。個別州法の要件は本講座で教えない。\n- 原典との差：原典に記載なし（追加情報）。",
+     "from": "S002 03-exercises.md 付録（確認日2026-09-12）"
+    }
+   ],
+   "scope": "連邦包括AI法の不在とコロラド州法の経緯（いずれも二次資料）",
+   "not_covered": "各州法の個別要件。教材では「州ごとに専門家確認」に留める",
+   "events": [
+    {
+     "date": "2027-01-01",
+     "what": "Colorado SB26-189 主要義務の適用開始"
+    }
+   ],
+   "origin": [],
+   "unverified": [
+    "連邦包括AI法なし。大統領令14365（2025-12-11）は州法先占を推進（法律ではない）",
+    "コロラド：SB24-205→SB25B-004（2026-06-30延期）→SB26-189（2026-05-14署名）で廃止・再制定、主要義務2027-01-01。連邦地裁が執行差止（Fiscal Noteの記載）"
+   ]
+  }
+ ],
+ "maintained_at": "2026-09-12"
+}
