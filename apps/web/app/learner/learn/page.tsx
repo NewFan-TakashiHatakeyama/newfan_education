@@ -223,7 +223,7 @@ export default function LearnerLearnPage() {
                   margin: 0,
                   fontSize: "1.05rem",
                   fontWeight: 700,
-                  color: "#0f172a"
+                  color: "var(--text)"
                 }}
               >
                 {TODAY_TASK.title}
@@ -232,7 +232,7 @@ export default function LearnerLearnPage() {
                 style={{
                   margin: "0.3rem 0 0",
                   fontSize: 13,
-                  color: "#475569",
+                  color: "var(--text-muted)",
                   lineHeight: 1.65
                 }}
               >
@@ -326,7 +326,7 @@ export default function LearnerLearnPage() {
                       style={{
                         margin: "0.4rem 0 0",
                         fontSize: 12,
-                        color: "#5d667d"
+                        color: "var(--text-muted)"
                       }}
                     >
                       提出ID未確定
@@ -445,7 +445,7 @@ export default function LearnerLearnPage() {
                   style={{
                     margin: "0.3rem 0 0",
                     fontSize: 12.5,
-                    color: "#5d667d",
+                    color: "var(--text-muted)",
                     lineHeight: 1.55
                   }}
                 >

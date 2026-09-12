@@ -103,7 +103,7 @@ export function EnterpriseCurriculumTimeline({
               fontWeight: 700,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              color: "#64748b"
+              color: "var(--text-muted)"
             }}
           >
             共通モジュール
@@ -120,10 +120,10 @@ export function EnterpriseCurriculumTimeline({
               }}
             >
               <div>
-                <strong style={{ fontSize: 14, color: "#0f172a" }}>
+                <strong style={{ fontSize: 14, color: "var(--text)" }}>
                   {mod.moduleCode}. {mod.title}
                 </strong>
-                <p style={{ margin: "0.25rem 0 0", fontSize: 12.5, color: "#475569" }}>
+                <p style={{ margin: "0.25rem 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>
                   成果物: {mod.deliverable}
                   {mod.estimatedMinutes ? ` · 推定 ${mod.estimatedMinutes} 分` : ""}
                 </p>

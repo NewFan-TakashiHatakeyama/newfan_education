@@ -184,10 +184,10 @@ export default function CompanyRoadmapsPage() {
                     aria-pressed={active}
                     style={{
                       textAlign: "left",
-                      border: `1px solid ${active ? "#4f46e5" : "var(--border)"}`,
+                      border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
                       borderRadius: 18,
                       background: active
-                        ? "linear-gradient(180deg, #f5f3ff 0%, #eef2ff 100%)"
+                        ? "linear-gradient(180deg, #f5f3ff 0%, var(--primary-soft) 100%)"
                         : "var(--surface)",
                       padding: "0.95rem 1.1rem",
                       cursor: "pointer",
@@ -195,8 +195,8 @@ export default function CompanyRoadmapsPage() {
                       display: "grid",
                       gap: "0.4rem",
                       boxShadow: active
-                        ? "0 10px 24px -16px rgba(79, 70, 229, 0.55)"
-                        : "0 8px 22px -22px rgba(26, 33, 188, 0.25)"
+                        ? "0 10px 24px -16px rgba(17, 110, 99, 0.55)"
+                        : "0 8px 22px -22px rgba(17, 110, 99, 0.25)"
                     }}
                   >
                     <div
@@ -208,10 +208,10 @@ export default function CompanyRoadmapsPage() {
                         flexWrap: "wrap"
                       }}
                     >
-                      <strong style={{ fontSize: 15, color: "#0f172a" }}>{t.name}</strong>
+                      <strong style={{ fontSize: 15, color: "var(--text)" }}>{t.name}</strong>
                       <span className={styles.evidenceMetaLabel}>{t.code}</span>
                     </div>
-                    <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
                       {t.description}
                     </p>
                     <SkillChipList skills={t.targetSkills} />
@@ -265,7 +265,7 @@ export default function CompanyRoadmapsPage() {
                     border: "1px solid var(--border)",
                     borderRadius: 16,
                     padding: "0.85rem 1rem",
-                    background: "#f7f9ff",
+                    background: "var(--surface-muted)",
                     display: "grid",
                     gap: "0.45rem"
                   }}

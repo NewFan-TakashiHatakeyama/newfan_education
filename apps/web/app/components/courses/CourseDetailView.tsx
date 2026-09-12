@@ -197,16 +197,16 @@ export function CourseDetailView({ courseSlug }: { courseSlug: string }) {
 
           <section className={uiStyles.section}>
             <h2 className={uiStyles.sectionTitle}>このコースの説明</h2>
-            <p style={{ margin: "0.6rem 0 0", fontSize: "0.9rem", lineHeight: 1.75, color: "#334155" }}>
+            <p style={{ margin: "0.6rem 0 0", fontSize: "0.9rem", lineHeight: 1.75, color: "var(--text)" }}>
               {course.description}
             </p>
             {course.prerequisites.length > 0 ? (
-              <p style={{ margin: "0.8rem 0 0", fontSize: "0.85rem", color: "#475569" }}>
+              <p style={{ margin: "0.8rem 0 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
                 <strong>前提条件:</strong> {course.prerequisites.join(" / ")}
               </p>
             ) : null}
             {course.targetAudience.length > 0 ? (
-              <p style={{ margin: "0.4rem 0 0", fontSize: "0.85rem", color: "#475569" }}>
+              <p style={{ margin: "0.4rem 0 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
                 <strong>対象者:</strong> {course.targetAudience.join(" / ")}
               </p>
             ) : null}

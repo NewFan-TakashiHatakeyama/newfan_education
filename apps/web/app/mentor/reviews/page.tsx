@@ -209,7 +209,7 @@ export default function MentorReviewsPage() {
                       <p style={{ margin: 0, fontSize: 11, color: "#0f766e", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700 }}>
                         {s.exerciseId}
                       </p>
-                      <strong style={{ fontSize: 15, color: "#0f172a" }}>
+                      <strong style={{ fontSize: 15, color: "var(--text)" }}>
                         {learner ? `${learner.name} さん` : s.learnerId}
                       </strong>
                     </div>
@@ -220,7 +220,7 @@ export default function MentorReviewsPage() {
                     style={{
                       margin: 0,
                       fontSize: 12.5,
-                      color: "#334466",
+                      color: "var(--text)",
                       lineHeight: 1.6
                     }}
                   >

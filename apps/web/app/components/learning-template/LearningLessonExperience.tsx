@@ -148,7 +148,7 @@ export function LearningLessonExperience(props: LearningLessonExperienceProps) {
                           alignItems: "center",
                           gap: "0.4rem",
                           textDecoration: "none",
-                          color: active ? "#1a21bc" : "#475569",
+                          color: active ? "var(--primary-strong)" : "var(--text-muted)",
                           fontWeight: active ? 700 : 400
                         }}
                       >
@@ -156,10 +156,10 @@ export function LearningLessonExperience(props: LearningLessonExperienceProps) {
                           aria-hidden
                           style={{
                             fontSize: "0.65rem",
-                            border: "1px solid #dde5ff",
+                            border: "1px solid var(--border)",
                             borderRadius: 6,
                             padding: "0 4px",
-                            color: lesson.kind === "code" ? "#6556ff" : "#2563eb"
+                            color: "var(--primary)"
                           }}
                         >
                           {lesson.kind === "code" ? "演習" : "解説"}

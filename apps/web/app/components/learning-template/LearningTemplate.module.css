@@ -10,9 +10,9 @@
   position: relative;
   overflow: hidden;
   border-radius: 24px;
-  border: 1px solid #e2e8f0;
-  background: linear-gradient(120deg, #f7faff 0%, #eef2ff 45%, #f8fafc 100%);
-  box-shadow: 0 20px 45px rgba(30, 64, 175, 0.12);
+  border: 1px solid var(--border);
+  background: linear-gradient(120deg, var(--surface-muted) 0%, var(--primary-soft) 45%, var(--surface-muted) 100%);
+  box-shadow: 0 20px 45px rgba(17, 110, 99, 0.12);
   padding: 1.6rem;
 }
 
@@ -41,12 +41,12 @@
   margin: 0.8rem 0;
   font-size: clamp(1.9rem, 4vw, 2.8rem);
   line-height: 1.15;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .heroLead {
   margin: 0 0 1rem;
-  color: #334155;
+  color: var(--text);
   max-width: 55ch;
 }
 
@@ -57,7 +57,7 @@
 }
 
 .searchInput {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: #ffffff;
   padding: 0.65rem 1rem;
@@ -66,8 +66,8 @@
 
 .searchInput:focus {
   outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(17, 110, 99, 0.15);
 }
 
 .searchButton {
@@ -89,12 +89,12 @@
 }
 
 .heroPoints li {
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--primary-soft);
   border-radius: 12px;
   background: #ffffff;
   padding: 0.5rem 0.7rem;
   font-size: 0.9rem;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .heroImageWrap {
@@ -108,7 +108,7 @@
 }
 
 .sectionCard {
-  border: 1px solid #dbe2f0;
+  border: 1px solid var(--border);
   border-radius: 20px;
   background: #ffffff;
   box-shadow: 0 14px 38px rgba(15, 23, 42, 0.08);
@@ -125,12 +125,12 @@
 
 .sectionTitle {
   margin: 0;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .muted {
   margin: 0;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .curriculumGrid {
@@ -140,7 +140,7 @@
 }
 
 .curriculumCard {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 16px;
   background: #ffffff;
   padding: 0.9rem;
@@ -155,9 +155,9 @@
 }
 
 .pill {
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #1e293b;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-muted);
+  color: var(--text);
   border-radius: 999px;
   font-size: 0.75rem;
   padding: 0.2rem 0.58rem;
@@ -170,16 +170,16 @@
 
 .cardMeta {
   margin: 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
 .cardAction {
   width: fit-content;
   border-radius: 999px;
-  border: 1px solid #6366f1;
-  background: #eef2ff;
-  color: #3730a3;
+  border: 1px solid var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
   text-decoration: none;
   padding: 0.36rem 0.74rem;
   font-weight: 700;
@@ -192,7 +192,7 @@
 }
 
 .panel {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 16px;
   background: #ffffff;
   padding: 0.9rem;
@@ -201,15 +201,15 @@
 .tocList {
   margin: 0;
   padding-left: 1rem;
-  color: #1e293b;
+  color: var(--text);
   display: grid;
   gap: 0.35rem;
 }
 
 .contentBody {
-  border: 1px solid #dbe2f0;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #f8fafc;
+  background: var(--surface-muted);
   padding: 0.85rem;
 }
 
@@ -218,8 +218,8 @@
   padding: 0.75rem;
   border-radius: 10px;
   overflow: auto;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--text);
+  color: var(--border);
 }
 
 .actionRow {
@@ -231,8 +231,8 @@
 
 .actionButton {
   border-radius: 999px;
-  border: 1px solid #6366f1;
-  background: #6366f1;
+  border: 1px solid var(--primary);
+  background: var(--primary);
   color: #ffffff;
   padding: 0.5rem 0.9rem;
   font-weight: 700;
@@ -241,9 +241,9 @@
 }
 
 .actionSecondary {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-strong);
   background: #ffffff;
-  color: #1e293b;
+  color: var(--text);
 }
 
 .exerciseLayout {
@@ -253,13 +253,13 @@
 }
 
 .exerciseConsole {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   min-height: 140px;
   max-height: 220px;
   overflow: auto;
-  background: #0f172a;
-  color: #dbeafe;
+  background: var(--text);
+  color: var(--primary-soft);
   padding: 0.75rem;
   font-family: Consolas, "Courier New", monospace;
 }
@@ -274,9 +274,9 @@
 
 .statusBadge {
   border-radius: 999px;
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border: 1px solid var(--border-strong);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
   font-size: 0.78rem;
   padding: 0.2rem 0.52rem;
 }
@@ -289,7 +289,7 @@
 }
 
 .partnerCard {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 12px;
   background: #ffffff;
   display: flex;

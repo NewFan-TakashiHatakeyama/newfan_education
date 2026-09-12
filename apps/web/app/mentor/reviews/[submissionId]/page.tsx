@@ -301,7 +301,7 @@ export default function MentorReviewDetailPage() {
                 登録完了: {mentorReview.status === "approved" ? "承認" : "再提出依頼"}
               </strong>
               <p
-                style={{ margin: "0.35rem 0 0", fontSize: 12.5, color: "#0f172a", lineHeight: 1.6 }}
+                style={{ margin: "0.35rem 0 0", fontSize: 12.5, color: "var(--text)", lineHeight: 1.6 }}
               >
                 {mentorReview.comments}
               </p>

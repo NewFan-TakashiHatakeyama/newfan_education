@@ -269,7 +269,7 @@ export default function CompanyReportsPage() {
                       margin: "0.2rem 0 0.4rem",
                       fontSize: "1rem",
                       fontWeight: 700,
-                      color: "#0f172a"
+                      color: "var(--text)"
                     }}
                   >
                     {selectedRequirement.title}
@@ -288,7 +288,7 @@ export default function CompanyReportsPage() {
                       margin: "0.2rem 0 0.4rem",
                       fontSize: "1rem",
                       fontWeight: 700,
-                      color: "#0f172a"
+                      color: "var(--text)"
                     }}
                   >
                     {selectedLearner.name}
@@ -355,7 +355,7 @@ export default function CompanyReportsPage() {
                 flexWrap: "wrap"
               }}
             >
-              <h3 style={{ margin: 0, fontSize: "1.05rem", color: "#1a21bc" }}>{report.title}</h3>
+              <h3 style={{ margin: 0, fontSize: "1.05rem", color: "var(--primary-strong)" }}>{report.title}</h3>
               <div className={styles.actionRow}>
                 <button type="button" className={styles.actionGhost} onClick={handleCopy}>
                   {copied ? "✓ コピー済" : <IconText icon="clipboardList">コピー</IconText>}
@@ -375,7 +375,7 @@ export default function CompanyReportsPage() {
               style={{
                 margin: 0,
                 fontSize: 13.5,
-                color: "#334466",
+                color: "var(--text)",
                 lineHeight: 1.8,
                 whiteSpace: "pre-wrap"
               }}
@@ -385,7 +385,7 @@ export default function CompanyReportsPage() {
             <div
               style={{
                 fontSize: 12,
-                color: "#5d667d",
+                color: "var(--text-muted)",
                 display: "flex",
                 gap: "0.8rem",
                 flexWrap: "wrap"

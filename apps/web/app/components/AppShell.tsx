@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Bell } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import type { AuthSession, Role } from "@newfan/contracts";
@@ -340,7 +341,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <div className="top-bar-right">
           <Link href={visibleNotificationHref} className="ghost-button">
-            <span aria-hidden>🔔</span>
+            <Bell size={16} aria-hidden />
             通知
             <span className="badge">{visibleUnreadCount}</span>
           </Link>
@@ -353,7 +354,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <UserMenu session={authSession} />
           ) : (
             <Link href="/auth/sign-in" className="ghost-button">
-              <span aria-hidden>👤</span>
+              <AppIcon name="userRound" size={16} />
               ログイン
             </Link>
           )}

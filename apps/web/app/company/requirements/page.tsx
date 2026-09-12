@@ -270,16 +270,16 @@ export default function CompanyRequirementsPage() {
                 style={{
                   border: "1px solid var(--border)",
                   borderRadius: 20,
-                  background: "linear-gradient(180deg, #ffffff, #f8f9ff)",
+                  background: "linear-gradient(180deg, #ffffff, var(--surface-muted))",
                   padding: "1rem 1.15rem",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.55rem",
-                  boxShadow: "0 12px 28px -22px rgba(79, 70, 229, 0.3)"
+                  boxShadow: "0 12px 28px -22px rgba(17, 110, 99, 0.3)"
                 }}
               >
-                <strong style={{ fontSize: 15, color: "#0f172a" }}>{req.title}</strong>
-                <p style={{ margin: 0, fontSize: 12.5, color: "#475569", lineHeight: 1.65 }}>
+                <strong style={{ fontSize: 15, color: "var(--text)" }}>{req.title}</strong>
+                <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.65 }}>
                   {req.description}
                 </p>
                 <SkillChipList skills={req.requiredSkills} />
@@ -310,7 +310,7 @@ export default function CompanyRequirementsPage() {
             <Feedback message={error} error />
             <div className={styles.field}>
               <p className={styles.fieldLabel}>業務内容</p>
-              <p style={{ margin: 0, fontSize: 13, color: "#334466", lineHeight: 1.6 }}>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>
                 {drawerRequirement.description}
               </p>
             </div>

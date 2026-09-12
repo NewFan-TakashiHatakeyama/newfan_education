@@ -126,8 +126,8 @@
   color: #97302f;
 }
 .pillTier {
-  background: #ece6f5;
-  color: #4b3b7a;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
 }
 
 /* ── 表 ─────────────────────────────────── */
@@ -286,17 +286,17 @@
   margin-left: auto;
   border: 1px solid var(--border, #d8dee6);
   border-radius: 8px;
-  color: var(--text-muted, #526174);
+  color: var(--text-muted);
   text-decoration: none;
 }
 
 .phaseOpenLink:hover {
-  background: var(--surface-muted, #f8fafc);
-  color: var(--primary-strong, #3730a3);
+  background: var(--surface-muted);
+  color: var(--primary-strong);
 }
 
 .phaseOpenLink:focus-visible {
-  outline: 2px solid var(--primary, #4f46e5);
+  outline: 2px solid var(--primary);
   outline-offset: 3px;
 }
 

@@ -164,7 +164,7 @@ export default function CompanyLearnerDetailPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.85rem" }}>
             <div className={`${styles.kpiTile} ${styles.kpiTileAccent}`}>
               <p className={styles.kpiLabel}>目標ロール</p>
-              <p style={{ margin: "0.2rem 0", fontSize: "1.1rem", fontWeight: 700, color: "#0f172a" }}>
+              <p style={{ margin: "0.2rem 0", fontSize: "1.1rem", fontWeight: 700, color: "var(--text)" }}>
                 {detail.targetRole}
               </p>
               <p className={styles.kpiHint}>

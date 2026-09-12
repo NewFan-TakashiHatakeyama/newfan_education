@@ -7,6 +7,7 @@ import type { AuthSession, Role } from "@newfan/contracts";
 
 import { clearDemoAuthSession } from "@/lib/auth";
 import { signOutSession } from "@/lib/api";
+import { AppIcon } from "@/app/components/ui";
 
 const SETTINGS_PATH_BY_ROLE: Partial<Record<Role, string>> = {
   recruiter: "/company/settings",
@@ -81,7 +82,7 @@ export function UserMenu({ session }: UserMenuProps) {
         }}
         disabled={isSigningOut}
       >
-        <span aria-hidden>👤</span>
+        <AppIcon name="userRound" size={16} />
         {`${displayLabel} · ${session.role}`}
       </button>
       {isOpen ? (

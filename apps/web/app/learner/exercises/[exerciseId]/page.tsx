@@ -188,7 +188,7 @@ export default function LearnerExercisePage() {
               margin: 0,
               fontSize: 14,
               lineHeight: 1.7,
-              color: "#334466"
+              color: "var(--text)"
             }}
           >
             {exercise.prompt}
@@ -248,9 +248,9 @@ export default function LearnerExercisePage() {
                 onClick={handleRun}
                 className={styles.actionGhost}
                 style={{
-                  background: "rgba(101, 86, 255, 0.18)",
-                  color: "#e2e8f0",
-                  borderColor: "rgba(101, 86, 255, 0.5)"
+                  background: "rgba(17, 110, 99, 0.18)",
+                  color: "var(--border)",
+                  borderColor: "rgba(17, 110, 99, 0.5)"
                 }}
               >
                 ▶ 実行
@@ -262,7 +262,7 @@ export default function LearnerExercisePage() {
           </div>
 
           <div className={styles.workspaceConsoleCard}>
-            <div className={styles.workspaceEditorTitle} style={{ color: "#5d667d" }}>
+            <div className={styles.workspaceEditorTitle} style={{ color: "var(--text-muted)" }}>
               実行コンソール
             </div>
             <pre
